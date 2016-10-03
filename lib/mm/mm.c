@@ -24,9 +24,24 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
                  void *slot_alloc_inst)
 {
     assert(mm != NULL);
-    // TODO: Implement
-    return LIB_ERR_NOT_IMPLEMENTED;
+    mm->slot_alloc = slot_alloc_func;
+    mm->slot_refill = slot_refill_func;
+    mm->slot_alloc_inst = slot_alloc_inst;
+    mm->objtype = objtype;
+    mm->head = NULL;
+
+    slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
+    return SYS_ERR_OK;
 }
+
+struct mm {
+    struct slab_allocator slabs; ///< Slab allocator used for allocating nodes
+    slot_alloc_t slot_alloc;     ///< Slot allocator for allocating cspace
+    slot_refill_t slot_refill;   ///< Slot allocator refill function
+    void *slot_alloc_inst;       ///< Opaque instance pointer for slot allocator
+    enum objtype objtype;        ///< Type of capabilities stored
+    struct mmnode *head;         ///< Head of doubly-linked list of nodes in order
+};
 
 /**
  * Destroys the memory allocator.
@@ -44,8 +59,17 @@ void mm_destroy(struct mm *mm)
  */
 errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
 {
-    // TODO: Implement
-    return LIB_ERR_NOT_IMPLEMENTED;
+    struct mmnode* newnode = slab_alloc(&mm->slabs);
+    newnode->type = mm->objtype;
+    newnode->cap = cap;
+    newnode->prev = mm->head;
+    newnode->next = NULL;
+    if (mm->head)
+        mm->head->next = newnode;
+    newnode->base = base;
+    newnode->size = size;
+    mm->head = newnode;
+    return SYS_ERR_OK;
 }
 
 /**
