@@ -66,6 +66,33 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
 }
 
 /**
+ * Splits a memory node. $node is shrinked to $size, and
+ * a second node is insert after $node.
+ *
+ * \param       mm        The memory manager.
+ * \param       node      Node to split.
+ * \param       size      Size of the first chunk.
+ */
+void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size);
+void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
+{
+    // Split this node in 2 nodes
+    struct mmnode* remaining_free = slab_alloc(&mm->slabs);
+    remaining_free->type = mm->objtype;
+    remaining_free->cap = node->cap;
+    remaining_free->base = node->base + size;
+    remaining_free->size = node->size - size;
+
+    // Shrink initial node
+    node->size = size;
+
+    // Link the list
+    remaining_free->prev = node;
+    remaining_free->next = node->next;
+    node->next = remaining_free;
+}
+
+/**
  * Allocate aligned physical memory.
  *
  * \param       mm        The memory manager.
@@ -75,8 +102,34 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  */
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct capref *retcap)
 {
-    // TODO: Implement
-    return LIB_ERR_NOT_IMPLEMENTED;
+    // Find cap with enough space
+    struct mmnode* node = mm->head;
+    while (node != NULL)
+    {
+        size_t align_pad = (alignment - node->base % alignment) % alignment;
+        if (node->size >= (size + align_pad))
+        {
+            genpaddr_t base = node->base + align_pad;
+            // 1. Split to align
+            if (align_pad)
+            {
+                mm_split_mem_node(mm, node, align_pad);
+                node = node->next;
+            }
+            // 2. split the mem we need
+            if (node->size > size)
+                mm_split_mem_node(mm, node, size);
+            // 3. Create cap for current node, and put it in retcap
+            enum objtype type = ObjType_Frame;
+            errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
+                    type, size, 1);
+            node->type = NodeType_Allocated;
+            return status;
+        }
+        node = node->next;
+    }
+    // Out of Memory!!
+    return MM_ERR_FIND_NODE;
 }
 
 /**
@@ -88,8 +141,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
  */
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
 {
-    // TODO: Implement
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return mm_alloc_aligned(mm, size, 1, retcap);
 }
 
 /**
