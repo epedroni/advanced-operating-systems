@@ -144,6 +144,23 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, 1, retcap);
 }
 
+
+/**
+ * Merges a given memory node with the following one.
+ * if both of them are of type 'NodeType_Free'.
+ * $node_first and $node_first->next should be valid pointers.
+ * $node_first remains valid, and $node_first->next is possibly deleted.
+ *
+ * \param       mm          The memory manager.
+ * \param       node_first  Node to merge with $node->next.
+ */
+inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
+{
+    if (node_first->type != NodeType_Free || node_first->next->type != NodeType_Free)
+        return;
+    node_first->size += node_first->next->size;
+}
+
 /**
  * Free a certain region (for later re-use).
  *
@@ -154,6 +171,22 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
  */
 errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t size)
 {
-    // TODO: Implement
-    return LIB_ERR_NOT_IMPLEMENTED;
+    struct mmnode* node = mm->head;
+    // Find node
+    while (node != NULL && !capcmp(node->cap.cap, cap))
+        node = node->next;
+
+    // This node does not exist!
+    if (!node)
+        return MM_ERR_FIND_NODE;
+
+    // Merge with previous if the previous one is free
+    // (We may need to merge with previous AND next node - see aligned alloc)
+    node->type = NodeType_Free;
+    if (node->next)
+        mm_merge_mem_node_if_free(mm, node);
+    if (node->prev)
+        mm_merge_mem_node_if_free(mm, node->prev);
+    //! $node may be invalid now!
+    return SYS_ERR_OK;
 }
