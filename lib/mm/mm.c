@@ -34,15 +34,6 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     return SYS_ERR_OK;
 }
 
-struct mm {
-    struct slab_allocator slabs; ///< Slab allocator used for allocating nodes
-    slot_alloc_t slot_alloc;     ///< Slot allocator for allocating cspace
-    slot_refill_t slot_refill;   ///< Slot allocator refill function
-    void *slot_alloc_inst;       ///< Opaque instance pointer for slot allocator
-    enum objtype objtype;        ///< Type of capabilities stored
-    struct mmnode *head;         ///< Head of doubly-linked list of nodes in order
-};
-
 /**
  * Destroys the memory allocator.
  */
