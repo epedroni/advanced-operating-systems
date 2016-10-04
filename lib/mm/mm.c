@@ -164,7 +164,7 @@ inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
     struct mmnode* node_next = node_first->next;
     node_first->size += node_first->next->size;
     node_first->next = node_next->next;
-    slab_free(&mm->slab, node_next);
+    slab_free(&mm->slabs, node_next);
 }
 
 /**
