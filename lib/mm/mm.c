@@ -161,7 +161,10 @@ inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
 {
     if (node_first->type != NodeType_Free || node_first->next->type != NodeType_Free)
         return;
+    struct mmnode* node_next = node_first->next;
     node_first->size += node_first->next->size;
+    node_first->next = node_next->next;
+    slab_free(&mm->slab, node_next);
 }
 
 /**
