@@ -106,25 +106,28 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     struct mmnode* node = mm->head;
     while (node != NULL)
     {
-        size_t align_pad = (alignment - node->base % alignment) % alignment;
-        if (node->size >= (size + align_pad))
+        if (node->type == NodeType_Free)
         {
-            genpaddr_t base = node->base + align_pad;
-            // 1. Split to align
-            if (align_pad)
+            size_t align_pad = (alignment - node->base % alignment) % alignment;
+            if (node->size >= (size + align_pad))
             {
-                mm_split_mem_node(mm, node, align_pad);
-                node = node->next;
+                genpaddr_t base = node->base + align_pad;
+                // 1. Split to align
+                if (align_pad)
+                {
+                    mm_split_mem_node(mm, node, align_pad);
+                    node = node->next;
+                }
+                // 2. split the mem we need
+                if (node->size > size)
+                    mm_split_mem_node(mm, node, size);
+                // 3. Create cap for current node, and put it in retcap
+                enum objtype type = ObjType_Frame;
+                errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
+                        type, size, 1);
+                node->type = NodeType_Allocated;
+                return status;
             }
-            // 2. split the mem we need
-            if (node->size > size)
-                mm_split_mem_node(mm, node, size);
-            // 3. Create cap for current node, and put it in retcap
-            enum objtype type = ObjType_Frame;
-            errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
-                    type, size, 1);
-            node->type = NodeType_Allocated;
-            return status;
         }
         node = node->next;
     }
