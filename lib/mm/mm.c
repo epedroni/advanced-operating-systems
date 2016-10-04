@@ -191,5 +191,5 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     if (node->prev)
         mm_merge_mem_node_if_free(mm, node->prev);
     //! $node may be invalid now!
-    return SYS_ERR_OK;
+    return cap_revoke(cap);
 }
