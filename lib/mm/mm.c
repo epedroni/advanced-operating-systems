@@ -6,6 +6,8 @@
 #include <mm/mm.h>
 #include <aos/debug.h>
 
+void mm_alloc_cap_refill(struct mm* mm);
+void mm_alloc_cap(struct mm* mm, struct capref* ref);
 
 /**
  * Initialize the memory manager.
@@ -29,6 +31,8 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     mm->slot_alloc_inst = slot_alloc_inst;
     mm->objtype = objtype;
     mm->head = NULL;
+    mm->num_available_cap_slots = L2_CNODE_SLOTS;
+    mm_alloc_cap_refill(mm);
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
     return SYS_ERR_OK;
@@ -73,8 +77,7 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  * \param       node      Node to split.
  * \param       size      Size of the first chunk.
  */
-void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size);
-void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
+inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
 {
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
@@ -90,6 +93,22 @@ void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
     remaining_free->prev = node;
     remaining_free->next = node->next;
     node->next = remaining_free;
+}
+
+void mm_alloc_cap_refill(struct mm* mm)
+{
+    mm->num_available_cap_slots += L2_CNODE_SLOTS-1;
+    mm->slot_refill(mm->slot_alloc_inst);
+}
+
+void mm_alloc_cap(struct mm* mm, struct capref* ref)
+{
+    // mm_alloc_cap_refill will call mm_alloc, so we better refill
+    // while we can still allocate
+    if (mm->num_available_cap_slots < 3)
+        mm_alloc_cap_refill(mm);
+    mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
+    --mm->num_available_cap_slots;
 }
 
 /**
@@ -122,6 +141,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 if (node->size > size)
                     mm_split_mem_node(mm, node, size);
                 // 3. Create cap for current node, and put it in retcap
+                mm_alloc_cap(mm, retcap);
                 errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
                 node->type = NodeType_Allocated;
@@ -193,5 +213,7 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     if (node->prev)
         mm_merge_mem_node_if_free(mm, node->prev);
     //! $node may be invalid now!
+    // Revoke the cap.
+    // NOTE: The cap slot could be reused? Looks like a mem leak...
     return cap_revoke(cap);
 }
