@@ -122,9 +122,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 if (node->size > size)
                     mm_split_mem_node(mm, node, size);
                 // 3. Create cap for current node, and put it in retcap
-                enum objtype type = ObjType_Frame;
                 errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
-                        type, size, 1);
+                        mm->objtype, size, 1);
                 node->type = NodeType_Allocated;
                 return status;
             }
