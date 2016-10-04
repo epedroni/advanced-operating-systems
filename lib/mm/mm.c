@@ -61,7 +61,9 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
 {
     struct mmnode* newnode = slab_alloc(&mm->slabs);
     newnode->type = NodeType_Free;
-    newnode->cap = cap;
+    newnode->cap.cap = cap;
+    newnode->cap.base = base;
+    newnode->cap.size = size;
     newnode->prev = mm->head;
     newnode->next = NULL;
     if (mm->head)
