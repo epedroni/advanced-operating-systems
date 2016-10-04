@@ -32,7 +32,6 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     mm->objtype = objtype;
     mm->head = NULL;
     mm->num_available_cap_slots = L2_CNODE_SLOTS;
-    mm_alloc_cap_refill(mm);
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
     return SYS_ERR_OK;
@@ -59,10 +58,10 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
     newnode->cap.cap = cap;
     newnode->cap.base = base;
     newnode->cap.size = size;
-    newnode->prev = mm->head;
-    newnode->next = NULL;
+    newnode->prev = NULL;
+    newnode->next = mm->head;
     if (mm->head)
-        mm->head->next = newnode;
+        mm->head->prev = newnode;
     newnode->base = base;
     newnode->size = size;
     mm->head = newnode;
@@ -81,7 +80,7 @@ inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
 {
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
-    remaining_free->type = mm->objtype;
+    remaining_free->type = NodeType_Free;
     remaining_free->cap = node->cap;
     remaining_free->base = node->base + size;
     remaining_free->size = node->size - size;
@@ -92,13 +91,16 @@ inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
     // Link the list
     remaining_free->prev = node;
     remaining_free->next = node->next;
+    if (node->next)
+        node->next->prev = remaining_free;
     node->next = remaining_free;
 }
 
 void mm_alloc_cap_refill(struct mm* mm)
 {
     mm->num_available_cap_slots += L2_CNODE_SLOTS-1;
-    mm->slot_refill(mm->slot_alloc_inst);
+    errval_t err = mm->slot_refill(mm->slot_alloc_inst);
+    MM_ASSERT(err, "mm_alloc_cap_refill: Unable to refill!");
 }
 
 void mm_alloc_cap(struct mm* mm, struct capref* ref)
@@ -107,7 +109,8 @@ void mm_alloc_cap(struct mm* mm, struct capref* ref)
     // while we can still allocate
     if (mm->num_available_cap_slots < 3)
         mm_alloc_cap_refill(mm);
-    mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
+    errval_t err = mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
+    MM_ASSERT(err, "mm_alloc_cap: slot_alloc failed!");
     --mm->num_available_cap_slots;
 }
 
@@ -123,6 +126,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
 {
     // Find cap with enough space
     struct mmnode* node = mm->head;
+    assert(node && "mm_alloc_aligned: No MemoryNodes!");
     while (node != NULL)
     {
         if (node->type == NodeType_Free)
@@ -136,6 +140,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 {
                     mm_split_mem_node(mm, node, align_pad);
                     node = node->next;
+                    assert(node);
                 }
                 // 2. split the mem we need
                 if (node->size > size)
@@ -144,6 +149,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 mm_alloc_cap(mm, retcap);
                 errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
+                MM_ASSERT(status, "mm_alloc_aligned: cap_retype failed!");
                 node->type = NodeType_Allocated;
                 return status;
             }
@@ -151,6 +157,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
         node = node->next;
     }
     // Out of Memory!!
+    assert(false && "Out of memory!");
     return MM_ERR_FIND_NODE;
 }
 
@@ -198,11 +205,11 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
 {
     struct mmnode* node = mm->head;
     // Find node
-    while (node != NULL && !capcmp(node->cap.cap, cap))
+    while (node != NULL && node->base != base)
         node = node->next;
 
     // This node does not exist!
-    if (!node)
+    if (!node || node->size != size)
         return MM_ERR_FIND_NODE;
 
     // Merge with previous if the previous one is free
@@ -214,6 +221,7 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
         mm_merge_mem_node_if_free(mm, node->prev);
     //! $node may be invalid now!
     // Revoke the cap.
-    // NOTE: The cap slot could be reused? Looks like a mem leak...
-    return cap_revoke(cap);
+    //cap_revoke(cap) // NOT YET IMPLEMENTED!
+    // Destroy the capability (and frees the slot)
+    return cap_destroy(cap);
 }

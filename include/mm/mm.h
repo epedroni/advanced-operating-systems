@@ -24,6 +24,8 @@
 
 __BEGIN_DECLS
 
+#define MM_ASSERT(err, msg) { if (err_is_fail(err)) USER_PANIC_ERR(err, msg);}
+
 enum nodetype {
     NodeType_Free,      ///< This region exists and is free
     NodeType_Allocated  ///< This region exists and is allocated

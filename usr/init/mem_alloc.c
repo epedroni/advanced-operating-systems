@@ -10,6 +10,8 @@
 /// MM allocator instance data
 struct mm aos_mm;
 
+void runtests_mem_alloc(void);
+
 static errval_t aos_ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
 {
     return mm_alloc_aligned(&aos_mm, size, alignment, ret);
@@ -95,5 +97,32 @@ errval_t initialize_ram_alloc(void)
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
 
+    runtests_mem_alloc();
+
     return SYS_ERR_OK;
+}
+
+void runtests_mem_alloc(void)
+{
+    debug_printf("Running mem_alloc tests set\n");
+
+    for (int j = 0; j < 10; ++j)
+    {
+        int alloc_size = BASE_PAGE_SIZE;
+        debug_printf("[%u] Allocate 10x%ubits...\n", j, alloc_size);
+        struct capref cap[10];
+        for (int i = 0; i < 10; ++i)
+        {
+            errval_t err = mm_alloc(&aos_mm, alloc_size, &cap[i]);
+            MM_ASSERT(err, "Alloc failed");
+            debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &cap[i], cap[i].slot, err);
+        }
+
+        debug_printf("[%u] Freeing 10x%ubits...\n", j, alloc_size);
+        for (int i = 0; i < 10; ++i)
+        {
+            debug_printf("\tFreeing alloc #%u\n", i);
+            MM_ASSERT(aos_ram_free(cap[i], alloc_size), "mm_free failed");
+        }
+    }
 }
