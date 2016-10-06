@@ -273,7 +273,7 @@ void* get_page(size_t* size)
 void* test_alloc_and_map(int alloc_size, int map_size) {
     struct capref cap_ram;
     debug_printf("test_paging: Allocating RAM...\n");
-    errval_t err = ram_alloc_fixed(&cap_ram, alloc_size, BASE_PAGE_SIZE);
+    errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
 
     struct capref cap_as_frame;
