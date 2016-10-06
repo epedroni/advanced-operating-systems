@@ -206,6 +206,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
 
     // 3. Map Frame to L2
+    // TODO: Handle bad aligned vaddr?
+    // TODO: Fill several slots if bytes > BASE_PAGE_SIZE
     struct capref mapping_frame_to_l2;
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
