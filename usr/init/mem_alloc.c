@@ -10,6 +10,7 @@
 /// MM allocator instance data
 struct mm aos_mm;
 
+void alloc_only_test(void);
 void runtests_mem_alloc(void);
 
 static errval_t aos_ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
@@ -52,7 +53,7 @@ errval_t initialize_ram_alloc(void)
     }
 
     // Initialize aos_mm
-    err = mm_init(&aos_mm, ObjType_RAM, NULL,
+    err = mm_init(&aos_mm, ObjType_RAM, slab_default_refill,
                   slot_alloc_prealloc, slot_prealloc_refill,
                   &init_slot_alloc);
     if (err_is_fail(err)) {
@@ -97,7 +98,7 @@ errval_t initialize_ram_alloc(void)
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
 
-    runtests_mem_alloc();
+    //runtests_mem_alloc();
 
     return SYS_ERR_OK;
 }
@@ -112,6 +113,20 @@ void test_alloc(size_t size, size_t alignment, struct capref* ref)
         err = mm_alloc(&aos_mm, size, ref);
     MM_ASSERT(err, "Alloc failed");
     debug_printf("\tAllocated cap [0x%x] at slot %u.\n", get_cap_addr(*ref), ref->slot);
+}
+
+void alloc_only_test(void){
+	static const size_t alloc_count=100;
+
+    struct capref cap[alloc_count];
+
+    int alloc_size = BASE_PAGE_SIZE;
+    int i=0;
+    for(;i<alloc_count;++i){
+    	debug_printf("Allocating %d \n",i);
+    	errval_t err = mm_alloc(&aos_mm, alloc_size, cap+i);
+		MM_ASSERT(err, "Alloc failed");
+    }
 }
 
 void runtests_mem_alloc(void)

@@ -179,8 +179,23 @@ size_t slab_freecount(struct slab_allocator *slabs)
  */
 static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 {
-    USER_PANIC("TODO: Not yet implemented.")
-    return LIB_ERR_NOT_IMPLEMENTED;
+	debug_printf("slab_refill_pages: Allocating more memory\n");
+
+	static bool refill=false;
+	if(refill)
+		return SYS_ERR_OK;
+
+	refill=true;
+
+
+	size_t allocated_size;
+	void* memory=get_page(&allocated_size);
+
+	slab_grow(slabs, memory, allocated_size);
+
+	refill=false;
+
+    return SYS_ERR_OK;
 }
 
 /**

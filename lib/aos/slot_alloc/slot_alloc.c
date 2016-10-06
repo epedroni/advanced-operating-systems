@@ -63,6 +63,8 @@ errval_t root_slot_allocator_refill(cn_ram_alloc_func_t myalloc, void *allocst)
 {
     errval_t err;
 
+    debug_printf("Root slot alloc refill\n");
+
     struct slot_alloc_state *state = get_slot_alloc_state();
     struct single_slot_allocator *sca = &state->rootca;
 

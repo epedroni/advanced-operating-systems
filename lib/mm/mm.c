@@ -147,10 +147,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
 
-                struct frame_identity fi;
-                frame_identify(*retcap, &fi);
-                debug_printf("Giving out ram cap of base address: 0x%X and size: %lu KB\n", fi.base, fi.bytes/1024);
-
                 MM_ASSERT(status, "mm_alloc_aligned: cap_retype failed!");
                 node->type = NodeType_Allocated;
                 //node->cap.cap = *retcap;

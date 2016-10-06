@@ -100,7 +100,7 @@ errval_t paging_region_init(struct paging_state *st, struct paging_region *pr, s
     pr->current_addr = pr->base_addr;
     pr->region_size  = size;
     // TODO: maybe add paging regions to paging state?
-    static const lvaddr_t STARTING_ADDRESS=0x202000;
+    static const lvaddr_t STARTING_ADDRESS=VADDR_OFFSET;
     st->last_used_address=STARTING_ADDRESS;
     return SYS_ERR_OK;
 }
@@ -188,6 +188,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 {
 	debug_printf("Entering: paging_map_fixed_attr\n");
 
+	debug_printf("Virtual address 0x%X\n", vaddr);
+
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -219,7 +221,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
     err = vnode_map(l1_pagetable, l2_cap,
     		l1_slot, VREGION_FLAGS_READ_WRITE,
-            0, 0, mapping_l2_to_l1);
+            0, 1, mapping_l2_to_l1);
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
 
     // 3. Map Frame to L2
@@ -233,8 +235,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     debug_printf("L2 slot: 0x%X\n",l2_slot);
     err = vnode_map(l2_cap, frame,
     		l2_slot, flags,
-            0, 0, mapping_frame_to_l2);
-
+            0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
 
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (2) failed");
     return SYS_ERR_OK;
@@ -255,10 +256,10 @@ void* get_page(size_t* allocatedSize){
     debug_printf("test_paging: Allocating RAM...\n");
     errval_t err = ram_alloc_fixed(&cap_ram, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
-
     struct capref cap_as_frame;
+
 	err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
-    err = cap_retype(cap_as_frame, cap_ram, 0,
+	err = cap_retype(cap_as_frame, cap_ram, 0,
     		ObjType_Frame, BASE_PAGE_SIZE, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
@@ -279,20 +280,8 @@ void test_paging(void)
 	size_t allocated_memory;
 
 	void* page1=get_page(&allocated_memory);
-	int* number1=(int*)page1;
+	int *number1=(int*)page1;
 	*number1=42;
+	debug_printf("Reading %d\n",*number1);
 
-	void* page2=get_page(&allocated_memory);
-	int* number2=(int*)page2;
-	*number2=43;
-
-	void* page3=get_page(&allocated_memory);
-	int* number3=(int*)page3;
-	*number3=44;
-
-	void* page4=get_page(&allocated_memory);
-	int* number4=(int*)page4;
-	*number4=44;
-
-	debug_printf("Numbers: %d %d %d %d \n",*number1, *number2, *number3, *number4);
 }
