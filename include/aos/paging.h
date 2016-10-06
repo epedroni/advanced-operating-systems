@@ -45,9 +45,15 @@ typedef int paging_flags_t;
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_MPB)
 
 // struct to store the paging status of a process
+struct page_node {
+	struct capref frame;
+	lvaddr_t vaddr;
+};
+
 struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
+
 };
 
 

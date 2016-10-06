@@ -184,6 +184,8 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, int flags)
 {
+	debug_printf("Entering: paging_map_fixed_attr\n");
+
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -200,28 +202,38 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         .slot = 0,
     };
 
-
-    capaddr_t slot = ARM_L1_OFFSET(vaddr);
+    capaddr_t l1_slot=ARM_L1_OFFSET(vaddr);
     struct capref mapping_l2_to_l1;
-    debug_printf("L1 slot: 0x%X\n",slot);
+    debug_printf("L1 slot: 0x%X\n",l1_slot);
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
+
+    struct frame_identity fi;
+    err = frame_identify(frame, &fi);
+
+    debug_printf("Frame address is: 0x%X of size: %lu\n", fi.base, fi.bytes/1024/1024);
+
+    debug_printf("Adding L2 ot to L1 pt slot no: %d, \n",l1_slot);
+
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
     err = vnode_map(l1_pagetable, l2_cap,
-            slot, VREGION_FLAGS_READ_WRITE,
+    		l1_slot, VREGION_FLAGS_READ_WRITE,
             0, 0, mapping_l2_to_l1);
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
 
     // 3. Map Frame to L2
     // TODO: Handle bad aligned vaddr?
     // TODO: Fill several slots if bytes > BASE_PAGE_SIZE
+    capaddr_t l2_slot=ARM_L2_OFFSET(vaddr);
+    debug_printf("Adding Frame ot to L2 pt slot no: %d, \n",l2_slot);
     struct capref mapping_frame_to_l2;
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
-    slot = ARM_L2_OFFSET(vaddr);
-    debug_printf("L2 slot: 0x%X\n",slot);
+    debug_printf("L2 slot: 0x%X\n",l2_slot);
     err = vnode_map(l2_cap, frame,
-            slot, flags,
+    		l2_slot, flags,
             0, 0, mapping_frame_to_l2);
+
+
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (2) failed");
     return SYS_ERR_OK;
 }

@@ -18,6 +18,7 @@
 #include <aos/aos.h>
 #include <aos/slab.h>
 #include <aos/static_assert.h>
+#include <aos/paging.h>
 
 struct block_head {
     struct block_head *next;///< Pointer to next block in free list
