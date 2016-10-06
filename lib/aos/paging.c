@@ -100,8 +100,6 @@ errval_t paging_region_init(struct paging_state *st, struct paging_region *pr, s
     pr->current_addr = pr->base_addr;
     pr->region_size  = size;
     // TODO: maybe add paging regions to paging state?
-    static const lvaddr_t STARTING_ADDRESS=VADDR_OFFSET;
-    st->last_used_address=STARTING_ADDRESS;
     return SYS_ERR_OK;
 }
 
@@ -251,37 +249,72 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     return SYS_ERR_OK;
 }
 
-void* get_page(size_t* allocatedSize){
+
+/**
+ * TESTING PAGING / MAPPING
+ **/
+struct paging_test
+{
+    lvaddr_t next_free_vaddress;
+    uint32_t num;
+};
+void* test_alloc_and_map(int alloc_size, int map_size);
+void test_partial_mapping(void);
+
+struct paging_test test;
+
+void* get_page(size_t* size)
+{
+    *size=BASE_PAGE_SIZE;
+    return test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+}
+
+void* test_alloc_and_map(int alloc_size, int map_size) {
     struct capref cap_ram;
     debug_printf("test_paging: Allocating RAM...\n");
-    errval_t err = ram_alloc_fixed(&cap_ram, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+    errval_t err = ram_alloc_fixed(&cap_ram, alloc_size, BASE_PAGE_SIZE);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
-    struct capref cap_as_frame;
 
+    struct capref cap_as_frame;
 	err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
 	err = cap_retype(cap_as_frame, cap_ram, 0,
     		ObjType_Frame, BASE_PAGE_SIZE, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
-	err = paging_map_fixed_attr(&current, current.last_used_address,
-	            cap_as_frame, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+	err = paging_map_fixed_attr(&current, test.next_free_vaddress,
+	            cap_as_frame, map_size, VREGION_FLAGS_READ_WRITE);
 	MM_ASSERT(err, "get_page: paging_map_fixed_attr");
 
-	void* allocated_address=(void*)(current.last_used_address);
+	void* allocated_address=(void*)(test.next_free_vaddress);
 
-	current.last_used_address+=BASE_PAGE_SIZE;
-	*allocatedSize=BASE_PAGE_SIZE;
+	test.next_free_vaddress+=map_size;
 
 	return allocated_address;
 }
 
 void test_paging(void)
 {
-	size_t allocated_memory;
+    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", test.num++, title);
 
-	void* page1=get_page(&allocated_memory);
-	int *number1=(int*)page1;
-	*number1=42;
-	debug_printf("Reading %d\n",*number1);
+    test.next_free_vaddress = VADDR_OFFSET;
+    test.num = 0;
 
+    PRINT_TEST("Allocate and map one page");
+	void* page = test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+	int *number = (int*)page;
+	*number=42;
+
+    PRINT_TEST("Allocate and map 2 pages");
+	page = test_alloc_and_map(2 * BASE_PAGE_SIZE, 2 * BASE_PAGE_SIZE);
+    number = (int*)page;
+    for (int i = 0; i < (2 * BASE_PAGE_SIZE) / sizeof(int); ++i)
+	   number[i] = i;
+
+    PRINT_TEST("Allocate 2 pages and map only one page");
+    number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+    *number = 10;
+
+    PRINT_TEST("Allocate 2 pages and map a few bytes");
+    number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, sizeof(int));
+    *number = 10;
 }

@@ -49,7 +49,6 @@ typedef int paging_flags_t;
 struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
-    lvaddr_t last_used_address;
 };
 
 
@@ -137,8 +136,7 @@ static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
     return (lvaddr_t) genvaddr;
 }
 
-void* get_page(size_t* allocatedSize);
-
+void* get_page(size_t* size);
 void test_paging(void);
 
 #endif // LIBBARRELFISH_PAGING_H
