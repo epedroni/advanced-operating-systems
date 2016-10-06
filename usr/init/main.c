@@ -26,6 +26,8 @@
 coreid_t my_core_id;
 struct bootinfo *bi;
 
+void test_paging(void);
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -52,6 +54,18 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
+    err = paging_init();
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "paging_init");
+    }
+
+    err = slot_alloc_init();
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "slot_alloc_init");
+    }
+
+    test_paging();
+
     debug_printf("Message handler loop\n");
     // Hang around
     struct waitset *default_ws = get_default_waitset();
@@ -64,4 +78,8 @@ int main(int argc, char *argv[])
     }
 
     return EXIT_SUCCESS;
+}
+
+void test_paging(void)
+{
 }

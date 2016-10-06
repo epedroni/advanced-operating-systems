@@ -17,6 +17,7 @@
 #include <aos/except.h>
 #include <aos/slab.h>
 #include "threads_priv.h"
+#include <mm/mm.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -68,6 +69,7 @@ errval_t paging_init(void)
     // you can handle page faults in any thread of a domain.
     // TIP: it might be a good idea to call paging_init_state() from here to
     // avoid code duplication.
+    current.slot_alloc = get_default_slot_allocator();
     set_current_paging_state(&current);
     return SYS_ERR_OK;
 }
@@ -177,11 +179,41 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 /**
  * \brief map a user provided frame at user provided VA.
  * TODO(M1): Map a frame assuming all mappings will fit into one L2 pt
- * TODO(M2): General case 
+ * TODO(M2): General case
  */
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, int flags)
 {
+    // 1. Create L2
+    // TODO: Don't overwrite existing L2
+    // Keep it in paging_state
+    struct capref l2_cap;
+    errval_t err = arml2_alloc(st, &l2_cap);
+    MM_ASSERT(err, "paging_map_fixed_attr: arml2_alloc failed");
+
+    // 2. Map L2 to L1
+    struct capref l1_pagetable = {
+        .cnode = cnode_page,
+        .slot = 0,
+    };
+    capaddr_t slot = vaddr / (BASE_PAGE_SIZE * 256);
+    struct capref mapping_l2_to_l1;
+    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
+    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
+    err = vnode_map(l1_pagetable, l2_cap,
+            slot, VREGION_FLAGS_READ_WRITE,
+            0, 0, mapping_l2_to_l1);
+    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
+
+    // 3. Map Frame to L2
+    struct capref mapping_frame_to_l2;
+    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
+    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
+    slot = (vaddr % (BASE_PAGE_SIZE * 256)) / BASE_PAGE_SIZE;
+    err = vnode_map(l2_cap, frame,
+            slot, VREGION_FLAGS_READ_WRITE,
+            0, 0, mapping_frame_to_l2);
+    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (2) failed");
     return SYS_ERR_OK;
 }
 
