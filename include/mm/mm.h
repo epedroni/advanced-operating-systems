@@ -63,7 +63,6 @@ struct mm {
     enum objtype objtype;        ///< Type of capabilities stored
     struct mmnode *head;         ///< Head of doubly-linked list of nodes in order
     // Additionnal fields
-    size_t num_available_cap_slots;
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype,

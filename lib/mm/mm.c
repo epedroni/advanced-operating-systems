@@ -31,7 +31,6 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     mm->slot_alloc_inst = slot_alloc_inst;
     mm->objtype = objtype;
     mm->head = NULL;
-    mm->num_available_cap_slots = L2_CNODE_SLOTS;
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
     return SYS_ERR_OK;
@@ -96,22 +95,15 @@ inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
     node->next = remaining_free;
 }
 
-void mm_alloc_cap_refill(struct mm* mm)
-{
-    mm->num_available_cap_slots += L2_CNODE_SLOTS-1;
-    errval_t err = mm->slot_refill(mm->slot_alloc_inst);
-    MM_ASSERT(err, "mm_alloc_cap_refill: Unable to refill!");
-}
-
 void mm_alloc_cap(struct mm* mm, struct capref* ref)
 {
-    // mm_alloc_cap_refill will call mm_alloc, so we better refill
-    // while we can still allocate
-    if (mm->num_available_cap_slots < 3)
-        mm_alloc_cap_refill(mm);
+    // Note: mm_alloc_cap_refill will call mm_alloc,
+    // but this is handled in 'slot_refill' correctly, don't worry here.
+    // Note2: This function only refills when needed.
+    MM_ASSERT(mm->slot_refill(mm->slot_alloc_inst),
+        "mm_alloc_cap_refill: Unable to refill!");
     errval_t err = mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
     MM_ASSERT(err, "mm_alloc_cap: slot_alloc failed!");
-    --mm->num_available_cap_slots;
 }
 
 /**
