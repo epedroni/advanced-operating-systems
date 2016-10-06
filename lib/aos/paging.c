@@ -213,7 +213,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
     slot = (vaddr % (BASE_PAGE_SIZE * 256)) / BASE_PAGE_SIZE;
     err = vnode_map(l2_cap, frame,
-            slot, VREGION_FLAGS_READ_WRITE,
+            slot, flags,
             0, 0, mapping_frame_to_l2);
     MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (2) failed");
     return SYS_ERR_OK;
@@ -227,4 +227,20 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
     return SYS_ERR_OK;
+}
+
+void test_paging(void)
+{
+    struct capref cap;
+    debug_printf("test_paging: Allocating frame...\n");
+    errval_t err = ram_alloc_fixed(&cap, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+    MM_ASSERT(err, "test_paging: ram_alloc_fixed");
+    debug_printf("test_paging: Paging frame...\n");
+    int* addr = (int*)VADDR_OFFSET; // 1GB
+    err = paging_map_fixed_attr(&current, (lvaddr_t)(addr),
+            cap, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+    MM_ASSERT(err, "test_paging: paging_map_fixed_attr");
+    debug_printf("test_paging: Writing to address 0x%x...\n", addr);
+    *addr = 42;
+    debug_printf("test_paging: Reading: %u :)\n", *addr);
 }

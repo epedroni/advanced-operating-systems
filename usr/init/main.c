@@ -26,8 +26,6 @@
 coreid_t my_core_id;
 struct bootinfo *bi;
 
-void test_paging(void);
-
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -78,8 +76,4 @@ int main(int argc, char *argv[])
     }
 
     return EXIT_SUCCESS;
-}
-
-void test_paging(void)
-{
 }
