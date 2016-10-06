@@ -299,7 +299,7 @@ void* test_alloc_and_map(int alloc_size, int map_size) {
 
 void test_paging(void)
 {
-    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", test.num++, title);
+    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", ++test.num, title);
 
     test.next_free_vaddress = VADDR_OFFSET;
     test.num = 0;
