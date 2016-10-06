@@ -263,7 +263,7 @@ struct paging_test
     struct mm* mm;
     uint32_t num;
 };
-void* test_alloc_and_map(int alloc_size, int map_size);
+void* test_alloc_and_map(size_t alloc_size, size_t map_size);
 void test_partial_mapping(void);
 
 struct paging_test test;
@@ -274,7 +274,7 @@ void* get_page(size_t* size)
     return test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
 }
 
-void* test_alloc_and_map(int alloc_size, int map_size) {
+void* test_alloc_and_map(size_t alloc_size, size_t map_size) {
     struct capref cap_ram;
     debug_printf("test_paging: Allocating RAM...\n");
     errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
