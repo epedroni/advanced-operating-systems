@@ -46,9 +46,15 @@ typedef int paging_flags_t;
 
 // struct to store the paging status of a process
 
+struct l2_vnode_ref {
+	bool used;
+	struct capref vnode_ref;
+};
+
 struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
+    struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
 };
 
 
