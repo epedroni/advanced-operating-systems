@@ -100,6 +100,9 @@ errval_t paging_region_init(struct paging_state *st, struct paging_region *pr, s
     pr->current_addr = pr->base_addr;
     pr->region_size  = size;
     // TODO: maybe add paging regions to paging state?
+
+    memset(st->l2nodes,0, sizeof(current.l2nodes));
+
     static const lvaddr_t STARTING_ADDRESS=VADDR_OFFSET;
     st->last_used_address=STARTING_ADDRESS;
     return SYS_ERR_OK;
@@ -196,33 +199,36 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // 1. Create L2
     // TODO: Don't overwrite existing L2
     // Keep it in paging_state
-    struct capref l2_cap;
-    errval_t err = arml2_alloc(st, &l2_cap);
-    MM_ASSERT(err, "paging_map_fixed_attr: arml2_alloc failed");
-
     // 2. Map L2 to L1
     struct capref l1_pagetable = {
         .cnode = cnode_page,
         .slot = 0,
     };
-
+    errval_t err;
     capaddr_t l1_slot=ARM_L1_OFFSET(vaddr);
-    struct capref mapping_l2_to_l1;
-    debug_printf("L1 slot: 0x%X\n",l1_slot);
-    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
 
-    struct frame_identity fi;
-    err = frame_identify(frame, &fi);
+    struct capref* l2_cap=NULL;
 
-    debug_printf("Frame address is: 0x%X of size: %lu\n", fi.base, fi.bytes/1024/1024);
+    if(!st->l2nodes[l1_slot].used){
+    	debug_printf("Creating new l2 node\n");
+        err = arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref);
+        MM_ASSERT(err, "paging_map_fixed_attr: arml2_alloc failed");
+        st->l2nodes[l1_slot].used=true;
 
-    debug_printf("Adding L2 ot to L1 pt slot no: %d, \n",l1_slot);
+        struct capref mapping_l2_to_l1;
+		debug_printf("L1 slot: 0x%X\n",l1_slot);
+		err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
+	    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
 
-    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
-    err = vnode_map(l1_pagetable, l2_cap,
-    		l1_slot, VREGION_FLAGS_READ_WRITE,
-            0, 1, mapping_l2_to_l1);
-    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
+	    err = vnode_map(l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
+	    		l1_slot, VREGION_FLAGS_READ_WRITE,
+	            0, 1, mapping_l2_to_l1);
+	    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
+    }else{
+    	debug_printf("reusing l2 node\n");
+    }
+    l2_cap=&st->l2nodes[l1_slot].vnode_ref;
+    MM_ASSERT(l2_cap!=NULL, "L2 capability should point to something");
 
     // 3. Map Frame to L2
     // TODO: Handle bad aligned vaddr?
@@ -233,7 +239,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
     MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
     debug_printf("L2 slot: 0x%X\n",l2_slot);
-    err = vnode_map(l2_cap, frame,
+    err = vnode_map(*l2_cap, frame,
     		l2_slot, flags,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
 
@@ -279,9 +285,17 @@ void test_paging(void)
 {
 	size_t allocated_memory;
 
-	void* page1=get_page(&allocated_memory);
-	int *number1=(int*)page1;
-	*number1=42;
-	debug_printf("Reading %d\n",*number1);
+	int *numbers[5];
+
+	int i=0;
+	for (;i<5;i++){
+		void* page1=get_page(&allocated_memory);
+		numbers[i]=(int*)page1;
+		*numbers[i]=42+i;
+	}
+
+	for (i=0; i<5; i++){
+		debug_printf("%d\n",*numbers[i]);
+	}
 
 }
