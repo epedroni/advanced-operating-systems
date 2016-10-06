@@ -100,6 +100,8 @@ errval_t paging_region_init(struct paging_state *st, struct paging_region *pr, s
     pr->current_addr = pr->base_addr;
     pr->region_size  = size;
     // TODO: maybe add paging regions to paging state?
+    static const lvaddr_t STARTING_ADDRESS=0x202000;
+    st->last_used_address=STARTING_ADDRESS;
     return SYS_ERR_OK;
 }
 
@@ -248,31 +250,49 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     return SYS_ERR_OK;
 }
 
-void test_paging(void)
-{
+void* get_page(size_t* allocatedSize){
     struct capref cap_ram;
     debug_printf("test_paging: Allocating RAM...\n");
     errval_t err = ram_alloc_fixed(&cap_ram, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
 
-    debug_printf("test_paging: Retype RAM -> Frame...\n");
     struct capref cap_as_frame;
-    err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
-    MM_ASSERT(err, "test_paging: slot_alloc");
+	err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
     err = cap_retype(cap_as_frame, cap_ram, 0,
-        ObjType_Frame, BASE_PAGE_SIZE, 1);
+    		ObjType_Frame, BASE_PAGE_SIZE, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
-    static const lvaddr_t WRITING_ADDRESS=0x202000;
+	err = paging_map_fixed_attr(&current, current.last_used_address,
+	            cap_as_frame, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+	MM_ASSERT(err, "get_page: paging_map_fixed_attr");
 
-    debug_printf("test_paging: Paging frame...\n");
-    int* addr = (int*)(WRITING_ADDRESS);
-    err = paging_map_fixed_attr(&current, (lvaddr_t)(addr),
-            cap_as_frame, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
-    MM_ASSERT(err, "test_paging: paging_map_fixed_attr");
+	void* allocated_address=(void*)(current.last_used_address);
 
-    debug_printf("test_paging: Writing to address 0x%x...\n", addr);
-    *addr = 42;
+	current.last_used_address+=BASE_PAGE_SIZE;
+	*allocatedSize=BASE_PAGE_SIZE;
 
-    debug_printf("test_paging: Reading: %u :)\n", *addr);
+	return allocated_address;
+}
+
+void test_paging(void)
+{
+	size_t allocated_memory;
+
+	void* page1=get_page(&allocated_memory);
+	int* number1=(int*)page1;
+	*number1=42;
+
+	void* page2=get_page(&allocated_memory);
+	int* number2=(int*)page2;
+	*number2=43;
+
+	void* page3=get_page(&allocated_memory);
+	int* number3=(int*)page3;
+	*number3=44;
+
+	void* page4=get_page(&allocated_memory);
+	int* number4=(int*)page4;
+	*number4=44;
+
+	debug_printf("Numbers: %d %d %d %d \n",*number1, *number2, *number3, *number4);
 }
