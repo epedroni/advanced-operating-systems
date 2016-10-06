@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
-    //test_paging();
+    test_paging();
     runtests_mem_alloc();
 
     debug_printf("Message handler loop\n");

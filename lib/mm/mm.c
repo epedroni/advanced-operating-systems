@@ -85,13 +85,6 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  */
 inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
 {
-    debug_printf("::mm_add %u\n", slab_freecount(&mm->slabs));
-    if (!slab_has_freecount(&mm->slabs, 5))
-    {
-        debug_printf("RELOADING\n");
-            slab_default_refill(&mm->slabs);
-    }
-
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
     remaining_free->type = NodeType_Free;
@@ -141,6 +134,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     assert(size != 0 && "mm_alloc_aligned: Cannot allocate 0 bytes");
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
     assert(aligned_size >= size);
+
+    if (!slab_has_freecount(&mm->slabs, 5))
+        slab_default_refill(&mm->slabs);
+
     // Find cap with enough space
     while (node != NULL)
     {
