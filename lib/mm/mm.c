@@ -124,15 +124,20 @@ void mm_alloc_cap(struct mm* mm, struct capref* ref)
  */
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct capref *retcap)
 {
-    // Find cap with enough space
+    assert(alignment % BASE_PAGE_SIZE == 0 &&
+            "mm_alloc_aligned: alignment should be a multiple of BASE_PAGE_SIZE");
     struct mmnode* node = mm->head;
     assert(node && "mm_alloc_aligned: No MemoryNodes!");
+    assert(size != 0 && "mm_alloc_aligned: Cannot allocate 0 bytes");
+    size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
+    assert(aligned_size >= size);
+    // Find cap with enough space
     while (node != NULL)
     {
         if (node->type == NodeType_Free)
         {
             size_t align_pad = (alignment - node->base % alignment) % alignment;
-            if (node->size >= (size + align_pad))
+            if (node->size >= (aligned_size + align_pad))
             {
                 genpaddr_t base = node->base + align_pad;
                 // 1. Split to align
@@ -144,13 +149,16 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 }
                 // 2. split the mem we need
                 if (node->size > size)
-                    mm_split_mem_node(mm, node, size);
+                    mm_split_mem_node(mm, node, aligned_size);
                 // 3. Create cap for current node, and put it in retcap
                 mm_alloc_cap(mm, retcap);
                 errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
                 MM_ASSERT(status, "mm_alloc_aligned: cap_retype failed!");
                 node->type = NodeType_Allocated;
+                //node->cap.cap = *retcap;
+                //node->cap.base = node->base;
+                //node->cap.size = size;
                 return status;
             }
         }
@@ -170,7 +178,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
  */
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
 {
-    return mm_alloc_aligned(mm, size, 1, retcap);
+    return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
 
@@ -209,7 +217,7 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
         node = node->next;
 
     // This node does not exist!
-    if (!node || node->size != size)
+    if (!node)
         return MM_ERR_FIND_NODE;
 
     // Merge with previous if the previous one is free
