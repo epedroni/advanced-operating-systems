@@ -221,7 +221,7 @@ void mm_print_nodes(struct mm* mm)
 	while (node) {
 		debug_printf("Node: 0x%x\n", node);
 		debug_printf("  Type: %u\n", node->type);
-		debug_printf("  Size: %uB\n", node->size);
+		debug_printf("  Size: %uB\n", (int) node->size);
 		debug_printf("  Next: 0x%x\n", node->next);
 		debug_printf("  Prev: 0x%x\n", node->prev);
 		if (node->type == NodeType_Free) totalsize += node->size;
