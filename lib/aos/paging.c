@@ -292,7 +292,7 @@ void* test_alloc_and_map(size_t alloc_size, size_t map_size) {
 
 	void* allocated_address=(void*)(test.next_free_vaddress);
 
-	test.next_free_vaddress+=map_size;
+	test.next_free_vaddress+= (((map_size - 1) / BASE_PAGE_SIZE) + 1) * BASE_PAGE_SIZE;
 
 	return allocated_address;
 }
