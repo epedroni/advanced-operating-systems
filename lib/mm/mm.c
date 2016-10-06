@@ -116,8 +116,8 @@ void mm_alloc_cap(struct mm* mm, struct capref* ref)
  */
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct capref *retcap)
 {
-    assert(alignment % BASE_PAGE_SIZE == 0 &&
-            "mm_alloc_aligned: alignment should be a multiple of BASE_PAGE_SIZE");
+    if (alignment % BASE_PAGE_SIZE)
+        return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
     struct mmnode* node = mm->head;
     assert(node && "mm_alloc_aligned: No MemoryNodes!");
     assert(size != 0 && "mm_alloc_aligned: Cannot allocate 0 bytes");
