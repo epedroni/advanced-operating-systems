@@ -207,9 +207,27 @@ inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
 
     node_first->size += node_first->next->size;
     node_first->next = node_next->next;
-    node_first->next->prev = node_first;
+    if (node_first->next)
+    	node_first->next->prev = node_first;
 
     slab_free(&mm->slabs, node_next);
+}
+
+void mm_print_nodes(struct mm* mm)
+{
+	struct mmnode* node = mm->head;
+	int totalsize = 0;
+	debug_printf("Head:\n");
+	while (node) {
+		debug_printf("Node: 0x%x\n", node);
+		debug_printf("  Type: %u\n", node->type);
+		debug_printf("  Size: %uB\n", node->size);
+		debug_printf("  Next: 0x%x\n", node->next);
+		debug_printf("  Prev: 0x%x\n", node->prev);
+		if (node->type == NodeType_Free) totalsize += node->size;
+		node = node->next;
+	}
+	debug_printf("Total free space: %u B\n", totalsize);
 }
 
 /**

@@ -118,6 +118,8 @@ void runtests_mem_alloc(void)
 {
 	debug_printf("Running mem_alloc tests set\n");
 
+	mm_print_nodes(&aos_mm);
+
 	// Keep it simple for now, allocate 4kB caps
 	int alloc_size = BASE_PAGE_SIZE;
 	debug_printf("Allocate 5x%u bits...\n", alloc_size);
@@ -155,6 +157,22 @@ void runtests_mem_alloc(void)
 	errval_t err = mm_alloc(&aos_mm, alloc_size, &mediumCap);
 	MM_ASSERT(err, "Alloc failed");
 	debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &mediumCap, mediumCap.slot, err);
+
+	// Now free everything and check if we are back to the single ram chunk again
+	alloc_size = LARGE_PAGE_SIZE;
+	debug_printf("Freeing 5x%u bits...\n", alloc_size);
+	for (int i = 0; i < 5; ++i)
+	{
+		debug_printf("\tFreeing alloc #%u\n", i);
+		MM_ASSERT(aos_ram_free(largeCaps[i], alloc_size), "mm_free failed");
+		debug_printf("Done\n");
+	}
+
+	alloc_size = BASE_PAGE_SIZE * 4;
+	debug_printf("\tFreeing medium-sized alloc\n");
+	MM_ASSERT(aos_ram_free(mediumCap, alloc_size), "mm_free failed");
+
+	mm_print_nodes(&aos_mm);
 
 //	struct capref cap[10];
 //	for (int j = 0; j < 10; ++j)
