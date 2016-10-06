@@ -234,16 +234,16 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
 
 void test_paging(void)
 {
-    struct capref cap_to_frame;
+    struct capref cap_ram;
     debug_printf("test_paging: Allocating RAM...\n");
-    errval_t err = ram_alloc_fixed(&cap_to_frame, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+    errval_t err = ram_alloc_fixed(&cap_ram, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
 
     debug_printf("test_paging: Retype RAM -> Frame...\n");
     struct capref cap_as_frame;
     err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
     MM_ASSERT(err, "test_paging: slot_alloc");
-    err = cap_retype(cap_as_frame, cap_to_frame, 0,
+    err = cap_retype(cap_as_frame, cap_ram, 0,
         ObjType_Frame, BASE_PAGE_SIZE, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
