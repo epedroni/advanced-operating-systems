@@ -169,6 +169,17 @@ size_t slab_freecount(struct slab_allocator *slabs)
     return ret;
 }
 
+bool slab_has_freecount(struct slab_allocator *slabs, int count)
+{
+    for (struct slab_head *sh = slabs->slabs; sh != NULL; sh = sh->next) {
+        count -= sh->free;
+        if (count < 0)
+            return true;
+    }
+
+    return false;
+}
+
 /**
  * \brief General-purpose slab refill
  *
@@ -189,9 +200,12 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 
 
 	size_t allocated_size;
+    debug_printf("slab_refill_pages: Calling get_page\n");
 	void* memory=get_page(&allocated_size);
 
 	slab_grow(slabs, memory, allocated_size);
+    debug_printf("slab_refill_pages: Got 0x%x [size=%u]. NEw slab size is %u\n",
+        memory, allocated_size, slab_freecount(slabs));
 
 	refill=false;
 

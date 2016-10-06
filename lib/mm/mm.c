@@ -85,6 +85,13 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  */
 inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
 {
+    debug_printf("::mm_add %u\n", slab_freecount(&mm->slabs));
+    if (!slab_has_freecount(&mm->slabs, 5))
+    {
+        debug_printf("RELOADING\n");
+            slab_default_refill(&mm->slabs);
+    }
+
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
     remaining_free->type = NodeType_Free;
@@ -335,8 +342,6 @@ errval_t mm_mem_init(void)
         }
     }
     debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
-
-    //runtests_mem_alloc();
 
     return SYS_ERR_OK;
 }
