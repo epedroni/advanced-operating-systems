@@ -283,7 +283,7 @@ void* test_alloc_and_map(size_t alloc_size, size_t map_size) {
     struct capref cap_as_frame;
 	err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
 	err = cap_retype(cap_as_frame, cap_ram, 0,
-    		ObjType_Frame, BASE_PAGE_SIZE, 1);
+            ObjType_Frame, alloc_size, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
 	err = paging_map_fixed_attr(&current, test.next_free_vaddress,
