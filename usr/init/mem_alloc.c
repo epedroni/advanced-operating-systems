@@ -15,18 +15,18 @@ void runtests_mem_alloc(void);
 
 static errval_t aos_ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
 {
-    return mm_alloc_aligned(&aos_mm, size, alignment, ret);
+	return mm_alloc_aligned(&aos_mm, size, alignment, ret);
 }
 
 errval_t aos_ram_free(struct capref cap, size_t bytes)
 {
-    errval_t err;
-    struct frame_identity fi;
-    err = frame_identify(cap, &fi);
-    if (bytes > fi.bytes) {
-        bytes = fi.bytes;
-    }
-    return mm_free(&aos_mm, cap, fi.base, bytes);
+	errval_t err;
+	struct frame_identity fi;
+	err = frame_identify(cap, &fi);
+	if (bytes > fi.bytes) {
+		bytes = fi.bytes;
+	}
+	return mm_free(&aos_mm, cap, fi.base, bytes);
 }
 
 /**
@@ -101,18 +101,19 @@ errval_t initialize_ram_alloc(void)
     //runtests_mem_alloc();
 
     return SYS_ERR_OK;
+
 }
 
 void test_alloc(size_t size, size_t alignment, struct capref* ref);
 void test_alloc(size_t size, size_t alignment, struct capref* ref)
 {
-    errval_t err;
-    if (alignment)
-        err = mm_alloc_aligned(&aos_mm, size, alignment, ref);
-    else
-        err = mm_alloc(&aos_mm, size, ref);
-    MM_ASSERT(err, "Alloc failed");
-    debug_printf("\tAllocated cap [0x%x] at slot %u.\n", get_cap_addr(*ref), ref->slot);
+	errval_t err;
+	if (alignment)
+		err = mm_alloc_aligned(&aos_mm, size, alignment, ref);
+	else
+		err = mm_alloc(&aos_mm, size, ref);
+	MM_ASSERT(err, "Alloc failed");
+	debug_printf("\tAllocated cap [0x%x] at slot %u.\n", get_cap_addr(*ref), ref->slot);
 }
 
 void alloc_only_test(void){
@@ -131,27 +132,105 @@ void alloc_only_test(void){
 
 void runtests_mem_alloc(void)
 {
-    debug_printf("Running mem_alloc tests set\n");
+	debug_printf("Running mem_alloc tests set\n");
 
-    struct capref cap[10];
-    for (int j = 0; j < 10; ++j)
-    {
-        int alloc_size = BASE_PAGE_SIZE;
-        debug_printf("[%u] Allocate 10x%ubits...\n", j, alloc_size);
-        for (int i = 0; i < 10; ++i)
-            test_alloc(alloc_size, 0, &cap[i]);
+	mm_print_nodes(&aos_mm);
 
-        debug_printf("[%u] Freeing 10x%ubits...\n", j, alloc_size);
-        for (int i = 0; i < 10; ++i)
-        {
-            debug_printf("\tFreeing alloc #%u\n", i);
-            MM_ASSERT(aos_ram_free(cap[i], alloc_size), "mm_free failed");
-        }
-    }
-    debug_printf("Allocate aligned...\n");
-    for (int i = 1; i < 10; ++i)
-        test_alloc(i*BASE_PAGE_SIZE-42, (i+1)*BASE_PAGE_SIZE, &cap[i]);
-    debug_printf("Freeing memory...\n");
-    for (int i = 1; i < 10; ++i)
-        MM_ASSERT(aos_ram_free(cap[i], i*BASE_PAGE_SIZE-42), "mm_free failed");
+	// Keep it simple for now, allocate 4kB caps
+	int alloc_size = BASE_PAGE_SIZE;
+	debug_printf("Allocate 5x%u bits...\n", alloc_size);
+	struct capref smallCaps[5];
+	for (int i = 0; i < 5; ++i)
+	{
+		errval_t err = mm_alloc(&aos_mm, alloc_size, &smallCaps[i]);
+		MM_ASSERT(err, "Alloc failed");
+		debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &smallCaps[i], smallCaps[i].slot, err);
+	}
+
+	// Test large pages now - 1MB
+	struct capref largeCaps[5];
+	alloc_size = LARGE_PAGE_SIZE;
+	debug_printf("Allocate 5x%u bits...\n", alloc_size);
+	for (int i = 0; i < 5; ++i)
+	{
+		errval_t err = mm_alloc(&aos_mm, alloc_size, &largeCaps[i]);
+		MM_ASSERT(err, "Alloc failed");
+		debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &largeCaps[i], largeCaps[i].slot, err);
+	}
+
+	// Let's test merging now - if we free the original 5 caps and try to allocate something like 16kB, those nodes should be merged and used
+	alloc_size = BASE_PAGE_SIZE;
+	debug_printf("Freeing 5x%u bits...\n", alloc_size);
+	for (int i = 0; i < 5; ++i)
+	{
+		debug_printf("\tFreeing alloc #%u\n", i);
+		MM_ASSERT(aos_ram_free(smallCaps[i], alloc_size), "mm_free failed");
+	}
+
+	struct capref mediumCap;
+	alloc_size = BASE_PAGE_SIZE * 4;
+	debug_printf("Allocate %u bits...\n", alloc_size);
+	errval_t err = mm_alloc(&aos_mm, alloc_size, &mediumCap);
+	MM_ASSERT(err, "Alloc failed");
+	debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &mediumCap, mediumCap.slot, err);
+
+	// Now free everything and check if we are back to the single ram chunk again
+	alloc_size = LARGE_PAGE_SIZE;
+	debug_printf("Freeing 5x%u bits...\n", alloc_size);
+	for (int i = 0; i < 5; ++i)
+	{
+		debug_printf("\tFreeing alloc #%u\n", i);
+		MM_ASSERT(aos_ram_free(largeCaps[i], alloc_size), "mm_free failed");
+		debug_printf("Done\n");
+	}
+
+	alloc_size = BASE_PAGE_SIZE * 4;
+	debug_printf("\tFreeing medium-sized alloc\n");
+	MM_ASSERT(aos_ram_free(mediumCap, alloc_size), "mm_free failed");
+
+	mm_print_nodes(&aos_mm);
+
+//	struct capref cap[10];
+//	for (int j = 0; j < 10; ++j)
+//	{
+//		int alloc_size = BASE_PAGE_SIZE;
+//		debug_printf("[%u] Allocate 10x%ubits...\n", j, alloc_size);
+//		for (int i = 0; i < 10; ++i)
+//			test_alloc(alloc_size, 0, &cap[i]);
+//
+//		debug_printf("[%u] Freeing 10x%ubits...\n", j, alloc_size);
+//		for (int i = 0; i < 10; ++i)
+//		{
+//			debug_printf("\tFreeing alloc #%u\n", i);
+//			MM_ASSERT(aos_ram_free(cap[i], alloc_size), "mm_free failed");
+//		}
+//	}
+//	debug_printf("Allocate aligned...\n");
+//	for (int i = 1; i < 10; ++i)
+//		test_alloc(i*BASE_PAGE_SIZE-42, (i+1)*BASE_PAGE_SIZE, &cap[i]);
+//	debug_printf("Freeing memory...\n");
+//	for (int i = 1; i < 10; ++i)
+//		MM_ASSERT(aos_ram_free(cap[i], i*BASE_PAGE_SIZE-42), "mm_free failed");
+
+	//    struct capref cap[10];
+	//    for (int j = 0; j < 10; ++j)
+	//    {
+	//        int alloc_size = BASE_PAGE_SIZE;
+	//        debug_printf("[%u] Allocate 10x%ubits...\n", j, alloc_size);
+	//        for (int i = 0; i < 10; ++i)
+	//            test_alloc(alloc_size, 0, &cap[i]);
+	//
+	//        debug_printf("[%u] Freeing 10x%ubits...\n", j, alloc_size);
+	//        for (int i = 0; i < 10; ++i)
+	//        {
+	//            debug_printf("\tFreeing alloc #%u\n", i);
+	//            MM_ASSERT(aos_ram_free(cap[i], alloc_size), "mm_free failed");
+	//        }
+	//    }
+	//    debug_printf("Allocate aligned...\n");
+	//    for (int i = 1; i < 10; ++i)
+	//        test_alloc(i*BASE_PAGE_SIZE-42, (i+1)*BASE_PAGE_SIZE, &cap[i]);
+	//    debug_printf("Freeing memory...\n");
+	//    for (int i = 1; i < 10; ++i)
+	//        MM_ASSERT(aos_ram_free(cap[i], i*BASE_PAGE_SIZE-42), "mm_free failed");
 }
