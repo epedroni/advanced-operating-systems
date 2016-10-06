@@ -184,6 +184,9 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, int flags)
 {
+    // TODO:
+    // Copy if partially mapping large frames (cf Milestone1.pdf)
+    // cap_copy(struct capref dest, struct capref src)
     // 1. Create L2
     // TODO: Don't overwrite existing L2
     // Keep it in paging_state
@@ -231,16 +234,27 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
 
 void test_paging(void)
 {
-    struct capref cap;
-    debug_printf("test_paging: Allocating frame...\n");
-    errval_t err = ram_alloc_fixed(&cap, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
+    struct capref cap_to_frame;
+    debug_printf("test_paging: Allocating RAM...\n");
+    errval_t err = ram_alloc_fixed(&cap_to_frame, BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
+
+    debug_printf("test_paging: Retype RAM -> Frame...\n");
+    struct capref cap_as_frame;
+    err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
+    MM_ASSERT(err, "test_paging: slot_alloc");
+    err = cap_retype(cap_as_frame, cap_to_frame, 0,
+        ObjType_Frame, BASE_PAGE_SIZE, 1);
+    MM_ASSERT(err, "test_paging: cap_retype");
+
     debug_printf("test_paging: Paging frame...\n");
-    int* addr = (int*)VADDR_OFFSET; // 1GB
+    int* addr = (int*)(VADDR_OFFSET + 10*BASE_PAGE_SIZE); // 1GB
     err = paging_map_fixed_attr(&current, (lvaddr_t)(addr),
-            cap, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+            cap_as_frame, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
     MM_ASSERT(err, "test_paging: paging_map_fixed_attr");
+
     debug_printf("test_paging: Writing to address 0x%x...\n", addr);
     *addr = 42;
+
     debug_printf("test_paging: Reading: %u :)\n", *addr);
 }
