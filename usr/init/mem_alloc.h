@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <aos/aos.h>
 
-extern struct bootinfo *bi;
 extern struct mm aos_mm;
 
 errval_t initialize_ram_alloc(void);

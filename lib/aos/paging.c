@@ -256,6 +256,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
 struct paging_test
 {
     lvaddr_t next_free_vaddress;
+    struct mm* mm;
     uint32_t num;
 };
 void* test_alloc_and_map(int alloc_size, int map_size);
@@ -298,6 +299,7 @@ void test_paging(void)
 
     test.next_free_vaddress = VADDR_OFFSET;
     test.num = 0;
+    test.mm = mm_get_default();
 
     PRINT_TEST("Allocate and map one page");
 	void* page = test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
