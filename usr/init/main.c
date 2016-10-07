@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     LOGO("|   | :  ;  :   .'   \\|   |/      |   :    :|;  :   .'   \\        |   :   /  |   :    ||   :    | ---'     ");
     LOGO("`---'.|  |  ,     .-./'---'        \\   \\  /  |  ,     .-./        |   | ,'    \\   \\  /  \\   \\  /           ");
     LOGO("  `---`   `--`---'                  `----'    `--`---'            `----'       `----'    `----'            ");
-
+    LOGO("                                        ... Well actually we are simply TeamF. But we are still awesome ;)");
     // Hang around
     struct waitset *default_ws = get_default_waitset();
     while (true) {
