@@ -185,17 +185,10 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, int flags)
 {
-	debug_printf("Entering: paging_map_fixed_attr\n");
-
-	debug_printf("Virtual address 0x%X\n", vaddr);
-
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
-    // 1. Create L2
-    // TODO: Don't overwrite existing L2
-    // Keep it in paging_state
-    // 2. Map L2 to L1
+    // 1. Find L1 table
     struct capref l1_pagetable = {
         .cnode = cnode_page,
         .slot = 0,
@@ -203,43 +196,44 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     errval_t err;
     capaddr_t l1_slot=ARM_L1_OFFSET(vaddr);
 
+    // 2. Find cap to L2 for mapping (possibly create it)
     struct capref* l2_cap=NULL;
-
     if(!st->l2nodes[l1_slot].used){
-    	debug_printf("Creating new l2 node\n");
         err = arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref);
-        MM_ASSERT(err, "paging_map_fixed_attr: arml2_alloc failed");
+        if (err_is_fail(err))
+            return err_push(err, PAGE_ERR_ALLOC_ARML2);
+
         st->l2nodes[l1_slot].used=true;
 
         struct capref mapping_l2_to_l1;
-		debug_printf("L1 slot: 0x%X\n",l1_slot);
 		err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
-	    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (1) failed");
+        if (err_is_fail(err))
+            return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
 	    err = vnode_map(l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
 	    		l1_slot, VREGION_FLAGS_READ_WRITE,
 	            0, 1, mapping_l2_to_l1);
-	    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (1) failed");
-    }else{
-    	debug_printf("reusing l2 node\n");
+        if (err_is_fail(err))
+            return err_push(err, PAGE_ERR_VNODE_MAP_L2);
     }
+
     l2_cap=&st->l2nodes[l1_slot].vnode_ref;
     MM_ASSERT(l2_cap!=NULL, "L2 capability should point to something");
 
     // 3. Map Frame to L2
     // TODO: Handle bad aligned vaddr?
-    // TODO: Fill several slots if bytes > BASE_PAGE_SIZE
     capaddr_t l2_slot=ARM_L2_OFFSET(vaddr);
-    debug_printf("Adding Frame ot to L2 pt slot no: %d, \n",l2_slot);
     struct capref mapping_frame_to_l2;
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
-    MM_ASSERT(err, "paging_map_fixed_attr: slot_alloc::alloc (2) failed");
-    debug_printf("L2 slot: 0x%X\n",l2_slot);
+    if (err_is_fail(err))
+        return err_push(err, PAGE_ERR_ALLOC_SLOT);
+
     err = vnode_map(*l2_cap, frame,
     		l2_slot, flags,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
+    if (err_is_fail(err))
+        return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
 
-    MM_ASSERT(err, "paging_map_fixed_attr: vnode_map (2) failed");
     return SYS_ERR_OK;
 }
 

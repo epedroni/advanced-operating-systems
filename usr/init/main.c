@@ -111,8 +111,6 @@ void runtests_mem_alloc(void)
 	debug_printf("Running mem_alloc tests set\n");
 	struct mm* mm = mm_get_default();
 
-	mm_print_nodes(mm);
-
 	// Keep it simple for now, allocate 4kB caps
 	int alloc_size = BASE_PAGE_SIZE;
 	debug_printf("Allocate 5x%u bits...\n", alloc_size);
@@ -164,6 +162,4 @@ void runtests_mem_alloc(void)
 	alloc_size = BASE_PAGE_SIZE * 4;
 	debug_printf("\tFreeing medium-sized alloc\n");
 	MM_ASSERT(aos_ram_free(mediumCap, alloc_size), "mm_free failed");
-
-	mm_print_nodes(mm);
 }

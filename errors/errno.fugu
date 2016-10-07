@@ -691,6 +691,13 @@ errors libmm MM_ERR_ {
     failure OUT_OF_MEMORY       "Allocator ran out of memory",
 };
 
+errors paging PAGE_ERR_ {
+    failure ALLOC_ARML2         "Could not allocate ARM L2 VNode",
+    failure ALLOC_SLOT          "Could not allocate a capability slot",
+    failure VNODE_MAP_L2        "L2 -> L1 mapping failed",
+    failure VNODE_MAP_FRAME     "Frame -> L2 mapping failed",
+};
+
 // errors in init
 errors init INIT_ERR_ {
     failure SPAWN_MEM_SERV      "Failed to spawn mem_serv",
