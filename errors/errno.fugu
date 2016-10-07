@@ -689,6 +689,7 @@ errors libmm MM_ERR_ {
     failure NO_NODE             "No memory added to allocator",
     failure SLOT_ALLOC_REFILL   "Failed to refill slot alloc",
     failure OUT_OF_MEMORY       "Allocator ran out of memory",
+    failure NOT_ALLOCATED       "This address is not allocated",
 };
 
 errors paging PAGE_ERR_ {

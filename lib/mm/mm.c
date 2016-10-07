@@ -248,6 +248,8 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     // This node does not exist!
     if (!node)
         return MM_ERR_FIND_NODE;
+    if (node->type != NodeType_Allocated)
+        return MM_ERR_NOT_ALLOCATED;
 
     // Merge with previous if the previous one is free
     // (We may need to merge with previous AND next node - see aligned alloc)
