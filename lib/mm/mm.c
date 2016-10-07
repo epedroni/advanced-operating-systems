@@ -11,8 +11,7 @@
 struct mm aos_mm;
 extern struct bootinfo *bi;
 
-void mm_alloc_cap_refill(struct mm* mm);
-void mm_alloc_cap(struct mm* mm, struct capref* ref);
+errval_t mm_alloc_cap(struct mm* mm, struct capref* ref);
 
 /**
  * Initialize the memory manager.
@@ -70,8 +69,6 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
     newnode->size = size;
     mm->head = newnode;
 
-    debug_printf("\t[mm.c:mm_add] Received %ukB starting at 0x%x\n", size / 1024, base);
-
     return SYS_ERR_OK;
 }
 
@@ -101,20 +98,23 @@ inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
     if (node->next)
         node->next->prev = remaining_free;
     node->next = remaining_free;
-
-    debug_printf("\t[mm.c:mm_split_mem_node] Split node 0x%x, new size: %ukB", node, node->size / 1024);
-    printf(", leftover node 0x%x of size %ukB\n", remaining_free, remaining_free->size / 1024);
 }
 
-void mm_alloc_cap(struct mm* mm, struct capref* ref)
+errval_t mm_alloc_cap(struct mm* mm, struct capref* ref)
 {
     // Note: mm_alloc_cap_refill will call mm_alloc,
     // but this is handled in 'slot_refill' correctly, don't worry here.
     // Note2: This function only refills when needed.
-    MM_ASSERT(mm->slot_refill(mm->slot_alloc_inst),
-        "mm_alloc_cap_refill: Unable to refill!");
-    errval_t err = mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
-    MM_ASSERT(err, "mm_alloc_cap: slot_alloc failed!");
+    errval_t err = mm->slot_refill(mm->slot_alloc_inst);
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_SLOT_ALLOC_REFILL);
+    }
+
+    err = mm->slot_alloc(mm->slot_alloc_inst, 1, ref);
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_SLOT_ALLOC_REFILL);
+    }
+    return SYS_ERR_OK;
 }
 
 /**
@@ -129,11 +129,12 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
 {
     if (alignment % BASE_PAGE_SIZE)
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
+
     struct mmnode* node = mm->head;
-    assert(node && "mm_alloc_aligned: No MemoryNodes!");
-    assert(size != 0 && "mm_alloc_aligned: Cannot allocate 0 bytes");
+    if (!node)
+        return MM_ERR_NO_NODE;
+
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
-    assert(aligned_size >= size);
 
     if (!slab_has_freecount(&mm->slabs, 5))
         slab_default_refill(&mm->slabs);
@@ -146,7 +147,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
             size_t align_pad = (alignment - node->base % alignment) % alignment;
             if (node->size >= (aligned_size + align_pad))
             {
-            	debug_printf("\t[mm.c:mm_alloc_aligned] Found node 0x%x (size %ukB)\n", node, node->size / 1024);
                 genpaddr_t base = node->base + align_pad;
                 // 1. Split to align
                 if (align_pad)
@@ -159,26 +159,22 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 if (node->size > size)
                     mm_split_mem_node(mm, node, aligned_size);
                 // 3. Create cap for current node, and put it in retcap
-                mm_alloc_cap(mm, retcap);
-                errval_t status = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
+                errval_t err = mm_alloc_cap(mm, retcap);
+                if (err_is_fail(err))
+                    return err;
+
+                err = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
+                if (err_is_fail(err))
+                    return err;
 
-                MM_ASSERT(status, "mm_alloc_aligned: cap_retype failed!");
                 node->type = NodeType_Allocated;
-
-                debug_printf("\t[mm.c:mm_alloc_aligned] Returning node 0x%x (size %ukB)\n", node, node->size / 1024);
-
-                //node->cap.cap = *retcap;
-                //node->cap.base = node->base;
-                //node->cap.size = size;
-                return status;
+                return err;
             }
         }
         node = node->next;
     }
-    // Out of Memory!!
-    assert(false && "Out of memory!");
-    return MM_ERR_FIND_NODE;
+    return MM_ERR_OUT_OF_MEMORY;
 }
 
 /**
@@ -208,11 +204,6 @@ inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
     if (node_first->type != NodeType_Free || node_first->next->type != NodeType_Free)
         return;
     struct mmnode* node_next = node_first->next;
-
-    debug_printf("\t[mm.c:mm_merge_mem_node_if_free] Merging node 0x%x (size %ukB)",
-    		node_next, node_next->size / 1024);
-    printf(" into node 0x%x (size %ukB)\n",
-    		node_first, node_first->size / 1024);
 
     node_first->size += node_first->next->size;
     node_first->next = node_next->next;
