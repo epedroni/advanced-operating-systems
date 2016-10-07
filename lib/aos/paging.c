@@ -71,7 +71,7 @@ errval_t paging_init(void)
     // avoid code duplication.
     current.slot_alloc = get_default_slot_allocator();
     set_current_paging_state(&current);
-    
+
     // TODO: maybe add paging regions to paging state?
     memset(current.l2nodes,0, sizeof(current.l2nodes));
     return SYS_ERR_OK;
@@ -186,6 +186,25 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, int flags)
 {
+    if (!bytes)
+        return PAGE_ERR_NO_BYTES;
+    capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
+    capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
+    capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
+    if (l1_slot != l1_slot_end)
+    {
+        for (; l1_slot < l1_slot_end; ++l1_slot)
+        {
+            size_t bytes_this_l1 = LARGE_PAGE_SIZE -
+                (ARM_L2_OFFSET(vaddr) << BASE_PAGE_BITS);
+            errval_t err = paging_map_fixed_attr(st, vaddr, frame, bytes_this_l1, flags);
+            if (err_is_fail(err))
+                return err;
+            vaddr += bytes_this_l1;
+            bytes -= bytes_this_l1;
+        }
+        return paging_map_fixed_attr(st, vaddr, frame, bytes, flags);
+    }
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -195,7 +214,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         .slot = 0,
     };
     errval_t err;
-    capaddr_t l1_slot=ARM_L1_OFFSET(vaddr);
 
     // 2. Find cap to L2 for mapping (possibly create it)
     struct capref* l2_cap=NULL;
@@ -223,7 +241,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     // 3. Map Frame to L2
     // TODO: Handle bad aligned vaddr?
-    capaddr_t l2_slot=ARM_L2_OFFSET(vaddr);
     struct capref mapping_frame_to_l2;
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
     if (err_is_fail(err))
@@ -329,4 +346,9 @@ void test_paging(void)
     PRINT_TEST("Allocate 2 pages and map only one page");
     number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     *number = 10;
+
+    PRINT_TEST("Allocate big big page (over several L2)");
+    number = (int*)test_alloc_and_map(5 * LARGE_PAGE_SIZE, 5 * LARGE_PAGE_SIZE);
+    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); ++i)
+        number[i] = 42;
 }

@@ -698,6 +698,7 @@ errors paging PAGE_ERR_ {
     failure ALLOC_SLOT          "Could not allocate a capability slot",
     failure VNODE_MAP_L2        "L2 -> L1 mapping failed",
     failure VNODE_MAP_FRAME     "Frame -> L2 mapping failed",
+    failure NO_BYTES            "Can't map zero size",
 };
 
 // errors in init
