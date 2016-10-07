@@ -328,9 +328,4 @@ void test_paging(void)
     PRINT_TEST("Allocate 2 pages and map only one page");
     number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     *number = 10;
-
-
-    PRINT_TEST("Allocate 2 pages and map a few bytes");
-    number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, sizeof(int));
-    *number = 10;
 }
