@@ -100,64 +100,53 @@ int main(int argc, char *argv[])
 
 void runtests_mem_alloc(void)
 {
-	debug_printf("\tAllocating a LOT of small pages\n");
-    for (int i = 0; i < 500; ++i)
-    {
-        struct capref ref;
-        errval_t err = mm_alloc(&aos_mm, BASE_PAGE_SIZE, &ref);
-		MM_ASSERT(err, "Oups, error in mm_alloc");
+	debug_printf("Running mem_alloc tests set\n");
+    struct frame_identity frame_id;
+	struct mm* mm = mm_get_default();
+
+    #define TEST_ALLOC(size, cap) {\
+        MM_ASSERT(mm_alloc(mm, size, &cap), "Alloc failed");\
+        frame_identify(cap, &frame_id);\
+        debug_printf("\tRAM [capslot %u]: addr 0x%08x, size 0x%08x\n",\
+            cap.slot, (int)frame_id.base, (int)frame_id.bytes);\
     }
 
-	debug_printf("Running mem_alloc tests set\n");
-	struct mm* mm = mm_get_default();
+    struct capref ref;
+	debug_printf("\tAllocating a LOT of small pages\n");
+    for (int i = 0; i < 500; ++i)
+        TEST_ALLOC(BASE_PAGE_SIZE, ref);
+
 
 	// Keep it simple for now, allocate 4kB caps
 	int alloc_size = BASE_PAGE_SIZE;
 	debug_printf("Allocate 5x%u bits...\n", alloc_size);
 	struct capref smallCaps[5];
 	for (int i = 0; i < 5; ++i)
-	{
-		errval_t err = mm_alloc(mm, alloc_size, &smallCaps[i]);
-		MM_ASSERT(err, "Alloc failed");
-		debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &smallCaps[i], smallCaps[i].slot, err);
-	}
+	   TEST_ALLOC(alloc_size, smallCaps[i]);
 
 	// Test large pages now - 1MB
 	struct capref largeCaps[5];
 	alloc_size = LARGE_PAGE_SIZE;
 	debug_printf("Allocate 5x%u bits...\n", alloc_size);
 	for (int i = 0; i < 5; ++i)
-	{
-		errval_t err = mm_alloc(mm, alloc_size, &largeCaps[i]);
-		MM_ASSERT(err, "Alloc failed");
-		debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &largeCaps[i], largeCaps[i].slot, err);
-	}
+        TEST_ALLOC(alloc_size, largeCaps[i]);
 
 	// Let's test merging now - if we free the original 5 caps and try to allocate something like 16kB, those nodes should be merged and used
 	alloc_size = BASE_PAGE_SIZE;
 	debug_printf("Freeing 5x%u bits...\n", alloc_size);
 	for (int i = 0; i < 5; ++i)
-	{
-		debug_printf("\tFreeing alloc #%u\n", i);
-		MM_ASSERT(aos_ram_free(smallCaps[i], alloc_size), "mm_free failed");
-	}
+        MM_ASSERT(aos_ram_free(smallCaps[i], alloc_size), "aos_ram_free");
 
 	struct capref mediumCap;
 	alloc_size = BASE_PAGE_SIZE * 4;
-	debug_printf("Allocate %u bits...\n", alloc_size);
-	errval_t err = mm_alloc(mm, alloc_size, &mediumCap);
-	MM_ASSERT(err, "Alloc failed");
-	debug_printf("\tAllocated cap [0x%x] at slot %u. Ret %u\n", &mediumCap, mediumCap.slot, err);
+    debug_printf("Allocate 1x%u bits...\n", alloc_size);
+    TEST_ALLOC(alloc_size, mediumCap)
 
 	// Now free everything and check if we are back to the single ram chunk again
 	alloc_size = LARGE_PAGE_SIZE;
 	debug_printf("Freeing 5x%u bits...\n", alloc_size);
 	for (int i = 0; i < 5; ++i)
-	{
-		debug_printf("\tFreeing alloc #%u\n", i);
 		MM_ASSERT(aos_ram_free(largeCaps[i], alloc_size), "mm_free failed");
-		debug_printf("Done\n");
-	}
 
 	alloc_size = BASE_PAGE_SIZE * 4;
 	debug_printf("\tFreeing medium-sized alloc\n");
