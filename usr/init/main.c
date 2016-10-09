@@ -21,15 +21,29 @@
 #include <aos/paging.h>
 
 #include <mm/mm.h>
+#include <spawn/spawn.h>
 #include "mem_alloc.h"
 
 coreid_t my_core_id;
 struct bootinfo *bi;
 
+struct paging_test
+{
+    struct mm* mm;
+    uint32_t num;
+};
+
+static struct paging_test test;
+
+void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
+void test_paging(void);
 
 int main(int argc, char *argv[])
 {
+
+	debug_printf("MAIN IS BEING INVOKED\n");
+
     errval_t err;
 
     /* Set the core id in the disp_priv struct */
@@ -64,8 +78,13 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
-    test_paging();
-    runtests_mem_alloc();
+    struct spawninfo process_info;
+    spawn_load_by_name("/armv7/sbin/hello", &process_info);
+
+    debug_printf("Runing tests!\n");
+
+//    test_paging();
+//    runtests_mem_alloc();
 
     debug_printf("Message handler loop\n");
     #define LOGO(s) debug_printf("%s\n", s);
@@ -96,7 +115,6 @@ int main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
-
 
 void runtests_mem_alloc(void)
 {
@@ -151,4 +169,63 @@ void runtests_mem_alloc(void)
 	alloc_size = BASE_PAGE_SIZE * 4;
 	debug_printf("\tFreeing medium-sized alloc\n");
 	MM_ASSERT(aos_ram_free(mediumCap, alloc_size), "mm_free failed");
+}
+
+void* test_alloc_and_map(size_t alloc_size) {
+	struct paging_state* paging_state =get_current_paging_state();
+
+    struct capref cap_ram;
+    debug_printf("test_paging: Allocating RAM...\n");
+    errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
+    MM_ASSERT(err, "test_paging: ram_alloc_fixed");
+
+    struct capref cap_as_frame;
+	err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, &cap_as_frame);
+	err = cap_retype(cap_as_frame, cap_ram, 0,
+            ObjType_Frame, alloc_size, 1);
+    MM_ASSERT(err, "test_paging: cap_retype");
+
+    void* address=NULL;
+    err=paging_map_frame_attr(paging_state,&address,alloc_size,
+    		cap_as_frame,VREGION_FLAGS_READ_WRITE,NULL,NULL);
+    MM_ASSERT(err, "get_page: paging_map_fixed_attr");
+
+	return address;
+}
+
+void test_paging(void)
+{
+    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", ++test.num, title);
+
+    test.mm = mm_get_default();
+
+    PRINT_TEST("Allocate and map one page");
+	void* page = test_alloc_and_map(BASE_PAGE_SIZE);
+	int *number = (int*)page;
+	*number=42;
+
+    PRINT_TEST("Allocate and map 2 pages");
+	page = test_alloc_and_map(2 * BASE_PAGE_SIZE);
+    number = (int*)page;
+    for (int i = 0; i < (2 * BASE_PAGE_SIZE) / sizeof(int); ++i)
+	   number[i] = i;
+
+    PRINT_TEST("Allocate pages to check allocater reuses l2 page table correctly");
+	int *numbers[5];
+
+	int i=0;
+	for (;i<5;i++){
+		void* page1=test_alloc_and_map(BASE_PAGE_SIZE);
+		numbers[i]=(int*)page1;
+		*numbers[i]=42+i;
+	}
+
+	for (i=0; i<5; i++){
+		debug_printf("%d\n",*numbers[i]);
+	}
+
+    PRINT_TEST("Allocate big big page (over several L2)");
+    number = (int*)test_alloc_and_map(5 * LARGE_PAGE_SIZE);
+    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); ++i)
+        number[i] = 42;
 }

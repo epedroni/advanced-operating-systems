@@ -190,20 +190,24 @@ bool slab_has_freecount(struct slab_allocator *slabs, int count)
  */
 static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 {
-	static bool refill = false;
-	if (refill)
-		return SYS_ERR_OK;
+	debug_printf("Invoked slabb refill pages!\n");
+	return LIB_ERR_NOT_IMPLEMENTED;
 
-	refill = true;
-
-    // TODO: To be changed once we have a correct malloc.
-	size_t allocated_size;
-	void* memory = get_page(&allocated_size);
-
-	slab_grow(slabs, memory, allocated_size);
-	refill = false;
-
-    return SYS_ERR_OK;
+//	static bool refill = false;
+//	if (refill){
+//		return SYS_ERR_OK;
+//	}
+//
+//	refill = true;
+//
+//    // TODO: To be changed once we have a correct malloc.
+//	size_t allocated_size;
+//	void* memory = get_page(&allocated_size);
+//
+//	slab_grow(slabs, memory, allocated_size);
+//	refill = false;
+//
+//    return SYS_ERR_OK;
 }
 
 /**

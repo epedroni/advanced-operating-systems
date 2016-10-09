@@ -70,7 +70,7 @@ const char *multiboot_module_name(struct mem_region *region)
 {
     const char *str = multiboot_module_rawstring(region);
     if (str == NULL) {
-	return NULL;
+    	return NULL;
     }
 
     // copy module data to local buffer so we can mess with it
@@ -89,16 +89,15 @@ const char *multiboot_module_name(struct mem_region *region)
 
 struct mem_region *multiboot_find_module(struct bootinfo *bi, const char *name)
 {
-
     for(size_t i = 0; i < bi->regions_length; i++) {
         struct mem_region *region = &bi->regions[i];
         const char *modname = multiboot_module_name(region);
+        debug_printf("Checking module name: %s\n", modname);
         if (modname != NULL &&
             strncmp(modname + strlen(modname) - strlen(name),
                     name, strlen(name)) == 0) {
             return region;
         }
     }
-
     return NULL;
 }

@@ -45,18 +45,34 @@ typedef int paging_flags_t;
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_MPB)
 
 // struct to store the paging status of a process
-
 struct l2_vnode_ref {
 	bool used;
 	struct capref vnode_ref;
+};
+
+enum virtual_block_type {
+    VirtualBlock_Free,
+	VirtualBlock_Allocated
+};
+
+struct vm_block {
+	enum virtual_block_type type;
+	struct vm_block* next;
+	struct vm_block* prev;
+	lvaddr_t start_address;
+	size_t size;
 };
 
 struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
+    struct vm_block virtual_memory_regions[7];	//Lets give some buffer for slab to allocate
+    struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
+    struct vm_block* head;
 };
 
+extern errval_t aos_slab_refill(struct slab_allocator *slabs);
 
 struct thread;
 /// Initialize paging_state struct
@@ -143,8 +159,5 @@ static inline errval_t paging_map_fixed(struct paging_state *st, lvaddr_t vaddr,
 static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
     return (lvaddr_t) genvaddr;
 }
-
-void* get_page(size_t* size);
-void test_paging(void);
 
 #endif // LIBBARRELFISH_PAGING_H

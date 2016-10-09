@@ -130,6 +130,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     if (alignment % BASE_PAGE_SIZE)
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
 
+    debug_printf("Allocating %lu\n",size);
+
     struct mmnode* node = mm->head;
     if (!node)
         return MM_ERR_NO_NODE;
@@ -137,7 +139,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
     if (!slab_has_freecount(&mm->slabs, 5))
-        slab_default_refill(&mm->slabs);
+    	mm->slabs.refill_func(&mm->slabs);
 
     // Find cap with enough space
     while (node != NULL)
@@ -188,7 +190,6 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
 {
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
-
 
 /**
  * Merges a given memory node with the following one.
@@ -268,70 +269,4 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
 struct mm* mm_get_default(void)
 {
     return &aos_mm;
-}
-
-/**
- * \brief Setups a local memory allocator for init to use till the memory server
- * is ready to be used.
- */
-errval_t mm_mem_init(void)
-{
-    errval_t err;
-
-    // Init slot allocator
-    static struct slot_prealloc init_slot_alloc;
-    struct capref cnode_cap = {
-        .cnode = {
-            .croot = CPTR_ROOTCN,
-            .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0),
-            .level = CNODE_TYPE_OTHER,
-        },
-        .slot = 0,
-    };
-    err = slot_prealloc_init(&init_slot_alloc, cnode_cap, L2_CNODE_SLOTS, &aos_mm);
-    if (err_is_fail(err)) {
-        return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
-    }
-
-    // Initialize aos_mm
-    err = mm_init(&aos_mm, ObjType_RAM, slab_default_refill,
-                  slot_alloc_prealloc, slot_prealloc_refill,
-                  &init_slot_alloc);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can't initalize the memory manager.");
-    }
-
-    // Give aos_mm a bit of memory for the initialization
-    static char nodebuf[sizeof(struct mmnode)*64];
-    slab_grow(&aos_mm.slabs, nodebuf, sizeof(nodebuf));
-
-    // Walk bootinfo and add all RAM caps to allocator handed to us by the kernel
-    uint64_t mem_avail = 0;
-    struct capref mem_cap = {
-        .cnode = cnode_super,
-        .slot = 0,
-    };
-
-    for (int i = 0; i < bi->regions_length; i++) {
-        if (bi->regions[i].mr_type == RegionType_Empty) {
-            err = mm_add(&aos_mm, mem_cap, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
-            if (err_is_ok(err)) {
-                mem_avail += bi->regions[i].mr_bytes;
-            } else {
-                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED", i, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
-            }
-
-            err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
-            if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
-                DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
-                        " memory allocator");
-                abort();
-            }
-
-            mem_cap.slot++;
-        }
-    }
-    debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
-
-    return SYS_ERR_OK;
 }

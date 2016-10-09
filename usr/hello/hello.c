@@ -15,6 +15,12 @@
 
 
 #include <stdio.h>
+#include <aos/aos.h>
+
+errval_t aos_slab_refill(struct slab_allocator *slabs){
+	//TODO: We have to think of a way how to provide refill function to every application
+	return SYS_ERR_OK;
+}
 
 int main(int argc, char *argv[])
 {

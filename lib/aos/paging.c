@@ -49,6 +49,19 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
     debug_printf("paging_init_state\n");
+    st->slot_alloc=ca;
+    memset(st->l2nodes, 0, sizeof(st->l2nodes));
+    slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
+    slab_grow(&st->slabs, st->virtual_memory_regions,sizeof(st->virtual_memory_regions));
+
+    struct vm_block* initial_free_space=slab_alloc(&st->slabs);
+    initial_free_space->type=VirtualBlock_Free;
+    initial_free_space->prev=NULL;
+    initial_free_space->next=NULL;
+    initial_free_space->start_address=start_vaddr;
+    initial_free_space->size=VADDR_OFFSET;	//TODO: Figure out how to limit size of virtual memory
+
+    st->head=initial_free_space;
     // TODO (M2): implement state struct initialization
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
@@ -63,17 +76,19 @@ errval_t paging_init(void)
 {
     debug_printf("paging_init\n");
     // TODO (M2): Call paging_init_state for &current
+
     // TODO (M4): initialize self-paging handler
     // TIP: use thread_set_exception_handler() to setup a page fault handler
     // TIP: Think about the fact that later on, you'll have to make sure that
     // you can handle page faults in any thread of a domain.
     // TIP: it might be a good idea to call paging_init_state() from here to
     // avoid code duplication.
-    current.slot_alloc = get_default_slot_allocator();
+    struct capref pdir;	//TODO: Check what this paramether is for
+    paging_init_state(&current, VADDR_OFFSET, pdir, get_default_slot_allocator());
     set_current_paging_state(&current);
 
     // TODO: maybe add paging regions to paging state?
-    memset(current.l2nodes,0, sizeof(current.l2nodes));
+
     return SYS_ERR_OK;
 }
 
@@ -151,9 +166,51 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
 {
+	debug_printf("paging_alloc: invoked!\n");
+
     // TODO: M2 Implement this function
-    *buf = NULL;
-    return SYS_ERR_OK;
+	struct vm_block* virtual_addr=st->head;
+	for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
+		//If it is used, just skip it
+		if(virtual_addr->type==VirtualBlock_Allocated)
+			continue;
+
+		//if it is exact same size, just retype it
+		if(virtual_addr->size==bytes){
+			debug_printf("Retyping block!\n");
+			virtual_addr->type=VirtualBlock_Allocated;
+			*buf=(void*)virtual_addr->start_address;
+			return SYS_ERR_OK;
+		}else if(virtual_addr->size>bytes){
+			debug_printf("Spliting block for %lu bytes!\n", bytes);
+
+			if (!slab_has_freecount(&st->slabs, 2)){
+				debug_printf("Slab count is less than 2, refilling\n");
+				st->slabs.refill_func(&st->slabs);
+			}
+
+			struct vm_block* used_space=slab_alloc(&st->slabs);
+			debug_printf("Received block: 0x%X!\n",used_space);
+			used_space->type=VirtualBlock_Allocated;
+			debug_printf("Written to newly allocated block!\n",bytes);
+			used_space->prev=virtual_addr->prev;
+			if(used_space->prev!=NULL){
+				used_space->prev->next=used_space;
+			}
+			virtual_addr->prev=used_space;
+			used_space->next=virtual_addr;
+			used_space->size=bytes;
+			virtual_addr->size-=bytes;
+			used_space->start_address=virtual_addr->start_address;
+			virtual_addr->start_address+=bytes;
+			*buf=(void*)used_space->start_address;
+			debug_printf("Finished creating new block!\n");
+			return SYS_ERR_OK;
+		}else{
+			continue;
+		}
+	}
+    return SYS_ERR_OK;	//TODO: Throw adequate error
 }
 
 /**
@@ -168,7 +225,9 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
     if (err_is_fail(err)) {
         return err;
     }
-    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags);
+    err=paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags);
+    debug_printf("paging_map_frame_attr: out\n");
+    return err;
 }
 
 errval_t
@@ -188,11 +247,15 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 {
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
+
+    debug_printf("mapping address: 0x%X of size: %lu\n",vaddr,bytes);
+
     capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
     capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
     if (l1_slot != l1_slot_end)
     {
+    	debug_printf("Several l2 pages\n",vaddr,bytes);
         for (; l1_slot < l1_slot_end; ++l1_slot)
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
@@ -205,6 +268,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         }
         return paging_map_fixed_attr(st, vaddr, frame, bytes, flags);
     }
+    debug_printf("Single l2 page table\n",vaddr,bytes);
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -251,7 +315,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
-
+    debug_printf("paging_map_fixed_attr: out\n");
     return SYS_ERR_OK;
 }
 
@@ -262,93 +326,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
+	lvaddr_t address_to_free=(lvaddr_t)region;
+	struct vm_block* virtual_addr=st->head;
+	for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
+		if(virtual_addr->start_address==address_to_free){
+
+		}
+	}
+
     return SYS_ERR_OK;
-}
-
-
-/**
- * TESTING PAGING / MAPPING
- **/
-struct paging_test
-{
-    lvaddr_t next_free_vaddress;
-    struct mm* mm;
-    uint32_t num;
-};
-void* test_alloc_and_map(size_t alloc_size, size_t map_size);
-void test_partial_mapping(void);
-
-struct paging_test test;
-
-void* get_page(size_t* size)
-{
-    *size=BASE_PAGE_SIZE;
-    return test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
-}
-
-void* test_alloc_and_map(size_t alloc_size, size_t map_size) {
-    struct capref cap_ram;
-    debug_printf("test_paging: Allocating RAM...\n");
-    errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
-    MM_ASSERT(err, "test_paging: ram_alloc_fixed");
-
-    struct capref cap_as_frame;
-	err = current.slot_alloc->alloc(current.slot_alloc, &cap_as_frame);
-	err = cap_retype(cap_as_frame, cap_ram, 0,
-            ObjType_Frame, alloc_size, 1);
-    MM_ASSERT(err, "test_paging: cap_retype");
-
-	err = paging_map_fixed_attr(&current, test.next_free_vaddress,
-	            cap_as_frame, map_size, VREGION_FLAGS_READ_WRITE);
-	MM_ASSERT(err, "get_page: paging_map_fixed_attr");
-
-	void* allocated_address=(void*)(test.next_free_vaddress);
-
-	test.next_free_vaddress+= (((map_size - 1) / BASE_PAGE_SIZE) + 1) * BASE_PAGE_SIZE;
-
-	return allocated_address;
-}
-
-void test_paging(void)
-{
-    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", ++test.num, title);
-
-    test.next_free_vaddress = VADDR_OFFSET;
-    test.num = 0;
-    test.mm = mm_get_default();
-
-    PRINT_TEST("Allocate and map one page");
-	void* page = test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
-	int *number = (int*)page;
-	*number=42;
-
-    PRINT_TEST("Allocate and map 2 pages");
-	page = test_alloc_and_map(2 * BASE_PAGE_SIZE, 2 * BASE_PAGE_SIZE);
-    number = (int*)page;
-    for (int i = 0; i < (2 * BASE_PAGE_SIZE) / sizeof(int); ++i)
-	   number[i] = i;
-
-
-    PRINT_TEST("Allocate pages to check allocater reuses l2 page table correctly");
-	int *numbers[5];
-
-	int i=0;
-	for (;i<5;i++){
-		void* page1=test_alloc_and_map(BASE_PAGE_SIZE, BASE_PAGE_SIZE);
-		numbers[i]=(int*)page1;
-		*numbers[i]=42+i;
-	}
-
-	for (i=0; i<5; i++){
-		debug_printf("%d\n",*numbers[i]);
-	}
-
-    PRINT_TEST("Allocate 2 pages and map only one page");
-    number = (int*)test_alloc_and_map(2 * BASE_PAGE_SIZE, BASE_PAGE_SIZE);
-    *number = 10;
-
-    PRINT_TEST("Allocate big big page (over several L2)");
-    number = (int*)test_alloc_and_map(5 * LARGE_PAGE_SIZE, 5 * LARGE_PAGE_SIZE);
-    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); ++i)
-        number[i] = 42;
 }
