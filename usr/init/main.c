@@ -35,6 +35,7 @@ struct paging_test
 
 static struct paging_test test;
 
+void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame);
 void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
@@ -171,22 +172,27 @@ void runtests_mem_alloc(void)
 	MM_ASSERT(aos_ram_free(mediumCap, alloc_size), "mm_free failed");
 }
 
-void* test_alloc_and_map(size_t alloc_size) {
+void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame) {
 	struct paging_state* paging_state =get_current_paging_state();
 
     struct capref cap_ram;
-    debug_printf("test_paging: Allocating RAM...\n");
+    debug_printf("test_allocate_frame: Allocating RAM...\n");
     errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
-    MM_ASSERT(err, "test_paging: ram_alloc_fixed");
+    MM_ASSERT(err, "test_allocate_frame: ram_alloc_fixed");
 
-    struct capref cap_as_frame;
-	err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, &cap_as_frame);
-	err = cap_retype(cap_as_frame, cap_ram, 0,
+	err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, cap_as_frame);
+	err = cap_retype(*cap_as_frame, cap_ram, 0,
             ObjType_Frame, alloc_size, 1);
-    MM_ASSERT(err, "test_paging: cap_retype");
+    MM_ASSERT(err, "test_allocate_frame: cap_retype");
+}
+
+void* test_alloc_and_map(size_t alloc_size) {
+	struct paging_state* paging_state =get_current_paging_state();
+    struct capref cap_as_frame;
+    test_allocate_frame(alloc_size, &cap_as_frame);
 
     void* address=NULL;
-    err=paging_map_frame_attr(paging_state,&address,alloc_size,
+    errval_t err = paging_map_frame_attr(paging_state,&address,alloc_size,
     		cap_as_frame,VREGION_FLAGS_READ_WRITE,NULL,NULL);
     MM_ASSERT(err, "get_page: paging_map_fixed_attr");
 
@@ -195,13 +201,24 @@ void* test_alloc_and_map(size_t alloc_size) {
 
 void test_paging(void)
 {
-    #define PRINT_TEST(title) debug_printf("TEST%02u: %s\n", ++test.num, title);
+    #define PRINT_TEST(title) debug_printf("###########################\n"); debug_printf("#TEST%02u: %s\n", ++test.num, title);
 
     test.mm = mm_get_default();
+    int* number;
+
+    PRINT_TEST("Unmap test");
+    number = (int*)test_alloc_and_map(BASE_PAGE_SIZE);
+    *number = 42;
+    errval_t err = paging_unmap(get_current_paging_state(), (void*)number);
+    MM_ASSERT(err, "unmap");
+    // Un-comment the 2 following lines to test.
+    // But kind of destructive test :p
+    //debug_printf("Should crash now\n");
+    //*number = 1;
 
     PRINT_TEST("Allocate and map one page");
 	void* page = test_alloc_and_map(BASE_PAGE_SIZE);
-	int *number = (int*)page;
+	number = (int*)page;
 	*number=42;
 
     PRINT_TEST("Allocate and map 2 pages");
@@ -228,4 +245,5 @@ void test_paging(void)
     number = (int*)test_alloc_and_map(5 * LARGE_PAGE_SIZE);
     for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); ++i)
         number[i] = 42;
+
 }

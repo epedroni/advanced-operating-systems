@@ -61,6 +61,7 @@ struct vm_block {
 	struct vm_block* prev;
 	lvaddr_t start_address;
 	size_t size;
+    struct capref mapping;
 };
 
 struct paging_state {
@@ -112,7 +113,7 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  * \brief Find a bit of free virtual address space that is large enough to
  *        accomodate a buffer of size `bytes`.
  */
-errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes);
+errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block);
 
 /**
  * Functions to map a user provided frame.
@@ -123,7 +124,8 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
                                int flags, void *arg1, void *arg2);
 /// Map user provided frame at user provided VA with given flags.
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
-                               struct capref frame, size_t bytes, int flags);
+                               struct capref frame, size_t bytes, int flags,
+                               struct vm_block* block);
 
 /**
  * refill slab allocator without causing a page fault
@@ -153,7 +155,7 @@ static inline errval_t paging_map_fixed(struct paging_state *st, lvaddr_t vaddr,
                                         struct capref frame, size_t bytes)
 {
     return paging_map_fixed_attr(st, vaddr, frame, bytes,
-            VREGION_FLAGS_READ_WRITE);
+            VREGION_FLAGS_READ_WRITE, NULL);
 }
 
 static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {

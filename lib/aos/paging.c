@@ -109,7 +109,7 @@ void paging_init_onthread(struct thread *t)
 errval_t paging_region_init(struct paging_state *st, struct paging_region *pr, size_t size)
 {
     void *base;
-    errval_t err = paging_alloc(st, &base, size);
+    errval_t err = paging_alloc(st, &base, size, NULL);
     if (err_is_fail(err)) {
         debug_printf("paging_region_init: paging_alloc failed\n");
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
@@ -164,7 +164,7 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  * \brief Find a bit of free virtual address space that is large enough to
  *        accomodate a buffer of size `bytes`.
  */
-errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
+errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
 {
     debug_printf("paging_alloc: invoked!\n");
 
@@ -205,6 +205,8 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
         virtual_addr->next = remaining_free_space;
         virtual_addr->size = bytes;
         *buf=(void*)virtual_addr->start_address;
+        if (block)
+            *block = virtual_addr;
         debug_printf("Finished creating new block!\n");
         return SYS_ERR_OK;
     }
@@ -219,13 +221,13 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
                                size_t bytes, struct capref frame,
                                int flags, void *arg1, void *arg2)
 {
-    errval_t err = paging_alloc(st, buf, bytes);
+    struct vm_block* block;
+    errval_t err = paging_alloc(st, buf, bytes, &block);
     if (err_is_fail(err)) {
         return err;
     }
-    err=paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags);
-    debug_printf("paging_map_frame_attr: out\n");
-    return err;
+    assert(block);
+    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags, block);
 }
 
 errval_t
@@ -237,11 +239,9 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 
 /**
  * \brief map a user provided frame at user provided VA.
- * TODO(M1): Map a frame assuming all mappings will fit into one L2 pt
- * TODO(M2): General case
  */
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
-        struct capref frame, size_t bytes, int flags)
+        struct capref frame, size_t bytes, int flags, struct vm_block* block)
 {
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
@@ -258,13 +258,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
                 (ARM_L2_OFFSET(vaddr) << BASE_PAGE_BITS);
-            errval_t err = paging_map_fixed_attr(st, vaddr, frame, bytes_this_l1, flags);
+            errval_t err = paging_map_fixed_attr(st, vaddr, frame, bytes_this_l1, flags, block);
             if (err_is_fail(err))
                 return err;
             vaddr += bytes_this_l1;
             bytes -= bytes_this_l1;
         }
-        return paging_map_fixed_attr(st, vaddr, frame, bytes, flags);
+        return paging_map_fixed_attr(st, vaddr, frame, bytes, flags, block);
     }
     debug_printf("Single l2 page table\n",vaddr,bytes);
     // TODO:
@@ -303,17 +303,18 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     // 3. Map Frame to L2
     // TODO: Handle bad aligned vaddr?
-    struct capref mapping_frame_to_l2;
-    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_frame_to_l2);
+    struct capref mapping_ref;
+    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_ref);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
     err = vnode_map(*l2_cap, frame,
             l2_slot, flags,
-            0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
+            0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
-    debug_printf("paging_map_fixed_attr: out\n");
+    if (block)
+        block->mapping = mapping_ref;
     return SYS_ERR_OK;
 }
 
@@ -345,10 +346,15 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         if(virtual_addr->start_address==address_to_free){
             if (virtual_addr->type == VirtualBlock_Free)
                 return PAGE_ERR_NOT_MAPPED;
+            // TODO: Need to store several mappings in that case.
+            // -> Linked list ie another slab etc...
+            assert(ARM_L1_OFFSET(address_to_free) == ARM_L1_OFFSET(address_to_free + virtual_addr->size - 1) &&
+                "Unmap for mappings spawning over different L2 VNodes not implemented yet.");
             // Merge with previous <- me
             if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
             {
                 virtual_addr->prev->size += virtual_addr->size;
+                virtual_addr->mapping = virtual_addr->mapping;
                 virtual_addr = virtual_addr->prev;
                 vm_block_merge_next_into_me(st, virtual_addr);
             }
@@ -359,8 +365,17 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
                 vm_block_merge_next_into_me(st, virtual_addr);
             }
             virtual_addr->type = VirtualBlock_Free;
-            // TODO: Actually unmap memory
-            return LIB_ERR_NOT_IMPLEMENTED;
+            struct capref l1_pagetable = {
+                .cnode = cnode_page,
+                .slot = 0,
+            };
+            debug_printf("Gonna unmap slot %u:%u -> Mapping cap slot %u\n",
+                (int)ARM_L1_OFFSET(address_to_free),
+                (int)ARM_L2_OFFSET(address_to_free),
+                (int)virtual_addr->mapping.slot);
+            return vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
+                virtual_addr->mapping);
+            return vnode_unmap(l1_pagetable, virtual_addr->mapping);
         }
     }
 
