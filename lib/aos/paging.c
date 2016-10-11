@@ -189,21 +189,21 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
                 st->slabs.refill_func(&st->slabs);
             }
 
-            struct vm_block* used_space=slab_alloc(&st->slabs);
-            debug_printf("Received block: 0x%X!\n",used_space);
-            used_space->type=VirtualBlock_Allocated;
-            debug_printf("Written to newly allocated block!\n",bytes);
-            used_space->prev=virtual_addr->prev;
-            if(used_space->prev!=NULL){
-                used_space->prev->next=used_space;
-            }
-            virtual_addr->prev=used_space;
-            used_space->next=virtual_addr;
-            used_space->size=bytes;
-            virtual_addr->size-=bytes;
-            used_space->start_address=virtual_addr->start_address;
-            virtual_addr->start_address+=bytes;
-            *buf=(void*)used_space->start_address;
+            struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+            debug_printf("Allocated block: 0x%X\n", remaining_free_space);
+            // Create block for remaining free size
+            remaining_free_space->type = VirtualBlock_Free;
+            remaining_free_space->next = virtual_addr->next;
+            remaining_free_space->prev = virtual_addr->prev;
+            if (remaining_free_space->next != NULL)
+                remaining_free_space->next->prev = remaining_free_space;
+            remaining_free_space->start_address = virtual_addr->start_address + bytes;
+            remaining_free_space->size = virtual_addr->size - bytes;
+            // Mark returned block as allocated
+            virtual_addr->type = VirtualBlock_Allocated;
+            virtual_addr->next = remaining_free_space;
+            virtual_addr->size = bytes;
+            *buf=(void*)virtual_addr->start_address;
             debug_printf("Finished creating new block!\n");
             return SYS_ERR_OK;
         }else{
