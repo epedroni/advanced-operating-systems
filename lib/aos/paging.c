@@ -318,9 +318,24 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 }
 
 /**
+ * \brief Merges next node to current node, and update list links accordingly.
+ *          The next node is deleted with the slab allocator.
+ */
+inline void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr)
+{
+    assert(virtual_addr->next);
+    struct vm_block* node_to_free = virtual_addr->next;
+    // Linked list
+    virtual_addr->next = virtual_addr->next->next;
+    if (virtual_addr->next)
+        virtual_addr->next->prev = virtual_addr;
+    // Free
+    slab_free(&st->slabs, node_to_free);
+}
+
+/**
  * \brief unmap a user provided frame, and return the VA of the mapped
  *        frame in `buf`.
- * NOTE: Implementing this function is optional.
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
@@ -328,9 +343,26 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         if(virtual_addr->start_address==address_to_free){
-
+            if (virtual_addr->type == VirtualBlock_Free)
+                return PAGE_ERR_NOT_MAPPED;
+            // Merge with previous <- me
+            if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
+            {
+                virtual_addr->prev->size += virtual_addr->size;
+                virtual_addr = virtual_addr->prev;
+                vm_block_merge_next_into_me(st, virtual_addr);
+            }
+            // Merge with me <- next
+            if (virtual_addr->next && virtual_addr->next->type == VirtualBlock_Free)
+            {
+                virtual_addr->size += virtual_addr->next->size;
+                vm_block_merge_next_into_me(st, virtual_addr);
+            }
+            virtual_addr->type = VirtualBlock_Free;
+            // TODO: Actually unmap memory
+            return LIB_ERR_NOT_IMPLEMENTED;
         }
     }
 
-    return SYS_ERR_OK;
+    return PAGE_ERR_NOT_MAPPED;
 }
