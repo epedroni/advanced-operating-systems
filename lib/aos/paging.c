@@ -168,7 +168,6 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
 {
     debug_printf("paging_alloc: invoked!\n");
 
-    // TODO: M2 Implement this function
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         //If it is used, just skip it
@@ -210,7 +209,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
             continue;
         }
     }
-    return SYS_ERR_OK;    //TODO: Throw adequate error
+    return PAGE_ERR_OUT_OF_VMEM;
 }
 
 /**

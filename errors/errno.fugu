@@ -699,6 +699,7 @@ errors paging PAGE_ERR_ {
     failure VNODE_MAP_L2        "L2 -> L1 mapping failed",
     failure VNODE_MAP_FRAME     "Frame -> L2 mapping failed",
     failure NO_BYTES            "Can't map zero size",
+    failure OUT_OF_VMEM         "Out of virtual memory. No address available",
 };
 
 // errors in init
