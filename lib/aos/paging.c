@@ -59,7 +59,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     initial_free_space->prev=NULL;
     initial_free_space->next=NULL;
     initial_free_space->start_address=start_vaddr;
-    initial_free_space->size=VADDR_OFFSET;	//TODO: Figure out how to limit size of virtual memory
+    initial_free_space->size=VADDR_OFFSET;    //TODO: Figure out how to limit size of virtual memory
 
     st->head=initial_free_space;
     // TODO (M2): implement state struct initialization
@@ -83,7 +83,7 @@ errval_t paging_init(void)
     // you can handle page faults in any thread of a domain.
     // TIP: it might be a good idea to call paging_init_state() from here to
     // avoid code duplication.
-    struct capref pdir;	//TODO: Check what this paramether is for
+    struct capref pdir;    //TODO: Check what this paramether is for
     paging_init_state(&current, VADDR_OFFSET, pdir, get_default_slot_allocator());
     set_current_paging_state(&current);
 
@@ -166,51 +166,51 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
 {
-	debug_printf("paging_alloc: invoked!\n");
+    debug_printf("paging_alloc: invoked!\n");
 
     // TODO: M2 Implement this function
-	struct vm_block* virtual_addr=st->head;
-	for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
-		//If it is used, just skip it
-		if(virtual_addr->type==VirtualBlock_Allocated)
-			continue;
+    struct vm_block* virtual_addr=st->head;
+    for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
+        //If it is used, just skip it
+        if(virtual_addr->type==VirtualBlock_Allocated)
+            continue;
 
-		//if it is exact same size, just retype it
-		if(virtual_addr->size==bytes){
-			debug_printf("Retyping block!\n");
-			virtual_addr->type=VirtualBlock_Allocated;
-			*buf=(void*)virtual_addr->start_address;
-			return SYS_ERR_OK;
-		}else if(virtual_addr->size>bytes){
-			debug_printf("Spliting block for %lu bytes!\n", bytes);
+        //if it is exact same size, just retype it
+        if(virtual_addr->size==bytes){
+            debug_printf("Retyping block!\n");
+            virtual_addr->type=VirtualBlock_Allocated;
+            *buf=(void*)virtual_addr->start_address;
+            return SYS_ERR_OK;
+        }else if(virtual_addr->size>bytes){
+            debug_printf("Spliting block for %lu bytes!\n", bytes);
 
-			if (!slab_has_freecount(&st->slabs, 2)){
-				debug_printf("Slab count is less than 2, refilling\n");
-				st->slabs.refill_func(&st->slabs);
-			}
+            if (!slab_has_freecount(&st->slabs, 2)){
+                debug_printf("Slab count is less than 2, refilling\n");
+                st->slabs.refill_func(&st->slabs);
+            }
 
-			struct vm_block* used_space=slab_alloc(&st->slabs);
-			debug_printf("Received block: 0x%X!\n",used_space);
-			used_space->type=VirtualBlock_Allocated;
-			debug_printf("Written to newly allocated block!\n",bytes);
-			used_space->prev=virtual_addr->prev;
-			if(used_space->prev!=NULL){
-				used_space->prev->next=used_space;
-			}
-			virtual_addr->prev=used_space;
-			used_space->next=virtual_addr;
-			used_space->size=bytes;
-			virtual_addr->size-=bytes;
-			used_space->start_address=virtual_addr->start_address;
-			virtual_addr->start_address+=bytes;
-			*buf=(void*)used_space->start_address;
-			debug_printf("Finished creating new block!\n");
-			return SYS_ERR_OK;
-		}else{
-			continue;
-		}
-	}
-    return SYS_ERR_OK;	//TODO: Throw adequate error
+            struct vm_block* used_space=slab_alloc(&st->slabs);
+            debug_printf("Received block: 0x%X!\n",used_space);
+            used_space->type=VirtualBlock_Allocated;
+            debug_printf("Written to newly allocated block!\n",bytes);
+            used_space->prev=virtual_addr->prev;
+            if(used_space->prev!=NULL){
+                used_space->prev->next=used_space;
+            }
+            virtual_addr->prev=used_space;
+            used_space->next=virtual_addr;
+            used_space->size=bytes;
+            virtual_addr->size-=bytes;
+            used_space->start_address=virtual_addr->start_address;
+            virtual_addr->start_address+=bytes;
+            *buf=(void*)used_space->start_address;
+            debug_printf("Finished creating new block!\n");
+            return SYS_ERR_OK;
+        }else{
+            continue;
+        }
+    }
+    return SYS_ERR_OK;    //TODO: Throw adequate error
 }
 
 /**
@@ -255,7 +255,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
     if (l1_slot != l1_slot_end)
     {
-    	debug_printf("Several l2 pages\n",vaddr,bytes);
+        debug_printf("Several l2 pages\n",vaddr,bytes);
         for (; l1_slot < l1_slot_end; ++l1_slot)
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
@@ -289,13 +289,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         st->l2nodes[l1_slot].used=true;
 
         struct capref mapping_l2_to_l1;
-		err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
+        err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
         if (err_is_fail(err))
             return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
-	    err = vnode_map(l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
-	    		l1_slot, VREGION_FLAGS_READ_WRITE,
-	            0, 1, mapping_l2_to_l1);
+        err = vnode_map(l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
+                l1_slot, VREGION_FLAGS_READ_WRITE,
+                0, 1, mapping_l2_to_l1);
         if (err_is_fail(err))
             return err_push(err, PAGE_ERR_VNODE_MAP_L2);
     }
@@ -311,7 +311,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
     err = vnode_map(*l2_cap, frame,
-    		l2_slot, flags,
+            l2_slot, flags,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_frame_to_l2);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
@@ -326,13 +326,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
-	lvaddr_t address_to_free=(lvaddr_t)region;
-	struct vm_block* virtual_addr=st->head;
-	for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
-		if(virtual_addr->start_address==address_to_free){
+    lvaddr_t address_to_free=(lvaddr_t)region;
+    struct vm_block* virtual_addr=st->head;
+    for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
+        if(virtual_addr->start_address==address_to_free){
 
-		}
-	}
+        }
+    }
 
     return SYS_ERR_OK;
 }
