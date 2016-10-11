@@ -170,44 +170,43 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes)
 
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
-        //If it is used, just skip it
-        if(virtual_addr->type==VirtualBlock_Allocated)
+        // If it is used or too small, skip it
+        if (virtual_addr->type == VirtualBlock_Allocated ||
+            virtual_addr->size < bytes)
             continue;
 
         //if it is exact same size, just retype it
-        if(virtual_addr->size==bytes){
+        if (virtual_addr->size==bytes){
             debug_printf("Retyping block!\n");
             virtual_addr->type=VirtualBlock_Allocated;
             *buf=(void*)virtual_addr->start_address;
             return SYS_ERR_OK;
-        }else if(virtual_addr->size>bytes){
-            debug_printf("Spliting block for %lu bytes!\n", bytes);
-
-            if (!slab_has_freecount(&st->slabs, 2)){
-                debug_printf("Slab count is less than 2, refilling\n");
-                st->slabs.refill_func(&st->slabs);
-            }
-
-            struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
-            debug_printf("Allocated block: 0x%X\n", remaining_free_space);
-            // Create block for remaining free size
-            remaining_free_space->type = VirtualBlock_Free;
-            remaining_free_space->next = virtual_addr->next;
-            remaining_free_space->prev = virtual_addr->prev;
-            if (remaining_free_space->next != NULL)
-                remaining_free_space->next->prev = remaining_free_space;
-            remaining_free_space->start_address = virtual_addr->start_address + bytes;
-            remaining_free_space->size = virtual_addr->size - bytes;
-            // Mark returned block as allocated
-            virtual_addr->type = VirtualBlock_Allocated;
-            virtual_addr->next = remaining_free_space;
-            virtual_addr->size = bytes;
-            *buf=(void*)virtual_addr->start_address;
-            debug_printf("Finished creating new block!\n");
-            return SYS_ERR_OK;
-        }else{
-            continue;
         }
+        assert(virtual_addr->size > bytes);
+        debug_printf("Spliting block for %lu bytes!\n", bytes);
+
+        if (!slab_has_freecount(&st->slabs, 2)){
+            debug_printf("Slab count is less than 2, refilling\n");
+            st->slabs.refill_func(&st->slabs);
+        }
+
+        struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+        debug_printf("Allocated block: 0x%X\n", remaining_free_space);
+        // Create block for remaining free size
+        remaining_free_space->type = VirtualBlock_Free;
+        remaining_free_space->next = virtual_addr->next;
+        remaining_free_space->prev = virtual_addr->prev;
+        if (remaining_free_space->next != NULL)
+            remaining_free_space->next->prev = remaining_free_space;
+        remaining_free_space->start_address = virtual_addr->start_address + bytes;
+        remaining_free_space->size = virtual_addr->size - bytes;
+        // Mark returned block as allocated
+        virtual_addr->type = VirtualBlock_Allocated;
+        virtual_addr->next = remaining_free_space;
+        virtual_addr->size = bytes;
+        *buf=(void*)virtual_addr->start_address;
+        debug_printf("Finished creating new block!\n");
+        return SYS_ERR_OK;
     }
     return PAGE_ERR_OUT_OF_VMEM;
 }
