@@ -14,39 +14,41 @@ extern struct bootinfo *bi;
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     printf("spawn start_child: starting: %s\n", binary_name);
 
+    // 1- Get the binary from multiboot image
     errval_t err;
     struct mem_region* process_mem_reg=multiboot_find_module(bi,binary_name);
 
-    if(!process_mem_reg){
-    	debug_printf("Error finding module! Aborting\n");
-    	return SYS_ERR_OK;
-    }
+    if (!process_mem_reg)
+        return SPAWN_ERR_LOAD;
 
-    // Init spawninfo
     memset(si, 0, sizeof(*si));
     si->binary_name = binary_name;
 
     debug_printf("Received address of mem_region: 0x%X\n",process_mem_reg);
 
+    // Binary frame
     struct capref spawned_process={
     		.cnode=cnode_module,
 			.slot=process_mem_reg->mrmod_slot
     };
 
+    // 2- Map multiboot module in your address space
     struct paging_state* page_state=get_current_paging_state();
     void* address=NULL;
-	err=paging_map_frame_attr(page_state, &address, BASE_PAGE_SIZE,
+	err = paging_map_frame_attr(page_state, &address, BASE_PAGE_SIZE,
 			spawned_process, VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err))
+        return err_push(err, SPAWN_ERR_SPAN);
 
+    char* elf = (char*)address;
+    debug_printf("Beginning: %c %c %c %c\n", elf[0], elf[1], elf[2], elf[3]);
     // TODO: Implement me
-    // - Get the binary from multiboot image
-    // - Map multiboot module in your address space
-    // - Setup childs cspace
-    // - Setup childs vspace
-    // - Load the ELF binary
-    // - Setup dispatcher
-    // - Setup environment
-    // - Make dispatcher runnable
+    // 3- Setup childs cspace
+    // 4- Setup childs vspace
+    // 5- Load the ELF binary
+    // 6- Setup dispatcher
+    // 7- Setup environment
+    // 8- Make dispatcher runnable
 
     return SYS_ERR_OK;
 }
