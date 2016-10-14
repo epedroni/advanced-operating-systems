@@ -52,7 +52,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     st->slot_alloc=ca;
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
-    slab_grow(&st->slabs, st->virtual_memory_regions,sizeof(st->virtual_memory_regions));
+    slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
 
     struct vm_block* initial_free_space=slab_alloc(&st->slabs);
     initial_free_space->type=VirtualBlock_Free;
@@ -185,8 +185,8 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         assert(virtual_addr->size > bytes);
         debug_printf("Spliting block for %lu bytes!\n", bytes);
 
-        if (!slab_has_freecount(&st->slabs, 2)){
-            debug_printf("Slab count is less than 2, refilling\n");
+        if (!slab_has_freecount(&st->slabs, 5)){
+            debug_printf("PAGING: Slab count is less than 5, refilling\n");
             st->slabs.refill_func(&st->slabs);
         }
 

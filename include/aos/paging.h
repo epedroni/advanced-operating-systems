@@ -68,7 +68,7 @@ struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
-    struct vm_block virtual_memory_regions[7];	//Lets give some buffer for slab to allocate
+    struct vm_block virtual_memory_regions[10];	//Lets give some buffer for slab to allocate
     struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
     struct vm_block* head;
 };

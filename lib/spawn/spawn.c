@@ -42,11 +42,62 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
 
     char* elf = (char*)address;
     debug_printf("Beginning: 0x%x %c %c %c\n", elf[0], elf[1], elf[2], elf[3]);
-    // TODO: Implement me
+
     // 3- Setup childs cspace
+    struct cnoderef cnoderef;
+    struct capref child_l1_cnode;
+    struct cnoderef child_l2_cnodes[ROOTCN_SLOTS_USER];
+    err = cnode_create_l1(&child_l1_cnode, &cnoderef);
+    if (err_is_fail(err))
+        return err_push(err, SPAWN_ERR_SETUP_CSPACE);
+
+    for (int i = 0; i < ROOTCN_SLOTS_USER; ++i)
+    {
+        err = cnode_create_foreign_l2(child_l1_cnode,
+                i,
+                &child_l2_cnodes[i]);
+        if (err_is_fail(err))
+            return err_push(err, SPAWN_ERR_SETUP_CSPACE);
+    }
+
+    // Fill capabilities
+    // ROOTCN_SLOT_TASKCN
+        // TASKCN_SLOT_SELFEP -- done in 6.
+        // TASKCN_SLOT_DISPATCHER -- done in 6.
+        // TASKCN_SLOT_ROOTCN
+        struct capref child_rootcn;
+        child_rootcn.cnode = child_l2_cnodes[ROOTCN_SLOT_TASKCN];
+        child_rootcn.slot = TASKCN_SLOT_ROOTCN;
+        err = cap_copy(child_rootcn, child_l1_cnode);
+        if (err_is_fail(err))
+            return err_push(err, SPAWN_ERR_SETUP_CSPACE);
+        // TASKCN_SLOT_DISPFRAME ??
+        // TASKCN_SLOT_ARGSPAGE ??
+    // ROOTCN_SLOT_BASE_PAGE_CN
+    // Slot for a cnode of BASE_PAGE_SIZE frames
+    // TODO: Used?
+    struct capref child_frame_ref;
+    child_frame_ref.cnode = child_l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
+    for (child_frame_ref.slot = 0; child_frame_ref.slot < L2_CNODE_SLOTS; ++child_frame_ref.slot)
+    {
+        struct capref page_ref;
+        err = ram_alloc(&page_ref, BASE_PAGE_SIZE);
+        if (err_is_fail(err))
+            return err_push(err, SPAWN_ERR_CREATE_PAGECN);
+        //TODO: RAM or Frame?
+        err = cap_copy(child_frame_ref, page_ref);
+        if (err_is_fail(err))
+            return err_push(err, SPAWN_ERR_CREATE_PAGECN);
+    }
+    // ROOTCN_SLOT_PAGECN
+    // Slot 0 contains L1 PageTable
+
     // 4- Setup childs vspace
+        // TODO: Implement me
     // 5- Load the ELF binary
     // 6- Setup dispatcher
+        // Fill ROOTCN_SLOT_TASKCN.TASKCN_SLOT_SELFEP
+        // and ROOTCN_SLOT_TASKCN.TASKCN_SLOT_DISPATCHER
     // 7- Setup environment
     // 8- Make dispatcher runnable
 
