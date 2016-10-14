@@ -22,7 +22,8 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         return SPAWN_ERR_FIND_MODULE;
 
     memset(si, 0, sizeof(*si));
-    si->binary_name = binary_name;
+    si->binary_name = malloc(strlen(binary_name) + 1);
+    strcpy(si->binary_name, binary_name);
 
     debug_printf("Received address of mem_region: 0x%X\n",process_mem_reg);
 
@@ -110,6 +111,54 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // 6- Setup dispatcher
         // Fill ROOTCN_SLOT_TASKCN.TASKCN_SLOT_SELFEP
         // and ROOTCN_SLOT_TASKCN.TASKCN_SLOT_DISPATCHER
+    struct capref dispatcher_ram;
+    struct capref dispatcher_frame;
+    struct capref dispatcher_endpoint;
+    //TODO: Allocate dispatcher_frame and dispatcher_endpoint
+    ERROR_RET1(ram_alloc(&dispatcher_ram, 1<<DISPATCHER_FRAME_BITS));
+    ERROR_RET1(cap_retype(dispatcher_frame, dispatcher_ram, 0,
+        ObjType_Frame, 1<<DISPATCHER_FRAME_BITS, 1));
+	struct capref slot_dispatcher={
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+		.slot=TASKCN_SLOT_DISPATCHER
+	};
+    struct capref slot_selfep={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+        .slot=TASKCN_SLOT_SELFEP
+    };
+    ERROR_RET1(cap_copy(slot_dispatcher, dispatcher_frame));
+    ERROR_RET1(cap_retype(dispatcher_endpoint, dispatcher_frame, 0,
+        ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
+    ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
+
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(dispatcher_frame);
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(dispatcher_frame);
+    struct dispatcher_shared_arm *disp_arm =
+        get_dispatcher_shared_arm(dispatcher_frame);
+    arch_registers_state_t *enabled_area =
+        dispatcher_get_enabled_save_area(dispatcher_frame);
+    arch_registers_state_t *disabled_area =
+        dispatcher_get_disabled_save_area(dispatcher_frame);
+
+    disp_gen->core_id = my_core_id; // core id of the process
+    disp->udisp = 0; // TODO: Virtual address of the dispatcher frame in childs VSpace
+    disp->disabled = 1; // Start in disabled mode
+    disp->fpu_trap = 1; // Trap on fpu instructions
+    strncpy(disp->name, binary_name, DISP_NAME_LEN); // A name (for debugging)
+    // TODO: Map, and give address in child's space?
+    disabled_area->named.pc = child_entry_point; // Set program counter (where it should start to execute)
+    // Initialize offset registers
+    disp_arm->got_base = got; // Address of .got in childs VSpace.
+    enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got; // same as above
+    disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got; // same as above
+    6enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
+    disabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
+    disp_gen->eh_frame = 0;
+    disp_gen->eh_frame_size = 0;
+    disp_gen->eh_frame_hdr = 0;
+    disp_gen->eh_frame_hdr_size = 0;
+
     // 7- Setup environment
     // 8- Make dispatcher runnable
 
