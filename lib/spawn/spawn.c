@@ -43,20 +43,18 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
             SPAWN_ERR_MAP_MODULE);
 
     char* elf = (char*)address;
-    debug_printf("Beginning: 0x%x %c %c %c. Size=%u\n",
-        elf[0], elf[1], elf[2], elf[3],
+    debug_printf("Beginning at 0x%x: 0x%x %c %c %c. Size=%u\n",
+        (int)address, elf[0], elf[1], elf[2], elf[3],
         spawned_process_frame_id.bytes);
 
     // 3- Setup childs cspace
     struct cnoderef cnoderef;
-    struct capref child_l1_cnode;
-    struct cnoderef child_l2_cnodes[ROOTCN_SLOTS_USER];
-    ERROR_RET2(cnode_create_l1(&child_l1_cnode, &cnoderef), SPAWN_ERR_SETUP_CSPACE);
+    ERROR_RET2(cnode_create_l1(&si->l1_cnode_cap, &cnoderef), SPAWN_ERR_SETUP_CSPACE);
 
     for (int i = 0; i < ROOTCN_SLOTS_USER; ++i)
     {
-        ERROR_RET2(cnode_create_foreign_l2(child_l1_cnode,
-                i, &child_l2_cnodes[i]), SPAWN_ERR_SETUP_CSPACE);
+        ERROR_RET2(cnode_create_foreign_l2(si->l1_cnode_cap,
+                i, &si->l2_cnodes[i]), SPAWN_ERR_SETUP_CSPACE);
     }
 
     // Fill capabilities
@@ -65,9 +63,9 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         // TASKCN_SLOT_DISPATCHER -- done in 6.
         // TASKCN_SLOT_ROOTCN
         struct capref child_rootcn;
-        child_rootcn.cnode = child_l2_cnodes[ROOTCN_SLOT_TASKCN];
+        child_rootcn.cnode = si->l2_cnodes[ROOTCN_SLOT_TASKCN];
         child_rootcn.slot = TASKCN_SLOT_ROOTCN;
-        ERROR_RET2(cap_copy(child_rootcn, child_l1_cnode),
+        ERROR_RET2(cap_copy(child_rootcn, si->l1_cnode_cap),
             SPAWN_ERR_MINT_ROOTCN);
         // TASKCN_SLOT_DISPFRAME ??
         // TASKCN_SLOT_ARGSPAGE ??
@@ -76,7 +74,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // TODO: Used?
 
     struct capref child_frame_ref;
-    child_frame_ref.cnode = child_l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
+    child_frame_ref.cnode = si->l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
     for (child_frame_ref.slot = 0; child_frame_ref.slot < L2_CNODE_SLOTS; ++child_frame_ref.slot)
     {
         struct capref page_ref;
@@ -87,7 +85,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // 4- Setup childs vspace
     // Slot 0 contains L1 PageTable
 	struct capref l1_vnode_dest={
-		.cnode=child_l2_cnodes[ROOTCN_SLOT_PAGECN],
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
 		.slot=0
 	};
 	// Allocate L1 arm vnode
@@ -97,10 +95,13 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
 
     // 5- Load the ELF binary
     genvaddr_t child_entry_point;
+    debug_printf("Loading ELF binary...\n");
+    // TODO: CRASHING. WHY???
     ERROR_RET2(elf_load(EM_ARM, elf_allocator,
         NULL, (lvaddr_t)address,
         spawned_process_frame_id.bytes, &child_entry_point),
         SPAWN_ERR_LOAD);
+    debug_printf("elf32_find_section_header_name...\n");
     struct Elf32_Shdr* got = elf32_find_section_header_name((lvaddr_t)address,
         spawned_process_frame_id. bytes, ".got");
     if (!got)
@@ -117,6 +118,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
 
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret)
 {
+    debug_printf("elf_allocator");
     struct capref cap;
     ERROR_RET1(ram_alloc(&cap, size));
     // TODO
