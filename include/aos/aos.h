@@ -55,6 +55,9 @@
 
 /* XXX: utility macros. not sure where to put these */
 
+#define ERROR_RET1(func) { errval_t __err = (func); if (err_is_fail(__err)) return __err; }
+#define ERROR_RET2(func, push_err) { errval_t __err = (func); if (err_is_fail(__err)) return err_push(__err, push_err); }
+
 /* Duplicate memory */
 static inline void * memdup(const void *ptr, size_t size) {
     void *res = malloc(size);
