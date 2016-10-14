@@ -76,6 +76,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // ROOTCN_SLOT_BASE_PAGE_CN
     // Slot for a cnode of BASE_PAGE_SIZE frames
     // TODO: Used?
+
     struct capref child_frame_ref;
     child_frame_ref.cnode = child_l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
     for (child_frame_ref.slot = 0; child_frame_ref.slot < L2_CNODE_SLOTS; ++child_frame_ref.slot)
@@ -84,16 +85,23 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         err = ram_alloc(&page_ref, BASE_PAGE_SIZE);
         if (err_is_fail(err))
             return err_push(err, SPAWN_ERR_CREATE_PAGECN);
-        //TODO: RAM or Frame?
+        //TODO: RAM or Frame, guess it should be a frame.
         err = cap_copy(child_frame_ref, page_ref);
         if (err_is_fail(err))
             return err_push(err, SPAWN_ERR_CREATE_PAGECN);
     }
-    // ROOTCN_SLOT_PAGECN
-    // Slot 0 contains L1 PageTable
-
     // 4- Setup childs vspace
-        // TODO: Implement me
+    // Slot 0 contains L1 PageTable
+	struct capref l1_vnode_dest={
+		.cnode=child_l2_cnodes[ROOTCN_SLOT_PAGECN],
+		.slot=0
+	};
+	// Allocate L1 arm vnode
+	err=vnode_create(l1_vnode_dest, ObjType_VNode_ARM_l1);
+    if (err_is_fail(err))
+        return err_push(err, SPAWN_ERR_L1_VNODE_CREATE);
+    debug_printf("Created child L1 pagetable\n");
+
     // 5- Load the ELF binary
     // 6- Setup dispatcher
         // Fill ROOTCN_SLOT_TASKCN.TASKCN_SLOT_SELFEP
