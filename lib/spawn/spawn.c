@@ -41,7 +41,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         return err_push(err, SPAWN_ERR_SPAN);
 
     char* elf = (char*)address;
-    debug_printf("Beginning: %c %c %c %c\n", elf[0], elf[1], elf[2], elf[3]);
+    debug_printf("Beginning: 0x%x %c %c %c\n", elf[0], elf[1], elf[2], elf[3]);
     // TODO: Implement me
     // 3- Setup childs cspace
     // 4- Setup childs vspace
