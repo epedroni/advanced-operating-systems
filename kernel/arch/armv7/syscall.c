@@ -843,11 +843,11 @@ static struct sysret dispatcher_dump_ptables(
     assert(to->type == ObjType_Dispatcher);
     assert(2 == argc);
 
-    printf("kernel_dump_ptables\n");
+    printf("CRASH. THIS IS A CRASH. YOU CRASHED ME AGAIN.\n");
 
-    struct dcb *dispatcher = to->u.dispatcher.dcb;
+//    struct dcb *dispatcher = to->u.dispatcher.dcb;
 
-    paging_dump_tables(dispatcher);
+//    paging_dump_tables(dispatcher);
 
     return SYSRET(SYS_ERR_OK);
 }
