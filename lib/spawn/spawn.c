@@ -39,7 +39,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // 2- Map multiboot module in your address space
     struct paging_state* page_state=get_current_paging_state();
     void* address=NULL;
-	ERROR_RET2(paging_map_frame_attr(page_state, &address, BASE_PAGE_SIZE,
+	ERROR_RET2(paging_map_frame_attr(page_state, &address, spawned_process_frame_id.bytes,
 			spawned_process_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL),
             SPAWN_ERR_MAP_MODULE);
 
