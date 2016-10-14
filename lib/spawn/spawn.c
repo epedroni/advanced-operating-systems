@@ -97,7 +97,6 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // 5- Load the ELF binary
     genvaddr_t child_entry_point;
     debug_printf("Loading ELF binary...\n");
-    // TODO: CRASHING. WHY???
     ERROR_RET2(elf_load(EM_ARM, elf_allocator,
         NULL, (lvaddr_t)address,
         spawned_process_frame_id.bytes, &child_entry_point),
@@ -111,13 +110,10 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     // 6- Setup dispatcher
         // Fill ROOTCN_SLOT_TASKCN.TASKCN_SLOT_SELFEP
         // and ROOTCN_SLOT_TASKCN.TASKCN_SLOT_DISPATCHER
-    struct capref dispatcher_ram;
-    struct capref dispatcher_frame;
+    struct capref dispatcher_cap;
     struct capref dispatcher_endpoint;
-    //TODO: Allocate dispatcher_frame and dispatcher_endpoint
-    ERROR_RET1(ram_alloc(&dispatcher_ram, 1<<DISPATCHER_FRAME_BITS));
-    ERROR_RET1(cap_retype(dispatcher_frame, dispatcher_ram, 0,
-        ObjType_Frame, 1<<DISPATCHER_FRAME_BITS, 1));
+    //TODO: Allocate slots for dispatcher_cap, dispatcher_endpoint
+    ERROR_RET1(dispatcher_create(dispatcher_cap));
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPATCHER
@@ -126,10 +122,12 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_SELFEP
     };
-    ERROR_RET1(cap_copy(slot_dispatcher, dispatcher_frame));
-    ERROR_RET1(cap_retype(dispatcher_endpoint, dispatcher_frame, 0,
+    ERROR_RET1(cap_copy(slot_dispatcher, dispatcher_cap));
+    ERROR_RET1(cap_retype(dispatcher_endpoint, dispatcher_cap, 0,
         ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
+
+    // Map dispatcher
 
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(dispatcher_frame);
