@@ -7,6 +7,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>
 
+
 extern struct bootinfo *bi;
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret);
 
@@ -24,6 +25,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     memset(si, 0, sizeof(*si));
     si->binary_name = malloc(strlen(binary_name) + 1);
     strcpy(si->binary_name, binary_name);
+    si->base_virtual_address=VADDR_OFFSET;
 
     debug_printf("Received address of mem_region: 0x%X\n",process_mem_reg);
 
@@ -127,7 +129,34 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
 
+    struct capref l2_arm_vtable={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
+        .slot=1	//first slot for l2 pagetable
+    };
+
+    ERROR_RET1(vnode_create(l2_arm_vtable, ObjType_VNode_ARM_l2));
+
+    struct capref l2_to_l1_mapping={
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
+		.slot=2	//second slot for l2 to l1 mapping
+	};
+
+    vnode_map(l1_vnode_dest, l2_arm_vtable,
+    		ARM_L1_OFFSET(si->base_virtual_address), VREGION_FLAGS_READ_WRITE,
+                    0, 1, l2_to_l1_mapping);
+
+    struct capref dispatcher_mapping={
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
+		.slot=3	//second slot for l2 to l1 mapping
+	};
+
     // Map dispatcher
+    vnode_map(l2_arm_vtable, dispatcher_cap,
+    		ARM_L2_OFFSET(si->base_virtual_address), VREGION_FLAGS_READ_WRITE,
+                0, 1, dispatcher_mapping);
+
+    si->base_virtual_address+=BASE_PAGE_SIZE;
+
 
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(dispatcher_frame);

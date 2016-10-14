@@ -28,6 +28,8 @@ struct spawninfo {
     // your new process!
     struct cnoderef l2_cnodes[ROOTCN_SLOTS_USER];
     struct capref l1_cnode_cap;
+
+    lvaddr_t base_virtual_address;
 };
 
 // Start a child process by binary name. Fills in si
