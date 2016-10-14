@@ -59,20 +59,14 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     }
 
     // Fill capabilities
-    // ROOTCN_SLOT_TASKCN
-        // TASKCN_SLOT_SELFEP -- done in 6.
-        // TASKCN_SLOT_DISPATCHER -- done in 6.
-        // TASKCN_SLOT_ROOTCN
-        struct capref child_rootcn;
-        child_rootcn.cnode = si->l2_cnodes[ROOTCN_SLOT_TASKCN];
-        child_rootcn.slot = TASKCN_SLOT_ROOTCN;
-        ERROR_RET2(cap_copy(child_rootcn, si->l1_cnode_cap),
-            SPAWN_ERR_MINT_ROOTCN);
+    // ROOTCN_SLOT_TASKCN.TASKCN_SLOT_ROOTCN
+    struct capref child_rootcn;
+    child_rootcn.cnode = si->l2_cnodes[ROOTCN_SLOT_TASKCN];
+    child_rootcn.slot = TASKCN_SLOT_ROOTCN;
+    ERROR_RET2(cap_copy(child_rootcn, si->l1_cnode_cap),
+        SPAWN_ERR_MINT_ROOTCN);
         // TASKCN_SLOT_DISPFRAME ??
         // TASKCN_SLOT_ARGSPAGE ??
-    // ROOTCN_SLOT_BASE_PAGE_CN
-    // Slot for a cnode of BASE_PAGE_SIZE frames
-    // TODO: Used?
 
     struct capref child_frame_ref;
     child_frame_ref.cnode = si->l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
@@ -108,12 +102,10 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         return SPAWN_ERR_LOAD;
 
     // 6- Setup dispatcher
-        // Fill ROOTCN_SLOT_TASKCN.TASKCN_SLOT_SELFEP
-        // and ROOTCN_SLOT_TASKCN.TASKCN_SLOT_DISPATCHER
-    struct capref dispatcher_cap;
+    struct capref child_dispatcher_cap;
     struct capref dispatcher_endpoint;
-    //TODO: Allocate slots for dispatcher_cap, dispatcher_endpoint
-    ERROR_RET1(dispatcher_create(dispatcher_cap));
+    //TODO: Allocate slots for child_dispatcher_cap, dispatcher_endpoint
+    ERROR_RET1(dispatcher_create(child_dispatcher_cap));
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPATCHER
@@ -122,8 +114,8 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_SELFEP
     };
-    ERROR_RET1(cap_copy(slot_dispatcher, dispatcher_cap));
-    ERROR_RET1(cap_retype(dispatcher_endpoint, dispatcher_cap, 0,
+    ERROR_RET1(cap_copy(slot_dispatcher, child_dispatcher_cap));
+    ERROR_RET1(cap_retype(dispatcher_endpoint, child_dispatcher_cap, 0,
         ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
 
@@ -150,17 +142,34 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     disp_arm->got_base = got; // Address of .got in childs VSpace.
     enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got; // same as above
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got; // same as above
-    6enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
+    enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     disabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     disp_gen->eh_frame = 0;
     disp_gen->eh_frame_size = 0;
     disp_gen->eh_frame_hdr = 0;
     disp_gen->eh_frame_hdr_size = 0;
 
-    // 7- Setup environment
-    // 8- Make dispatcher runnable
+    // 7- Setup arguments
+    const char* args = multiboot_module_opts(process_mem_reg);
+    size_t args_length = strlen(args);
+    size_t domain_params_frame_size = sizeof(spawn_domain_params);
+    domain_params_frame_size += args_length + 1;
+    struct spawn_domain_params child_args;
+    child_args.argc = 0;
+    memset(&child_args.argv[0], 0, sizeof(child_args.argv));
+    memset(&child_args.envp[0], 0, sizeof(child_args.envp));
+    child_args.vspace_buf = NULL;   // TODO: Serialised vspace data
+    child_args.vspace_buf_len = 0;   // TODO: Length of serialised vspace data
+    child_args.tls_init_base = NULL;     // TODO: Address of initialised TLS data block
+    child_args.tls_init_len = 0;     // TODO: Length of initialised TLS data block
+    child_args.tls_total_len = 0;   // TODO: Total (initialised + BSS) TLS data length
+    child_args.pagesize = 0;        // TODO: the page size to be used (domain spanning)
 
-    return SYS_ERR_OK;
+
+    // 8- Make dispatcher runnable
+    return invoke_dispatcher(child_dispatcher_cap, cap_dispatcher,
+                  si->l1_cnode_cap, l1_vnode_dest,
+                  slot_dispatcher, true);
 }
 
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret)
