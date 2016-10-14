@@ -565,6 +565,7 @@ errors spawn SPAWN_ERR_ {
     failure SETUP_ENV           "Failure in spawn_setup_env",
     failure UNKNOWN_TARGET_ARCH    "Unknown target architecture type",
     failure UNSUPPORTED_TARGET_ARCH     "Unsupported target architecture type",
+    failure L1_VNODE_CREATE     "Failed to create L1 node",
 
     failure SETUP_CSPACE    "Failure in spawn_setup_cspace",
     failure DETERMINE_CPUTYPE    "Failure in spawn_determine_cputype",
