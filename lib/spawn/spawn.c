@@ -92,7 +92,7 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
     si->l1_pagetable_child_cap.cnode = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
     si->l1_pagetable_child_cap.slot = 0;
 
-    // TODO: Allocate 'l1_pagetable_own_cap'
+    ERROR_RET1(slot_alloc(&si->l1_pagetable_own_cap));
     // Allocate L1 arm vnode
     ERROR_RET2(vnode_create(si->l1_pagetable_own_cap, ObjType_VNode_ARM_l1),
         SPAWN_ERR_L1_VNODE_CREATE);
@@ -112,11 +112,12 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
     si->pagecn_next_slot=0; // Index 0 is reserved for L1 PT.
 
     // I. Create L2 Pagetable
-    // TODO: Allocate slot 'child_l2_pt_own_cap'
+    ERROR_RET1(slot_alloc(&si->child_l2_pt_own_cap));
     ERROR_RET1(vnode_create(si->child_l2_pt_own_cap, ObjType_VNode_ARM_l2));
 
     // II. Map child L2 -> child L1 for base virtual address
-    struct capref l2_to_l1_mapping_own_cap; // TODO: Allocate me
+    struct capref l2_to_l1_mapping_own_cap;
+    ERROR_RET1(slot_alloc(&l2_to_l1_mapping_own_cap));
     ERROR_RET1(vnode_map(si->l1_pagetable_own_cap, si->child_l2_pt_own_cap,
     		ARM_L1_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
                     0, 1, l2_to_l1_mapping_own_cap));
@@ -153,7 +154,8 @@ errval_t spawn_paging_map_child_process(struct spawninfo* si,
         "Spawn paging cannot handle multiple L2 PT!");
 
     // Map the frame
-    struct capref mapping; // TODO: Alloc me!
+    struct capref mapping;
+    ERROR_RET1(slot_alloc(&mapping));
     ERROR_RET1(vnode_map(si->child_l2_pt_own_cap, frame,
             ARM_L2_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
                 0, num_pages, mapping));
@@ -191,7 +193,6 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
     {
         struct capref page_ref;
         ERROR_RET2(ram_alloc(&page_ref, BASE_PAGE_SIZE), SPAWN_ERR_CREATE_SMALLCN);
-        //TODO: RAM or Frame?
         ERROR_RET2(cap_copy(child_frame_ref, page_ref), SPAWN_ERR_CREATE_SMALLCN);
     }
     return SYS_ERR_OK;
@@ -201,14 +202,15 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 {
     // I. Create dispatcher and endpoint
     struct capref dispatcher_endpoint;
-    //TODO: Allocate slots for child_dispatcher_own_cap, dispatcher_endpoint
+    ERROR_RET1(slot_alloc(&si->child_dispatcher_own_cap));
+    ERROR_RET1(slot_alloc(&dispatcher_endpoint));
     ERROR_RET1(dispatcher_create(si->child_dispatcher_own_cap));
     ERROR_RET1(cap_retype(dispatcher_endpoint, si->child_dispatcher_own_cap, 0,
         ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
 
     // II. Create dispatcher frame cap
     struct capref ram_for_dispatcher;
-    // TODO: Allocate slot for child_dispatcher_frame_own_cap
+    ERROR_RET1(slot_alloc(&si->child_dispatcher_frame_own_cap));
     ERROR_RET1(ram_alloc(&ram_for_dispatcher, DISPATCHER_SIZE));
     ERROR_RET1(cap_retype(si->child_dispatcher_frame_own_cap,
         ram_for_dispatcher, 0,
@@ -287,12 +289,13 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     child_args.argc = 0;
     memset(&child_args.argv[0], 0, sizeof(child_args.argv));
     memset(&child_args.envp[0], 0, sizeof(child_args.envp));
-    child_args.vspace_buf = NULL;   // TODO: Serialised vspace data
-    child_args.vspace_buf_len = 0;   // TODO: Length of serialised vspace data
-    child_args.tls_init_base = NULL;     // TODO: Address of initialised TLS data block
-    child_args.tls_init_len = 0;     // TODO: Length of initialised TLS data block
-    child_args.tls_total_len = 0;   // TODO: Total (initialised + BSS) TLS data length
-    child_args.pagesize = 0;        // TODO: the page size to be used (domain spanning)
+    // Don't care about this for now.
+    child_args.vspace_buf = NULL;
+    child_args.vspace_buf_len = 0;
+    child_args.tls_init_base = NULL;
+    child_args.tls_init_len = 0;
+    child_args.tls_total_len = 0;
+    child_args.pagesize = 0;
     return SYS_ERR_OK;
 }
 
