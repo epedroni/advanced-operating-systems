@@ -22,12 +22,20 @@ struct spawninfo {
 
     // Information about the binary
     char * binary_name;     // Name of the binary
+    struct capref module_frame;
+    size_t module_bytes;
 
     // TODO: Use this structure to keep track
     // of information you need for building/starting
     // your new process!
     struct cnoderef l2_cnodes[ROOTCN_SLOTS_USER];
     struct capref l1_cnode_cap;
+    struct capref l1_pagetable_child_cap;
+
+    struct capref child_dispatcher_own_cap;
+
+    lvaddr_t got;
+    genvaddr_t child_entry_point;
 
     lvaddr_t base_virtual_address;
 };
