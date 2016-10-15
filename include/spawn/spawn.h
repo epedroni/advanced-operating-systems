@@ -31,13 +31,21 @@ struct spawninfo {
     struct cnoderef l2_cnodes[ROOTCN_SLOTS_USER];
     struct capref l1_cnode_cap;
     struct capref l1_pagetable_child_cap;
+    struct capref l1_pagetable_own_cap;
 
+    // Dispatcher
     struct capref child_dispatcher_own_cap;
+    struct capref child_dispatcher_frame_own_cap;
+    lvaddr_t dispatcher_frame_mapped_child;
+    dispatcher_handle_t dispatcher_handle; // Dispatcher frame mapped for me
 
     lvaddr_t got;
     genvaddr_t child_entry_point;
 
-    lvaddr_t base_virtual_address;
+    // Child paging information
+    lvaddr_t next_virtual_address;
+    struct capref child_l2_pt_own_cap;
+    int pagecn_next_slot;
 };
 
 // Start a child process by binary name. Fills in si

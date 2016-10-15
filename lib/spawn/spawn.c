@@ -15,6 +15,11 @@ errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct
 errval_t spawn_map_multiboot(struct spawninfo* si, void** address);
 errval_t spawn_setup_cspace(struct spawninfo* si);
 errval_t spawn_setup_vspace(struct spawninfo* si);
+errval_t spawn_setup_minimal_child_paging(struct spawninfo* si);
+struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count);
+errval_t spawn_paging_map_child_process(struct spawninfo* si,
+            struct capref frame, lvaddr_t* address, size_t bytes);
+
 errval_t spawn_setup_dispatcher(struct spawninfo* si);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
 errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
@@ -37,6 +42,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
 
     // 4- Setup childs vspace
     ERROR_RET1(spawn_setup_vspace(si));
+    ERROR_RET1(spawn_setup_minimal_child_paging(si));
 
     // 5- Load the ELF binary
     ERROR_RET1(spawn_parse_elf(si, (lvaddr_t)address));
@@ -67,7 +73,6 @@ errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct
     memset(si, 0, sizeof(*si));
     si->binary_name = malloc(strlen(binary_name) + 1);
     strcpy(si->binary_name, binary_name);
-    si->base_virtual_address=VADDR_OFFSET;
 
     debug_printf("Received address of mem_region: 0x%X\n",*process_mem_reg);
 
@@ -87,10 +92,75 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
     si->l1_pagetable_child_cap.cnode = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
     si->l1_pagetable_child_cap.slot = 0;
 
+    // TODO: Allocate 'l1_pagetable_own_cap'
     // Allocate L1 arm vnode
-    ERROR_RET2(vnode_create(si->l1_pagetable_child_cap, ObjType_VNode_ARM_l1),
+    ERROR_RET2(vnode_create(si->l1_pagetable_own_cap, ObjType_VNode_ARM_l1),
         SPAWN_ERR_L1_VNODE_CREATE);
+    ERROR_RET1(cap_copy(si->l1_pagetable_child_cap, si->l1_pagetable_own_cap));
     debug_printf("Created child L1 pagetable\n");
+    return SYS_ERR_OK;
+}
+
+/**
+ * This function creates the first L2 pagetable.
+ * We assume that we will not need more one L1 pagetable entry
+ * during the spawn process.
+ */
+errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
+{
+    si->next_virtual_address=VADDR_OFFSET;
+    si->pagecn_next_slot=0; // Index 0 is reserved for L1 PT.
+
+    // I. Create L2 Pagetable
+    // TODO: Allocate slot 'child_l2_pt_own_cap'
+    ERROR_RET1(vnode_create(si->child_l2_pt_own_cap, ObjType_VNode_ARM_l2));
+
+    // II. Map child L2 -> child L1 for base virtual address
+    struct capref l2_to_l1_mapping_own_cap; // TODO: Allocate me
+    ERROR_RET1(vnode_map(si->l1_pagetable_own_cap, si->child_l2_pt_own_cap,
+    		ARM_L1_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
+                    0, 1, l2_to_l1_mapping_own_cap));
+
+    // III. Copy all these caps to child process
+    struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
+    struct capref l2_to_l1_mapping = spawn_paging_alloc_child_slot(si, 1);
+    ERROR_RET1(cap_copy(l2_arm_vtable, si->child_l2_pt_own_cap));
+    ERROR_RET1(cap_copy(l2_to_l1_mapping, l2_to_l1_mapping_own_cap));
+
+    return SYS_ERR_OK;
+}
+
+struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count)
+{
+    struct capref cap;
+    cap.cnode = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
+    cap.slot = si->pagecn_next_slot;
+    si->pagecn_next_slot += count;
+    assert(si->pagecn_next_slot <= L2_CNODE_SLOTS);
+    return cap;
+}
+
+errval_t spawn_paging_map_child_process(struct spawninfo* si,
+            struct capref frame, lvaddr_t* address, size_t bytes)
+{
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
+    size_t num_pages = bytes >> BASE_PAGE_BITS;
+    *address = si->next_virtual_address;
+
+
+    assert(ARM_L1_OFFSET(si->next_virtual_address) ==
+        ARM_L1_OFFSET(si->next_virtual_address + bytes - 1) &&
+        "Spawn paging cannot handle multiple L2 PT!");
+
+    // Map the frame
+    struct capref mapping; // TODO: Alloc me!
+    ERROR_RET1(vnode_map(si->child_l2_pt_own_cap, frame,
+            ARM_L2_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
+                0, num_pages, mapping));
+
+    // And copy the frame mapping to child CSpace
+    ERROR_RET1(cap_copy(spawn_paging_alloc_child_slot(si, 1), mapping));
+    si->next_virtual_address += bytes;
     return SYS_ERR_OK;
 }
 
@@ -129,9 +199,22 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
 
 errval_t spawn_setup_dispatcher(struct spawninfo* si)
 {
+    // I. Create dispatcher and endpoint
     struct capref dispatcher_endpoint;
     //TODO: Allocate slots for child_dispatcher_own_cap, dispatcher_endpoint
     ERROR_RET1(dispatcher_create(si->child_dispatcher_own_cap));
+    ERROR_RET1(cap_retype(dispatcher_endpoint, si->child_dispatcher_own_cap, 0,
+        ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
+
+    // II. Create dispatcher frame cap
+    struct capref ram_for_dispatcher;
+    // TODO: Allocate slot for child_dispatcher_frame_own_cap
+    ERROR_RET1(ram_alloc(&ram_for_dispatcher, DISPATCHER_SIZE));
+    ERROR_RET1(cap_retype(si->child_dispatcher_frame_own_cap,
+        ram_for_dispatcher, 0,
+        ObjType_Frame, DISPATCHER_SIZE, 1));
+
+    // III. Copy these caps to child CSpace
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPATCHER
@@ -140,49 +223,38 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_SELFEP
     };
+	struct capref slot_dispatcher_frame={
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+		.slot=TASKCN_SLOT_DISPFRAME
+	};
     ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
-    ERROR_RET1(cap_retype(dispatcher_endpoint, si->child_dispatcher_own_cap, 0,
-        ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
+    ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
 
-    struct capref l2_arm_vtable={
-        .cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
-        .slot=1	//first slot for l2 pagetable
-    };
+    // IV. Map in child process
+    // Map dispatcher frame for child
+    ERROR_RET1(spawn_paging_map_child_process(si,
+        si->child_dispatcher_frame_own_cap,
+        &si->dispatcher_frame_mapped_child,
+        DISPATCHER_SIZE));
+    // Map dispatcher frame for me
+    void* disp_mapped_me;
+	ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),
+            &disp_mapped_me, DISPATCHER_SIZE,
+			si->child_dispatcher_frame_own_cap, VREGION_FLAGS_READ_WRITE,
+            NULL, NULL));
+    si->dispatcher_handle = (dispatcher_handle_t)disp_mapped_me;
 
-    ERROR_RET1(vnode_create(l2_arm_vtable, ObjType_VNode_ARM_l2));
-
-    struct capref l2_to_l1_mapping={
-		.cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
-		.slot=2	//second slot for l2 to l1 mapping
-	};
-
-    vnode_map(si->l1_pagetable_child_cap, l2_arm_vtable,
-    		ARM_L1_OFFSET(si->base_virtual_address), VREGION_FLAGS_READ_WRITE,
-                    0, 1, l2_to_l1_mapping);
-
-    struct capref dispatcher_mapping={
-		.cnode=si->l2_cnodes[ROOTCN_SLOT_PAGECN],
-		.slot=3	//second slot for l2 to l1 mapping
-	};
-
-    // Map dispatcher
-    vnode_map(l2_arm_vtable, dispatcher_cap,
-    		ARM_L2_OFFSET(si->base_virtual_address), VREGION_FLAGS_READ_WRITE,
-                0, 1, dispatcher_mapping);
-
-    si->base_virtual_address+=BASE_PAGE_SIZE;
-
-
+    // V. Setup dispatcher values
     struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(dispatcher_frame);
-    struct dispatcher_generic *disp_gen = get_dispatcher_generic(dispatcher_frame);
+        get_dispatcher_shared_generic(si->dispatcher_handle);
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(si->dispatcher_handle);
     struct dispatcher_shared_arm *disp_arm =
-        get_dispatcher_shared_arm(dispatcher_frame);
+        get_dispatcher_shared_arm(si->dispatcher_handle);
     arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(dispatcher_frame);
+        dispatcher_get_enabled_save_area(si->dispatcher_handle);
     arch_registers_state_t *disabled_area =
-        dispatcher_get_disabled_save_area(dispatcher_frame);
+        dispatcher_get_disabled_save_area(si->dispatcher_handle);
 
         // my_core_id only usable from kernel!!
     disp_gen->core_id = 0; // TODO: core id of the process
