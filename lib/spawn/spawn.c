@@ -260,14 +260,14 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 
         // my_core_id only usable from kernel!!
     disp_gen->core_id = 0; // TODO: core id of the process
-    disp->udisp = 0; // TODO: Virtual address of the dispatcher frame in childs VSpace
+    disp->udisp = si->dispatcher_frame_mapped_child; // Virtual address of the dispatcher frame in childs VSpace
     disp->disabled = 1; // Start in disabled mode
     disp->fpu_trap = 1; // Trap on fpu instructions
     strncpy(disp->name, si->binary_name, DISP_NAME_LEN); // A name (for debugging)
     // TODO: Map, and give address in child's space?
     disabled_area->named.pc = si->child_entry_point; // Set program counter (where it should start to execute)
     // Initialize offset registers
-    disp_arm->got_base = si->got; // Address of .got in childs VSpace.
+    disp_arm->got_base = si->got; // TODO: Address of .got in childs VSpace.
     enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
     enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
