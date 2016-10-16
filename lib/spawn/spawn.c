@@ -74,7 +74,7 @@ errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct
     si->binary_name = malloc(strlen(binary_name) + 1);
     strcpy(si->binary_name, binary_name);
 
-    debug_printf("Received address of mem_region: 0x%X\n",*process_mem_reg);
+    debug_printf("Received address of mem_region: 0x%X\n", *process_mem_reg);
 
     // Binary frame
     si->module_frame.cnode = cnode_module;
@@ -109,7 +109,7 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
 {
     si->next_virtual_address=VADDR_OFFSET;
-    si->pagecn_next_slot=0; // Index 0 is reserved for L1 PT.
+    si->pagecn_next_slot=1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
 
     // I. Create L2 Pagetable
     ERROR_RET1(slot_alloc(&si->child_l2_pt_own_cap));
@@ -117,7 +117,9 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
 
     // II. Map child L2 -> child L1 for base virtual address
     struct capref l2_to_l1_mapping_own_cap;
+    debug_printf("spawn_setup_minimal_child_paging: vnode create\n");
     ERROR_RET1(slot_alloc(&l2_to_l1_mapping_own_cap));
+    debug_printf("spawn_setup_minimal_child_paging: vnode map\n");
     ERROR_RET1(vnode_map(si->l1_pagetable_own_cap, si->child_l2_pt_own_cap,
     		ARM_L1_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
                     0, 1, l2_to_l1_mapping_own_cap));
@@ -125,7 +127,9 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
     // III. Copy all these caps to child process
     struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
     struct capref l2_to_l1_mapping = spawn_paging_alloc_child_slot(si, 1);
+    debug_printf("spawn_setup_minimal_child_paging: l2 vtable\n");
     ERROR_RET1(cap_copy(l2_arm_vtable, si->child_l2_pt_own_cap));
+    debug_printf("spawn_setup_minimal_child_paging: l2_to_l1 mapping\n");
     ERROR_RET1(cap_copy(l2_to_l1_mapping, l2_to_l1_mapping_own_cap));
 
     return SYS_ERR_OK;
@@ -260,14 +264,14 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 
         // my_core_id only usable from kernel!!
     disp_gen->core_id = 0; // TODO: core id of the process
-    disp->udisp = si->dispatcher_frame_mapped_child; // Virtual address of the dispatcher frame in childs VSpace
+    disp->udisp = 0; // TODO: Virtual address of the dispatcher frame in childs VSpace
     disp->disabled = 1; // Start in disabled mode
     disp->fpu_trap = 1; // Trap on fpu instructions
     strncpy(disp->name, si->binary_name, DISP_NAME_LEN); // A name (for debugging)
     // TODO: Map, and give address in child's space?
     disabled_area->named.pc = si->child_entry_point; // Set program counter (where it should start to execute)
     // Initialize offset registers
-    disp_arm->got_base = si->got; // TODO: Address of .got in childs VSpace.
+    disp_arm->got_base = si->got; // Address of .got in childs VSpace.
     enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
     enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
@@ -303,7 +307,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
 {
     debug_printf("Loading ELF binary...\n");
     ERROR_RET2(elf_load(EM_ARM, elf_allocator,
-        NULL, address,
+        (void*)si, address,
         si->module_bytes, &si->child_entry_point),
         SPAWN_ERR_LOAD);
     debug_printf("elf32_find_section_header_name...\n");
@@ -315,13 +319,19 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
     return SYS_ERR_OK;
 }
 
-
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret)
 {
-    debug_printf("elf_allocator");
+    debug_printf("elf_allocator: invoked, request for : %lu bytes\n", size);
     struct capref cap;
     ERROR_RET1(ram_alloc(&cap, size));
-    // TODO
+
+    // TODO: load L2 pagetables and ram capabilities, allocate frames map them.
+    struct spawninfo* si=(struct spawninfo*)state;
+    spawn_paging_alloc_child_slot(si,1);
+
+    *ret=malloc(size);
+
+    assert(*ret!=NULL && "Alloc returned NULL!");
     return SYS_ERR_OK;
 }
 

@@ -9,7 +9,6 @@
 errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 	static bool refill = false;
-	debug_printf("[0x%x] AOS SLAB REFILL FUNCTION [refilling=%u]\n", slabs, (int)refill);
 	if (refill){
 		return SYS_ERR_OK;
 	}
@@ -18,7 +17,6 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 	// TODO: To be changed once we have a correct malloc.
 	size_t allocated_size;
 	void* memory = get_mapped_page(&allocated_size);
-		debug_printf("AOS SLAB REFILL FUNCTION: got %u\n", allocated_size);
 
 	slab_grow(slabs, memory, allocated_size);
 	refill = false;

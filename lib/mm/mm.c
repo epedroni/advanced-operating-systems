@@ -130,8 +130,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     if (alignment % BASE_PAGE_SIZE)
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
 
-    debug_printf("Allocating %lu\n",size);
-
     struct mmnode* node = mm->head;
     if (!node)
         return MM_ERR_NO_NODE;
