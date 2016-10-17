@@ -381,7 +381,17 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
     struct spawninfo* si=(struct spawninfo*)state;
     spawn_paging_alloc_child_slot(si,1);
 
-    *ret=malloc(size);
+    size_t alligned_size=ROUND_UP(size, BASE_PAGE_SIZE);
+    struct capref ram_ref;
+	ERROR_RET1(ram_alloc(&ram_ref, alligned_size));
+	struct capref frame_cap;
+	slot_alloc(&frame_cap);
+	ERROR_RET1(cap_retype(frame_cap, ram_ref, 0,
+				ObjType_Frame, alligned_size, 1));
+	lvaddr_t virtual_address;
+	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,alligned_size));
+
+	ret=(void*)virtual_address;
 
     assert(*ret!=NULL && "Alloc returned NULL!");
     return SYS_ERR_OK;
