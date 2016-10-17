@@ -166,31 +166,26 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
 {
-    debug_printf("paging_alloc: invoked!\n");
+    debug_printf("paging_alloc: invoked to map %lu bytes!\n", bytes);
 
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         // If it is used or too small, skip it
         if (virtual_addr->type == VirtualBlock_Allocated ||
-            virtual_addr->size < bytes)
+            virtual_addr->size < bytes){
             continue;
+        }
 
         // Mark this one as used - for calls to alloc from refill functions
         // indirectly called here.
         virtual_addr->type = VirtualBlock_Allocated;
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
-            debug_printf("Retyping block!\n");
+        	debug_printf("Have a block of same size, retyping it!\n");
             *buf=(void*)virtual_addr->start_address;
             return SYS_ERR_OK;
         }
         assert(virtual_addr->size > bytes);
-        debug_printf("Spliting block for %lu bytes!\n", bytes);
-
-        if (!slab_has_freecount(&st->slabs, 5)){
-            debug_printf("PAGING: Slab count is less than 5, refilling\n");
-            st->slabs.refill_func(&st->slabs);
-        }
 
         struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
         debug_printf("Allocated block: 0x%X\n", remaining_free_space);
@@ -209,6 +204,11 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         if (block)
             *block = virtual_addr;
         debug_printf("Finished creating new block!\n");
+
+        if (!slab_has_freecount(&st->slabs, 5)){
+            debug_printf("paging_alloc: Slab count is less than 5, refilling\n");
+            st->slabs.refill_func(&st->slabs);
+        }
         return SYS_ERR_OK;
     }
     return PAGE_ERR_OUT_OF_VMEM;

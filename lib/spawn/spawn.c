@@ -374,8 +374,8 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret)
 {
     debug_printf("elf_allocator: invoked, request for : %lu bytes\n", size);
-    struct capref cap;
-    ERROR_RET1(ram_alloc(&cap, size));
+
+    struct spawninfo* si=(struct spawninfo*)state;
 
     size_t alligned_size=ROUND_UP(size, BASE_PAGE_SIZE);
     struct capref ram_ref;
@@ -387,7 +387,7 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 	lvaddr_t virtual_address;
 	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,alligned_size));
 	struct paging_state* ps= get_current_paging_state();
-	paging_map_frame(ps, ret, alligned_size, frame_cap, NULL, NULL);
+	ERROR_RET1(paging_map_frame(ps, ret, alligned_size, frame_cap, NULL, NULL));
 
     assert(*ret!=NULL && "Alloc returned NULL!");
     return SYS_ERR_OK;

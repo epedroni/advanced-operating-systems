@@ -156,8 +156,8 @@ void* get_mapped_page(size_t* alloc_size) {
 
     void* address=NULL;
     debug_printf("Map frame attr\n");
-    err=paging_map_frame_attr(paging_state,&address, *alloc_size,
-    		cap_as_frame,VREGION_FLAGS_READ_WRITE,NULL,NULL);
+    err=paging_map_frame_attr(paging_state, &address, *alloc_size,
+    		cap_as_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL);
     MM_ASSERT(err, "get_page: paging_map_fixed_attr");
 
 	return address;
