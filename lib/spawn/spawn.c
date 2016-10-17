@@ -327,17 +327,31 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     size_t args_length = strlen(args);
     size_t domain_params_frame_size = sizeof(struct spawn_domain_params);
     domain_params_frame_size += args_length + 1;
-    struct spawn_domain_params child_args;
-    child_args.argc = 0;
-    memset(&child_args.argv[0], 0, sizeof(child_args.argv));
-    memset(&child_args.envp[0], 0, sizeof(child_args.envp));
+    domain_params_frame_size = ROUND_UP(domain_params_frame_size, BASE_PAGE_SIZE);
+
+    // Get a frame with enough space to store that.
+    struct spawn_domain_params* child_args;
+    struct capref frame;
+    struct capref ram_cap;
+    ERROR_RET1(ram_alloc(&ram_cap, domain_params_frame_size));
+    ERROR_RET1(slot_alloc(&frame));
+    ERROR_RET1(cap_retype(frame, ram_cap, 0, ObjType_Frame, domain_params_frame_size, 1));
+    ERROR_RET1(paging_map_frame(get_current_paging_state(), (void*)&child_args,
+        domain_params_frame_size, frame, NULL, NULL));
+
+    // Fill initial values
+    child_args->argc = 0;
+    memset(&child_args->argv[0], 0, sizeof(child_args->argv));
+    memset(&child_args->envp[0], 0, sizeof(child_args->envp));
     // Don't care about this for now.
-    child_args.vspace_buf = NULL;
-    child_args.vspace_buf_len = 0;
-    child_args.tls_init_base = NULL;
-    child_args.tls_init_len = 0;
-    child_args.tls_total_len = 0;
-    child_args.pagesize = 0;
+    child_args->vspace_buf = NULL;
+    child_args->vspace_buf_len = 0;
+    child_args->tls_init_base = NULL;
+    child_args->tls_init_len = 0;
+    child_args->tls_total_len = 0;
+    child_args->pagesize = 0;
+
+    // TODO: Setup arguments
     return SYS_ERR_OK;
 }
 
