@@ -175,10 +175,12 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
             virtual_addr->size < bytes)
             continue;
 
+        // Mark this one as used - for calls to alloc from refill functions
+        // indirectly called here.
+        virtual_addr->type = VirtualBlock_Allocated;
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
             debug_printf("Retyping block!\n");
-            virtual_addr->type=VirtualBlock_Allocated;
             *buf=(void*)virtual_addr->start_address;
             return SYS_ERR_OK;
         }
@@ -201,7 +203,6 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         remaining_free_space->start_address = virtual_addr->start_address + bytes;
         remaining_free_space->size = virtual_addr->size - bytes;
         // Mark returned block as allocated
-        virtual_addr->type = VirtualBlock_Allocated;
         virtual_addr->next = remaining_free_space;
         virtual_addr->size = bytes;
         *buf=(void*)virtual_addr->start_address;
