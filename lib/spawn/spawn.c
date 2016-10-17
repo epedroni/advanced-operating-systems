@@ -376,8 +376,8 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 				ObjType_Frame, alligned_size, 1));
 	lvaddr_t virtual_address;
 	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,alligned_size));
-
-	ret=(void*)virtual_address;
+	struct paging_state* ps= get_current_paging_state();
+	paging_map_frame(ps, ret, alligned_size, frame_cap, NULL, NULL);
 
     assert(*ret!=NULL && "Alloc returned NULL!");
     return SYS_ERR_OK;
