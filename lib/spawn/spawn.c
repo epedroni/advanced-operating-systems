@@ -15,10 +15,15 @@ errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct
 errval_t spawn_map_multiboot(struct spawninfo* si, void** address);
 errval_t spawn_setup_cspace(struct spawninfo* si);
 errval_t spawn_setup_vspace(struct spawninfo* si);
+
+// Child paging
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si);
+errval_t spawn_paging_add_l2_pt(struct spawninfo* si);
 struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count);
 errval_t spawn_paging_map_child_process(struct spawninfo* si,
             struct capref frame, lvaddr_t* address, size_t bytes);
+errval_t spawn_paging_map_child_process_with_offset(struct spawninfo* si,
+            struct capref frame, lvaddr_t* address, size_t offset, size_t bytes);
 
 errval_t spawn_setup_dispatcher(struct spawninfo* si);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
@@ -109,8 +114,14 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
 {
     si->next_virtual_address=VADDR_OFFSET;
-    si->pagecn_next_slot=1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
+    si->pagecn_next_slot = 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
+    si->current_l1_slot = ARM_L1_OFFSET(si->next_virtual_address) - 1;
+    return spawn_paging_add_l2_pt(si);
+}
 
+errval_t spawn_paging_add_l2_pt(struct spawninfo* si)
+{
+    ++si->current_l1_slot;
     // I. Create L2 Pagetable
     ERROR_RET1(slot_alloc(&si->child_l2_pt_own_cap));
     ERROR_RET1(vnode_create(si->child_l2_pt_own_cap, ObjType_VNode_ARM_l2));
@@ -148,21 +159,48 @@ struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count)
 errval_t spawn_paging_map_child_process(struct spawninfo* si,
             struct capref frame, lvaddr_t* address, size_t bytes)
 {
+    return spawn_paging_map_child_process_with_offset(si, frame, address, 0, bytes);
+}
+
+errval_t spawn_paging_map_child_process_with_offset(struct spawninfo* si,
+            struct capref frame, lvaddr_t* address, size_t offset, size_t bytes)
+{
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     size_t num_pages = bytes >> BASE_PAGE_BITS;
     *address = si->next_virtual_address;
 
+    if (si->current_l1_slot != ARM_L1_OFFSET(si->next_virtual_address))
+    {
+        ERROR_RET1(spawn_paging_add_l2_pt(si));
+        assert(si->current_l1_slot == ARM_L1_OFFSET(si->next_virtual_address));
+    }
+
+    capaddr_t l1_slot = ARM_L1_OFFSET(si->next_virtual_address);
+    capaddr_t l1_slot_end = ARM_L1_OFFSET(si->next_virtual_address + bytes - 1);
+    if (l1_slot != l1_slot_end)
+    {
+        lvaddr_t unused_addr;
+        for (; l1_slot < l1_slot_end; ++l1_slot)
+        {
+            size_t bytes_this_l1 = LARGE_PAGE_SIZE -
+                (ARM_L2_OFFSET(si->next_virtual_address) << BASE_PAGE_BITS);
+            ERROR_RET1(spawn_paging_map_child_process_with_offset(si, frame, &unused_addr, offset, bytes_this_l1));
+            offset += bytes_this_l1;
+            bytes -= bytes_this_l1;
+        }
+        return spawn_paging_map_child_process_with_offset(si, frame, &unused_addr, offset, bytes);
+    }
 
     assert(ARM_L1_OFFSET(si->next_virtual_address) ==
         ARM_L1_OFFSET(si->next_virtual_address + bytes - 1) &&
-        "Spawn paging cannot handle multiple L2 PT!");
+        "At this point, we should only map into a single L2!");
 
     // Map the frame
     struct capref mapping;
     ERROR_RET1(slot_alloc(&mapping));
     ERROR_RET1(vnode_map(si->child_l2_pt_own_cap, frame,
             ARM_L2_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
-                0, num_pages, mapping));
+                offset, num_pages, mapping));
 
     // And copy the frame mapping to child CSpace
     ERROR_RET1(cap_copy(spawn_paging_alloc_child_slot(si, 1), mapping));
