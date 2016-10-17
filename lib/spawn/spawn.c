@@ -377,10 +377,6 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
     struct capref cap;
     ERROR_RET1(ram_alloc(&cap, size));
 
-    // TODO: load L2 pagetables and ram capabilities, allocate frames map them.
-    struct spawninfo* si=(struct spawninfo*)state;
-    spawn_paging_alloc_child_slot(si,1);
-
     size_t alligned_size=ROUND_UP(size, BASE_PAGE_SIZE);
     struct capref ram_ref;
 	ERROR_RET1(ram_alloc(&ram_ref, alligned_size));
