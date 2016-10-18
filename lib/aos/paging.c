@@ -224,10 +224,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
                                int flags, void *arg1, void *arg2)
 {
     struct vm_block* block;
-    errval_t err = paging_alloc(st, buf, bytes, &block);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    ERROR_RET1(paging_alloc(st, buf, bytes, &block));
     assert(block);
     return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
 }
@@ -265,11 +262,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
                 (ARM_L2_OFFSET(vaddr) << BASE_PAGE_BITS);
-            errval_t err = paging_map_fixed_attr(st, vaddr,
+            ERROR_RET1(paging_map_fixed_attr(st, vaddr,
                 frame, bytes_this_l1, offset,
-                flags, block);
-            if (err_is_fail(err))
-                return err;
+                flags, block));
             vaddr += bytes_this_l1;
             offset += bytes_this_l1;
             bytes -= bytes_this_l1;
@@ -279,32 +274,26 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         return SYS_ERR_OK;
     }
 
-    errval_t err;
-
     // 1. Find cap to L2 for mapping (possibly create it)
     struct capref* l2_cap=NULL;
     if(!st->l2nodes[l1_slot].used){
-        err = arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref);
-        if (err_is_fail(err))
-            return err_push(err, PAGE_ERR_ALLOC_ARML2);
+        ERROR_RET2(arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref),
+            PAGE_ERR_ALLOC_ARML2);
 
         st->l2nodes[l1_slot].used=true;
 
         struct capref mapping_l2_to_l1;
-        err = st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1);
-        if (err_is_fail(err))
-            return err_push(err, PAGE_ERR_ALLOC_SLOT);
+        ERROR_RET2(st->slot_alloc->alloc(st->slot_alloc, &mapping_l2_to_l1),
+            PAGE_ERR_ALLOC_SLOT);
 
-        err = vnode_map(st->l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
+        ERROR_RET2(vnode_map(st->l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
                 l1_slot, VREGION_FLAGS_READ_WRITE,
-                0, 1, mapping_l2_to_l1);
+                0, 1, mapping_l2_to_l1),
+                PAGE_ERR_VNODE_MAP_L2);
 
         if (st->on_new_mapping_cap)
             ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
                 mapping_l2_to_l1), PAGE_ERR_ON_MAPCAP_CALLBACK);
-
-        if (err_is_fail(err))
-            return err_push(err, PAGE_ERR_VNODE_MAP_L2);
     }
 
     l2_cap=&st->l2nodes[l1_slot].vnode_ref;
@@ -312,15 +301,14 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     // 2. Map Frame to L2
     struct capref mapping_ref;
-    err = st->slot_alloc->alloc(st->slot_alloc, &mapping_ref);
-    if (err_is_fail(err))
-        return err_push(err, PAGE_ERR_ALLOC_SLOT);
+    ERROR_RET2(st->slot_alloc->alloc(st->slot_alloc, &mapping_ref),
+        PAGE_ERR_ALLOC_SLOT);
 
-    err = vnode_map(*l2_cap, frame,
+    ERROR_RET2(vnode_map(*l2_cap, frame,
             l2_slot, flags,
-            offset, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
-    if (err_is_fail(err))
-        return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
+            offset, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref),
+            PAGE_ERR_VNODE_MAP_FRAME);
+
     if (block)
         block->mapping = mapping_ref;
     if (st->on_new_mapping_cap)
