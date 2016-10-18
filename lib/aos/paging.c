@@ -247,6 +247,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 {
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
+    if (BASE_PAGE_OFFSET(vaddr))
+        return PAGE_ERR_VADDR_NOT_ALIGNED;
 
     debug_printf("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
         (int)vaddr, (int)bytes, (int)offset);
@@ -275,17 +277,20 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         return SYS_ERR_OK;
     }
 
-    struct capref copied_frame;
-    slot_alloc(&copied_frame);
-    ERROR_RET1(cap_copy(copied_frame, frame));
+    if (offset != 0)
+    {
+        if (BASE_PAGE_OFFSET(offset))
+            return PAGE_ERR_OFFSET_NOT_ALIGNED;
 
-    // TODO:
-    // Copy if partially mapping large frames (cf Milestone1.pdf)
-    // cap_copy(struct capref dest, struct capref src)
-    // 1. Find L1 table
+        struct capref original_frame = frame;
+        slot_alloc(&frame);
+        ERROR_RET1(cap_retype(frame, original_frame, offset,
+            ObjType_Frame, bytes, 1));
+    }
+
     errval_t err;
 
-    // 2. Find cap to L2 for mapping (possibly create it)
+    // 1. Find cap to L2 for mapping (possibly create it)
     struct capref* l2_cap=NULL;
     if(!st->l2nodes[l1_slot].used){
         err = arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref);
@@ -314,14 +319,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     l2_cap=&st->l2nodes[l1_slot].vnode_ref;
     MM_ASSERT(l2_cap!=NULL, "L2 capability should point to something");
 
-    // 3. Map Frame to L2
-    // TODO: Handle bad aligned vaddr?
+    // 2. Map Frame to L2
     struct capref mapping_ref;
     err = st->slot_alloc->alloc(st->slot_alloc, &mapping_ref);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
-    err = vnode_map(*l2_cap, copied_frame,
+    err = vnode_map(*l2_cap, frame,
             l2_slot, flags,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
     if (err_is_fail(err))

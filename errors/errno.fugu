@@ -703,6 +703,8 @@ errors paging PAGE_ERR_ {
     failure OUT_OF_VMEM         "Out of virtual memory. No address available",
     failure NOT_MAPPED          "Address not mapped",
     failure ON_MAPCAP_CALLBACK  "Failure in on_new_mapping_cap callback",
+    failure OFFSET_NOT_ALIGNED  "Frame offset not multiple of BASE_PAGE_SIZE",
+    failure VADDR_NOT_ALIGNED   "Given virtual address is not aligned",
 };
 
 // errors in init
