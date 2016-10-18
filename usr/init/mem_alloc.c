@@ -145,19 +145,16 @@ void* get_mapped_page(size_t* alloc_size) {
 	struct paging_state* paging_state =get_current_paging_state();
 
     struct capref cap_ram;
-    debug_printf("mm_alloc invoking\n");
     errval_t err = mm_alloc(&aos_mm, *alloc_size, &cap_ram);
     MM_ASSERT(err, "test_paging: ram_alloc_fixed");
 
     struct capref cap_as_frame;
-    debug_printf("Allocating slot\n");
 	err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, &cap_as_frame);
 	err = cap_retype(cap_as_frame, cap_ram, 0,
             ObjType_Frame, *alloc_size, 1);
     MM_ASSERT(err, "test_paging: cap_retype");
 
     void* address=NULL;
-    debug_printf("Map frame attr\n");
     err=paging_map_frame_attr(paging_state, &address, *alloc_size,
     		cap_as_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL);
     MM_ASSERT(err, "get_page: paging_map_fixed_attr");
