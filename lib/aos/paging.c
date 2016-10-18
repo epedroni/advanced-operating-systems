@@ -65,7 +65,6 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     initial_free_space->size=VADDR_OFFSET;    //TODO: Figure out how to limit size of virtual memory
 
     st->head=initial_free_space;
-    // TODO (M2): implement state struct initialization
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
     return SYS_ERR_OK;
