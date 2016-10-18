@@ -251,6 +251,6 @@ void test_paging(void)
         number[i] = 42+i;
 
     for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); i+=BASE_PAGE_SIZE)
-		debug_printf("Reading byte from page: %d it should be %d and it is: %d\n", i+1, i+42, number[i]);
+		debug_printf("Reading byte from page: %d it should be %d and it is: %d, seems: %s\n", i+1, i+42, number[i],(i+42==number[i])?"ok":"not ok");
 
 }
