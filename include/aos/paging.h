@@ -130,8 +130,8 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
                                int flags, void *arg1, void *arg2);
 /// Map user provided frame at user provided VA with given flags.
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
-                               struct capref frame, size_t bytes, int flags,
-                               struct vm_block* block);
+                               struct capref frame, size_t bytes, size_t offset,
+                               int flags, struct vm_block* block);
 
 /**
  * refill slab allocator without causing a page fault
@@ -160,7 +160,7 @@ static inline errval_t paging_map_frame(struct paging_state *st, void **buf,
 static inline errval_t paging_map_fixed(struct paging_state *st, lvaddr_t vaddr,
                                         struct capref frame, size_t bytes)
 {
-    return paging_map_fixed_attr(st, vaddr, frame, bytes,
+    return paging_map_fixed_attr(st, vaddr, frame, bytes, 0,
             VREGION_FLAGS_READ_WRITE, NULL);
 }
 

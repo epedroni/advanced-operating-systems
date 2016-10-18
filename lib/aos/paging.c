@@ -223,7 +223,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
         return err;
     }
     assert(block);
-    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags, block);
+    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
 }
 
 errval_t
@@ -237,27 +237,36 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
  * \brief map a user provided frame at user provided VA.
  */
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
-        struct capref frame, size_t bytes, int flags, struct vm_block* block)
+        struct capref frame, size_t bytes, size_t offset, int flags, struct vm_block* block)
 {
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
 
+    debug_printf("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
+        (int)vaddr, (int)bytes, (int)offset);
     capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
     capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
     if (l1_slot != l1_slot_end)
     {
+        debug_printf("Several L2 map [%u - %u]\n",
+            (int)l1_slot, (int)l1_slot_end);
         for (; l1_slot < l1_slot_end; ++l1_slot)
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
                 (ARM_L2_OFFSET(vaddr) << BASE_PAGE_BITS);
-            errval_t err = paging_map_fixed_attr(st, vaddr, frame, bytes_this_l1, flags, block);
+            errval_t err = paging_map_fixed_attr(st, vaddr,
+                frame, bytes_this_l1, offset,
+                flags, block);
             if (err_is_fail(err))
                 return err;
             vaddr += bytes_this_l1;
+            offset += bytes_this_l1;
             bytes -= bytes_this_l1;
         }
-        return paging_map_fixed_attr(st, vaddr, frame, bytes, flags, block);
+        ERROR_RET1(paging_map_fixed_attr(st, vaddr, frame, bytes, offset, flags, block));
+        debug_printf("Several L2 map finished\n");
+        return SYS_ERR_OK;
     }
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
