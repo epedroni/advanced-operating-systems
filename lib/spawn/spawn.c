@@ -61,7 +61,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     debug_printf("And finally invoke dispatcher :)\n");
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
-		.slot=TASKCN_SLOT_DISPATCHER
+		.slot=TASKCN_SLOT_DISPFRAME
 	};
     return invoke_dispatcher(si->child_dispatcher_own_cap, cap_dispatcher,
                   si->l1_cnode_cap, si->l1_pagetable_child_cap,
