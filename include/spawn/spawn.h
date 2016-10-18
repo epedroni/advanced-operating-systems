@@ -47,6 +47,7 @@ struct spawninfo {
     struct capref child_l2_pt_own_cap;
     int current_l1_slot;
     int pagecn_next_slot;
+    struct paging_state child_paging_state;
 };
 
 // Start a child process by binary name. Fills in si

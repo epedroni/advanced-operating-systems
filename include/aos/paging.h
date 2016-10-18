@@ -71,6 +71,7 @@ struct paging_state {
     struct vm_block virtual_memory_regions[10];	//Lets give some buffer for slab to allocate
     struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
     struct vm_block* head;
+    struct capref l1_pagetable;
 };
 
 extern errval_t aos_slab_refill(struct slab_allocator *slabs);

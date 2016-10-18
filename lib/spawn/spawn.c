@@ -113,7 +113,11 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
  */
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
 {
-    si->next_virtual_address=VADDR_OFFSET;
+    ERROR_RET1(paging_init_state(&si->child_paging_state,
+        VADDR_OFFSET,
+        si->l1_pagetable_own_cap,
+        get_default_slot_allocator()));
+    si->next_virtual_address = VADDR_OFFSET;
     si->pagecn_next_slot = 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
     si->current_l1_slot = ARM_L1_OFFSET(si->next_virtual_address) - 1;
     return spawn_paging_add_l2_pt(si);
@@ -359,11 +363,14 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
         si->module_bytes, &si->child_entry_point),
         SPAWN_ERR_LOAD);
     debug_printf("elf32_find_section_header_name...\n");
-    struct Elf32_Shdr* got = elf32_find_section_header_name((lvaddr_t)address,
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)address;
+    debug_printf("Ident: %u\n", head->e_ident[EI_CLASS]);
+    struct Elf32_Shdr *got = elf32_find_section_header_name((lvaddr_t)address,
         si->module_bytes, ".got");
     if (!got)
         return SPAWN_ERR_LOAD;
     si->got = (lvaddr_t)got;
+debug_printf("Got it...\n");
     return SYS_ERR_OK;
 }
 
@@ -389,7 +396,7 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 
     // 3. Map in my own space and fill return buffer
 	lvaddr_t virtual_address;
-	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,size));
+	ERROR_RET1(spawn_paging_map_child_process(si, frame_cap, &virtual_address, size));
 	struct paging_state* ps= get_current_paging_state();
 	ERROR_RET1(paging_map_frame(ps, ret, size, frame_cap, NULL, NULL));
 

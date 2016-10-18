@@ -81,8 +81,11 @@ errval_t paging_init(void)
     // you can handle page faults in any thread of a domain.
     // TIP: it might be a good idea to call paging_init_state() from here to
     // avoid code duplication.
-    struct capref pdir;    //TODO: Check what this paramether is for
-    paging_init_state(&current, VADDR_OFFSET, pdir, get_default_slot_allocator());
+    struct capref l1_pagetable = {
+        .cnode = cnode_page,
+        .slot = 0,
+    };
+    paging_init_state(&current, VADDR_OFFSET, l1_pagetable, get_default_slot_allocator());
     set_current_paging_state(&current);
 
     // TODO: maybe add paging regions to paging state?
@@ -259,10 +262,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
     // 1. Find L1 table
-    struct capref l1_pagetable = {
-        .cnode = cnode_page,
-        .slot = 0,
-    };
     errval_t err;
 
     // 2. Find cap to L2 for mapping (possibly create it)
@@ -279,7 +278,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         if (err_is_fail(err))
             return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
-        err = vnode_map(l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
+        err = vnode_map(st->l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
                 l1_slot, VREGION_FLAGS_READ_WRITE,
                 0, 1, mapping_l2_to_l1);
         if (err_is_fail(err))
@@ -353,13 +352,8 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
                 vm_block_merge_next_into_me(st, virtual_addr);
             }
             virtual_addr->type = VirtualBlock_Free;
-            struct capref l1_pagetable = {
-                .cnode = cnode_page,
-                .slot = 0,
-            };
             return vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
                 virtual_addr->mapping);
-            return vnode_unmap(l1_pagetable, virtual_addr->mapping);
         }
     }
 
