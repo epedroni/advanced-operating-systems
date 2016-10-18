@@ -48,7 +48,6 @@ static errval_t arml2_alloc(struct paging_state * st, struct capref *ret)
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
-    debug_printf("paging_init_state\n");
     st->slot_alloc=ca;
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
@@ -166,8 +165,6 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
 {
-    debug_printf("paging_alloc: invoked to map %lu bytes!\n", bytes);
-
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         // If it is used or too small, skip it
@@ -181,14 +178,12 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         virtual_addr->type = VirtualBlock_Allocated;
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
-        	debug_printf("Have a block of same size, retyping it!\n");
             *buf=(void*)virtual_addr->start_address;
             return SYS_ERR_OK;
         }
         assert(virtual_addr->size > bytes);
 
         struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
-        debug_printf("Allocated block: 0x%X\n", remaining_free_space);
         // Create block for remaining free size
         remaining_free_space->type = VirtualBlock_Free;
         remaining_free_space->next = virtual_addr->next;
@@ -203,12 +198,9 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         *buf=(void*)virtual_addr->start_address;
         if (block)
             *block = virtual_addr;
-        debug_printf("Finished creating new block!\n");
 
-        if (!slab_has_freecount(&st->slabs, 5)){
-            debug_printf("paging_alloc: Slab count is less than 5, refilling\n");
+        if (!slab_has_freecount(&st->slabs, 5))
             st->slabs.refill_func(&st->slabs);
-        }
         return SYS_ERR_OK;
     }
     return PAGE_ERR_OUT_OF_VMEM;
@@ -247,14 +239,11 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
 
-    debug_printf("mapping address: 0x%X of size: %lu\n",vaddr,bytes);
-
     capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
     capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
     if (l1_slot != l1_slot_end)
     {
-        debug_printf("Several l2 pages\n",vaddr,bytes);
         for (; l1_slot < l1_slot_end; ++l1_slot)
         {
             size_t bytes_this_l1 = LARGE_PAGE_SIZE -
@@ -267,7 +256,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         }
         return paging_map_fixed_attr(st, vaddr, frame, bytes, flags, block);
     }
-    debug_printf("Single l2 page table\n",vaddr,bytes);
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -370,10 +358,6 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
                 .cnode = cnode_page,
                 .slot = 0,
             };
-            debug_printf("Gonna unmap slot %u:%u -> Mapping cap slot %u\n",
-                (int)ARM_L1_OFFSET(address_to_free),
-                (int)ARM_L2_OFFSET(address_to_free),
-                (int)virtual_addr->mapping.slot);
             return vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
                 virtual_addr->mapping);
             return vnode_unmap(l1_pagetable, virtual_addr->mapping);

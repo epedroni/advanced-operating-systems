@@ -128,9 +128,7 @@ errval_t spawn_paging_add_l2_pt(struct spawninfo* si)
 
     // II. Map child L2 -> child L1 for base virtual address
     struct capref l2_to_l1_mapping_own_cap;
-    debug_printf("spawn_setup_minimal_child_paging: vnode create\n");
     ERROR_RET1(slot_alloc(&l2_to_l1_mapping_own_cap));
-    debug_printf("spawn_setup_minimal_child_paging: vnode map\n");
     ERROR_RET1(vnode_map(si->l1_pagetable_own_cap, si->child_l2_pt_own_cap,
     		ARM_L1_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
                     0, 1, l2_to_l1_mapping_own_cap));
@@ -138,9 +136,7 @@ errval_t spawn_paging_add_l2_pt(struct spawninfo* si)
     // III. Copy all these caps to child process
     struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
     struct capref l2_to_l1_mapping = spawn_paging_alloc_child_slot(si, 1);
-    debug_printf("spawn_setup_minimal_child_paging: l2 vtable\n");
     ERROR_RET1(cap_copy(l2_arm_vtable, si->child_l2_pt_own_cap));
-    debug_printf("spawn_setup_minimal_child_paging: l2_to_l1 mapping\n");
     ERROR_RET1(cap_copy(l2_to_l1_mapping, l2_to_l1_mapping_own_cap));
 
     return SYS_ERR_OK;
