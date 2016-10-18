@@ -249,6 +249,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         return PAGE_ERR_NO_BYTES;
     if (BASE_PAGE_OFFSET(vaddr))
         return PAGE_ERR_VADDR_NOT_ALIGNED;
+    if (offset != 0 && BASE_PAGE_OFFSET(offset))
+        return PAGE_ERR_OFFSET_NOT_ALIGNED;
 
     debug_printf("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
         (int)vaddr, (int)bytes, (int)offset);
@@ -275,17 +277,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         ERROR_RET1(paging_map_fixed_attr(st, vaddr, frame, bytes, offset, flags, block));
         debug_printf("Several L2 map finished\n");
         return SYS_ERR_OK;
-    }
-
-    if (offset != 0)
-    {
-        if (BASE_PAGE_OFFSET(offset))
-            return PAGE_ERR_OFFSET_NOT_ALIGNED;
-
-        struct capref original_frame = frame;
-        slot_alloc(&frame);
-        ERROR_RET1(cap_retype(frame, original_frame, offset,
-            ObjType_Frame, bytes, 1));
     }
 
     errval_t err;
@@ -327,7 +318,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     err = vnode_map(*l2_cap, frame,
             l2_slot, flags,
-            0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
+            offset, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
     if (block)
