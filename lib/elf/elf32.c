@@ -89,13 +89,7 @@ elf32_find_section_header_name(genvaddr_t  elf_base,
                                size_t      elf_bytes,
                                const char* section_name)
 {
-    printf("elf32_find_section_header_name(base=0x%08x, bytes=%u, %s)\n", (int)elf_base, (int)elf_bytes, section_name);
     lvaddr_t elf_lbase = (lvaddr_t)elf_base;
-    printf("-- BEGIN BRUTEFORCE SEARCH FOR '%s' INTO MEM\n", section_name);
-    for (int i = 0; i < elf_bytes - strlen(section_name) - 1; ++i)
-        if (!strcmp(section_name, (const char*)(elf_lbase+(size_t)i)))
-            printf("Found %s at base + 0x%08x\n", section_name, (int)i);
-    printf("-- DONE\n");
     struct Elf32_Ehdr *head = (struct Elf32_Ehdr *)elf_lbase;
 
     if (elf_bytes < sizeof(struct Elf32_Ehdr) || !IS_ELF(*head) ||
@@ -105,40 +99,19 @@ elf32_find_section_header_name(genvaddr_t  elf_base,
 
     struct Elf32_Shdr *shead =
         (struct Elf32_Shdr *)(elf_lbase + (uintptr_t)head->e_shoff);
-    printf("head->e_shoff: 0x%08x\n", (int)head->e_shoff);
-    printf("\tSo jumping at 0x%08x + 0x%08x\n", (int)elf_lbase, (int)head->e_shoff);
 
-    for (uint32_t i = 0; i < head->e_shnum; i++)
-        printf("  [*] Found section %u / %u of size %u [header@0x%08x]\n",
-            i, head->e_shnum, (int)shead[i].sh_size, (int)&shead[i]);
-    // Find section header
-    assert(head->e_shstrndx < head->e_shnum);
-    printf("head->e_shstrndx: 0x%08x [strings section idx]\n", (int)head->e_shstrndx);
-    printf("head->e_shentsize: 0x%08x [size per section]\n", (int)head->e_shentsize);
-    printf("\tSo jumping at 0x%08x + 0x%08x to find Elf32_Shdr (section header)\n",
-        (int)shead, (int)(head->e_shstrndx * head->e_shentsize));
-    struct Elf32_Shdr *shstrtab =
-        ((void *)shead) + head->e_shstrndx * head->e_shentsize;
-    if (shstrtab == NULL)
+    struct Elf32_Shdr *strtab =
+        elf32_find_section_header_type(shead, head->e_shnum, SHT_STRTAB);
+
+    if (strtab == NULL)
     {
         return NULL;
     }
 
-    const char* strings = (const char*)(elf_lbase +
-                                        (size_t)shstrtab->sh_offset);
-    printf("Elf32 strings section addr: 0x%x [size: 0x%x]\n", shstrtab->sh_addr, shstrtab->sh_size);
-    printf("\tTrying to read here...\n");
-    for (volatile int i = 0; i < 2 && !strings[0]; ++i) {}
-    printf("\t\tOK\n");
-    printf("%u sections. head->e_shoff = 0x%x. Strings at 0x%08x + 0x%08x\n",
-        (int)head->e_shnum, (int)head->e_shoff, (int)elf_lbase,
-        (int)shstrtab->sh_offset);
-
     for (uint32_t i = 0; i < head->e_shnum; i++)
     {
-        printf("#section %u / %u of size %u : String at addr 0x%08x\n",
-            i, head->e_shnum, (int)shead[i].sh_size, (int)(strings + shead[i].sh_name));
-
+        const char* strings = (const char*)(elf_lbase +
+                                            (size_t)strtab->sh_offset);
         if (!strcmp(section_name, strings + shead[i].sh_name)) {
             return &shead[i];
         }
@@ -483,23 +456,6 @@ errval_t elf32_load(uint16_t em_machine, elf_allocator_fn allocate_func,
                     genvaddr_t *ret_tlsbase, size_t *ret_tlsinitlen,
                     size_t *ret_tlstotallen)
 {
-    uint8_t* bytes = (uint8_t*)base;
-    printf("---- DUMP BEGINNING ---\n");
-    int lines = 0;
-    for (int i = 0; i < 10000 && lines < 20; ++i)
-    {
-        bool only_zeros = true;
-        for (int j = 0; j < 20; ++j)
-            if (bytes[i*20 + j])
-                only_zeros = false;
-        if (only_zeros)
-            continue;
-        ++lines;
-        printf("%03u ", (int) i);
-        for (int j = 0; j < 20; ++j)
-            printf("0x%02x ", (int)bytes[i*20 + j]);
-        printf("\n");
-    }
     struct Elf32_Ehdr *head = (struct Elf32_Ehdr *)base;
     errval_t err;
     int i;
