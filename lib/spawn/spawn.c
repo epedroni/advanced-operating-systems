@@ -345,12 +345,14 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 errval_t spawn_map_multiboot(struct spawninfo* si, void** address)
 {
     struct paging_state* page_state=get_current_paging_state();
-	ERROR_RET2(paging_map_frame_attr(page_state, address, si->module_bytes,
-			si->module_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL),
+	ERROR_RET2(paging_map_frame_attr(page_state, address,
+            si->module_bytes,
+			si->module_frame, VREGION_FLAGS_READ_WRITE,
+            NULL, NULL),
             SPAWN_ERR_MAP_MODULE);
 
     char* elf = (char*)address;
-    debug_printf("Beginning at 0x%x: 0x%x %c %c %c. Size=%u\n",
+    debug_printf("Beginning at 0x%x: 0x%x 0x%x 0x%x 0x%x. Size=%u\n",
         (int)address, elf[0], elf[1], elf[2], elf[3],
         si->module_bytes);
     return SYS_ERR_OK;

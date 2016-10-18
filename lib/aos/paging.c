@@ -24,6 +24,8 @@
 
 static struct paging_state current;
 
+#define PAGING_KEEP_GAPS 40
+
 /**
  * \brief Helper function that allocates a slot and
  *        creates a ARM l2 page table capability
@@ -168,6 +170,10 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
 {
+    #ifdef PAGING_KEEP_GAPS
+        bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
+    #endif
+
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         // If it is used or too small, skip it

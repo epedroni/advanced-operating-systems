@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     }
 
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
-    err = spawn_load_by_name("/armv7/sbin/hello", process_info);
+    err = spawn_load_by_name("/armv7/sbin/init", process_info);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }

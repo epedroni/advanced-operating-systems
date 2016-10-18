@@ -483,6 +483,23 @@ errval_t elf32_load(uint16_t em_machine, elf_allocator_fn allocate_func,
                     genvaddr_t *ret_tlsbase, size_t *ret_tlsinitlen,
                     size_t *ret_tlstotallen)
 {
+    uint8_t* bytes = (uint8_t*)base;
+    printf("---- DUMP BEGINNING ---\n");
+    int lines = 0;
+    for (int i = 0; i < 10000 && lines < 20; ++i)
+    {
+        bool only_zeros = true;
+        for (int j = 0; j < 20; ++j)
+            if (bytes[i*20 + j])
+                only_zeros = false;
+        if (only_zeros)
+            continue;
+        ++lines;
+        printf("%03u ", (int) i);
+        for (int j = 0; j < 20; ++j)
+            printf("0x%02x ", (int)bytes[i*20 + j]);
+        printf("\n");
+    }
     struct Elf32_Ehdr *head = (struct Elf32_Ehdr *)base;
     errval_t err;
     int i;
