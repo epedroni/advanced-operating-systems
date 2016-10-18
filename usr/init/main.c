@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }
+    free(process_info);
 
     debug_printf("Runing tests!\n");
 
