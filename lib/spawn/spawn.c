@@ -369,23 +369,36 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
 
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret)
 {
-    debug_printf("elf_allocator: invoked, request for : %lu bytes\n", size);
+    debug_printf("elf_allocator: invoked, request for : %lu bytes at 0x%08x\n", size, (int) base);
 
-    struct spawninfo* si=(struct spawninfo*)state;
+    struct spawninfo* si = (struct spawninfo*)state;
 
-    size_t alligned_size=ROUND_UP(size, BASE_PAGE_SIZE);
+    // 1. Fix sizes / alignments etc...
+    size_t base_offset = BASE_PAGE_OFFSET(base);
+    size += base_offset;
+    base -= base_offset;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+
+    // 2. Allocate frame
     struct capref ram_ref;
-	ERROR_RET1(ram_alloc(&ram_ref, alligned_size));
+	ERROR_RET1(ram_alloc(&ram_ref, size));
 	struct capref frame_cap;
 	slot_alloc(&frame_cap);
 	ERROR_RET1(cap_retype(frame_cap, ram_ref, 0,
-				ObjType_Frame, alligned_size, 1));
-	lvaddr_t virtual_address;
-	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,alligned_size));
-	struct paging_state* ps= get_current_paging_state();
-	ERROR_RET1(paging_map_frame(ps, ret, alligned_size, frame_cap, NULL, NULL));
+				ObjType_Frame, size, 1));
 
-    assert(*ret!=NULL && "Alloc returned NULL!");
+    // 3. Map in my own space and fill return buffer
+	lvaddr_t virtual_address;
+	ERROR_RET1(spawn_paging_map_child_process(si,frame_cap,&virtual_address,size));
+	struct paging_state* ps= get_current_paging_state();
+	ERROR_RET1(paging_map_frame(ps, ret, size, frame_cap, NULL, NULL));
+
+    *ret = (((void*)*ret) + (size_t)base_offset);
+    debug_printf("Allocated at 0x%08x\n", (int)*ret);
+
+    // 4. Map in child VSpace at given 'base' address
+    // TODO: ???
+
     return SYS_ERR_OK;
 }
 
