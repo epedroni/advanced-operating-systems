@@ -64,6 +64,8 @@ struct vm_block {
     struct capref mapping;
 };
 
+typedef errval_t (*func_on_new_mapping_cap_t)(void*, struct capref);
+
 struct paging_state {
     struct slot_allocator* slot_alloc;
     // TODO: add struct members to keep track of the page tables etc
@@ -72,6 +74,9 @@ struct paging_state {
     struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
     struct vm_block* head;
     struct capref l1_pagetable;
+    // Callbacks
+    func_on_new_mapping_cap_t on_new_mapping_cap;
+    void* on_new_mapping_cap_state;
 };
 
 extern errval_t aos_slab_refill(struct slab_allocator *slabs);

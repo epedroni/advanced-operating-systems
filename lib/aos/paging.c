@@ -48,7 +48,8 @@ static errval_t arml2_alloc(struct paging_state * st, struct capref *ret)
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
-    st->slot_alloc=ca;
+    st->on_new_mapping_cap = NULL;
+    st->slot_alloc = ca;
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
     slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
@@ -281,6 +282,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         err = vnode_map(st->l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
                 l1_slot, VREGION_FLAGS_READ_WRITE,
                 0, 1, mapping_l2_to_l1);
+        if (st->on_new_mapping_cap)
+            ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
+                mapping_l2_to_l1), PAGE_ERR_ON_MAPCAP_CALLBACK);
         if (err_is_fail(err))
             return err_push(err, PAGE_ERR_VNODE_MAP_L2);
     }
@@ -302,6 +306,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         return err_push(err, PAGE_ERR_VNODE_MAP_FRAME);
     if (block)
         block->mapping = mapping_ref;
+    if (st->on_new_mapping_cap)
+        ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
+            mapping_ref), PAGE_ERR_ON_MAPCAP_CALLBACK);
     return SYS_ERR_OK;
 }
 

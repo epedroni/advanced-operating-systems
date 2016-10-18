@@ -702,6 +702,7 @@ errors paging PAGE_ERR_ {
     failure NO_BYTES            "Can't map zero size",
     failure OUT_OF_VMEM         "Out of virtual memory. No address available",
     failure NOT_MAPPED          "Address not mapped",
+    failure ON_MAPCAP_CALLBACK  "Failure in on_new_mapping_cap callback",
 };
 
 // errors in init
