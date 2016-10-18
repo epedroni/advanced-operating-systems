@@ -49,6 +49,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
     st->on_new_mapping_cap = NULL;
+    st->l1_pagetable = pdir;
     st->slot_alloc = ca;
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
@@ -74,7 +75,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
  */
 errval_t paging_init(void)
 {
-    debug_printf("paging_init\n");
+    debug_printf("Initializing paging@0x%08x... \n", (int)&current);
 
     // TODO (M4): initialize self-paging handler
     // TIP: use thread_set_exception_handler() to setup a page fault handler
@@ -90,7 +91,6 @@ errval_t paging_init(void)
     set_current_paging_state(&current);
 
     // TODO: maybe add paging regions to paging state?
-
     return SYS_ERR_OK;
 }
 
@@ -282,9 +282,11 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         err = vnode_map(st->l1_pagetable, st->l2nodes[l1_slot].vnode_ref,
                 l1_slot, VREGION_FLAGS_READ_WRITE,
                 0, 1, mapping_l2_to_l1);
+
         if (st->on_new_mapping_cap)
             ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
                 mapping_l2_to_l1), PAGE_ERR_ON_MAPCAP_CALLBACK);
+
         if (err_is_fail(err))
             return err_push(err, PAGE_ERR_VNODE_MAP_L2);
     }

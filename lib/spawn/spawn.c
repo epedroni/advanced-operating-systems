@@ -18,12 +18,8 @@ errval_t spawn_setup_vspace(struct spawninfo* si);
 
 // Child paging
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si);
-errval_t spawn_paging_add_l2_pt(struct spawninfo* si);
+errval_t spawn_on_new_mapping_cap(void* state, struct capref mapping_cap);
 struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count);
-errval_t spawn_paging_map_child_process(struct spawninfo* si,
-            struct capref frame, lvaddr_t* address, size_t bytes);
-errval_t spawn_paging_map_child_process_with_offset(struct spawninfo* si,
-            struct capref frame, lvaddr_t* address, size_t offset, size_t bytes);
 
 errval_t spawn_setup_dispatcher(struct spawninfo* si);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
@@ -117,32 +113,10 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
         VADDR_OFFSET,
         si->l1_pagetable_own_cap,
         get_default_slot_allocator()));
-    si->next_virtual_address = VADDR_OFFSET;
+    si->child_paging_state.on_new_mapping_cap = &spawn_on_new_mapping_cap;
+    si->child_paging_state.on_new_mapping_cap_state = si;
+
     si->pagecn_next_slot = 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
-    si->current_l1_slot = ARM_L1_OFFSET(si->next_virtual_address) - 1;
-    return spawn_paging_add_l2_pt(si);
-}
-
-errval_t spawn_paging_add_l2_pt(struct spawninfo* si)
-{
-    ++si->current_l1_slot;
-    // I. Create L2 Pagetable
-    ERROR_RET1(slot_alloc(&si->child_l2_pt_own_cap));
-    ERROR_RET1(vnode_create(si->child_l2_pt_own_cap, ObjType_VNode_ARM_l2));
-
-    // II. Map child L2 -> child L1 for base virtual address
-    struct capref l2_to_l1_mapping_own_cap;
-    ERROR_RET1(slot_alloc(&l2_to_l1_mapping_own_cap));
-    ERROR_RET1(vnode_map(si->l1_pagetable_own_cap, si->child_l2_pt_own_cap,
-    		ARM_L1_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
-                    0, 1, l2_to_l1_mapping_own_cap));
-
-    // III. Copy all these caps to child process
-    struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
-    struct capref l2_to_l1_mapping = spawn_paging_alloc_child_slot(si, 1);
-    ERROR_RET1(cap_copy(l2_arm_vtable, si->child_l2_pt_own_cap));
-    ERROR_RET1(cap_copy(l2_to_l1_mapping, l2_to_l1_mapping_own_cap));
-
     return SYS_ERR_OK;
 }
 
@@ -156,56 +130,15 @@ struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count)
     return cap;
 }
 
-errval_t spawn_paging_map_child_process(struct spawninfo* si,
-            struct capref frame, lvaddr_t* address, size_t bytes)
+/**
+ * Callback function called by paging system once a mapping cap is created.
+ * We need to copy this mapping cap to the child process
+ */
+errval_t spawn_on_new_mapping_cap(void* state, struct capref mapping_cap)
 {
-    return spawn_paging_map_child_process_with_offset(si, frame, address, 0, bytes);
-}
-
-errval_t spawn_paging_map_child_process_with_offset(struct spawninfo* si,
-            struct capref frame, lvaddr_t* address, size_t offset, size_t bytes)
-{
-    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-    size_t num_pages = bytes >> BASE_PAGE_BITS;
-    *address = si->next_virtual_address;
-
-    if (si->current_l1_slot != ARM_L1_OFFSET(si->next_virtual_address))
-    {
-        ERROR_RET1(spawn_paging_add_l2_pt(si));
-        assert(si->current_l1_slot == ARM_L1_OFFSET(si->next_virtual_address));
-    }
-
-    capaddr_t l1_slot = ARM_L1_OFFSET(si->next_virtual_address);
-    capaddr_t l1_slot_end = ARM_L1_OFFSET(si->next_virtual_address + bytes - 1);
-    if (l1_slot != l1_slot_end)
-    {
-        lvaddr_t unused_addr;
-        for (; l1_slot < l1_slot_end; ++l1_slot)
-        {
-            size_t bytes_this_l1 = LARGE_PAGE_SIZE -
-                (ARM_L2_OFFSET(si->next_virtual_address) << BASE_PAGE_BITS);
-            ERROR_RET1(spawn_paging_map_child_process_with_offset(si, frame, &unused_addr, offset, bytes_this_l1));
-            offset += bytes_this_l1;
-            bytes -= bytes_this_l1;
-        }
-        return spawn_paging_map_child_process_with_offset(si, frame, &unused_addr, offset, bytes);
-    }
-
-    assert(ARM_L1_OFFSET(si->next_virtual_address) ==
-        ARM_L1_OFFSET(si->next_virtual_address + bytes - 1) &&
-        "At this point, we should only map into a single L2!");
-
-    // Map the frame
-    struct capref mapping;
-    ERROR_RET1(slot_alloc(&mapping));
-    ERROR_RET1(vnode_map(si->child_l2_pt_own_cap, frame,
-            ARM_L2_OFFSET(si->next_virtual_address), VREGION_FLAGS_READ_WRITE,
-                offset, num_pages, mapping));
-
-    // And copy the frame mapping to child CSpace
-    ERROR_RET1(cap_copy(spawn_paging_alloc_child_slot(si, 1), mapping));
-    si->next_virtual_address += bytes;
-    return SYS_ERR_OK;
+    struct spawninfo* si = (struct spawninfo*)state;
+    struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
+    return cap_copy(l2_arm_vtable, mapping_cap);
 }
 
 errval_t spawn_setup_cspace(struct spawninfo* si)
@@ -277,16 +210,16 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 
     // IV. Map in child process
     // Map dispatcher frame for child
-    ERROR_RET1(spawn_paging_map_child_process(si,
+    ERROR_RET1(paging_map_frame(&si->child_paging_state,
+        (void**)&si->dispatcher_frame_mapped_child, DISPATCHER_SIZE,
         si->child_dispatcher_frame_own_cap,
-        &si->dispatcher_frame_mapped_child,
-        DISPATCHER_SIZE));
+        NULL, NULL));
     // Map dispatcher frame for me
     void* disp_mapped_me;
-	ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),
-            &disp_mapped_me, DISPATCHER_SIZE,
-			si->child_dispatcher_frame_own_cap, VREGION_FLAGS_READ_WRITE,
-            NULL, NULL));
+	ERROR_RET1(paging_map_frame(get_current_paging_state(),
+        &disp_mapped_me, DISPATCHER_SIZE,
+		si->child_dispatcher_frame_own_cap,
+        NULL, NULL));
     si->dispatcher_handle = (dispatcher_handle_t)disp_mapped_me;
 
     // V. Setup dispatcher values
@@ -395,8 +328,6 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 				ObjType_Frame, size, 1));
 
     // 3. Map in my own space and fill return buffer
-	lvaddr_t virtual_address;
-	ERROR_RET1(spawn_paging_map_child_process(si, frame_cap, &virtual_address, size));
 	struct paging_state* ps= get_current_paging_state();
 	ERROR_RET1(paging_map_frame(ps, ret, size, frame_cap, NULL, NULL));
 
@@ -404,7 +335,8 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
     debug_printf("Allocated at 0x%08x\n", (int)*ret);
 
     // 4. Map in child VSpace at given 'base' address
-    // TODO: ???
+    ERROR_RET1(paging_map_fixed(&si->child_paging_state,
+        base, frame_cap, size));
 
     return SYS_ERR_OK;
 }

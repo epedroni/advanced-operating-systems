@@ -43,9 +43,7 @@ struct spawninfo {
     genvaddr_t child_entry_point;
 
     // Child paging information
-    lvaddr_t next_virtual_address;
     struct capref child_l2_pt_own_cap;
-    int current_l1_slot;
     int pagecn_next_slot;
     struct paging_state child_paging_state;
 };

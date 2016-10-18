@@ -134,13 +134,12 @@ elf32_find_section_header_name(genvaddr_t  elf_base,
         (int)head->e_shnum, (int)head->e_shoff, (int)elf_lbase,
         (int)shstrtab->sh_offset);
 
-    printf("bloh\n");
     for (uint32_t i = 0; i < head->e_shnum; i++)
     {
         printf("#section %u / %u of size %u : String at addr 0x%08x\n",
             i, head->e_shnum, (int)shead[i].sh_size, (int)(strings + shead[i].sh_name));
 
-        if (!shstrtab->sh_addr && !strcmp(section_name, strings + shead[i].sh_name)) {
+        if (!strcmp(section_name, strings + shead[i].sh_name)) {
             return &shead[i];
         }
     }
