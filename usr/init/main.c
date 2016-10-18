@@ -79,16 +79,16 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
-    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
-    err = spawn_load_by_name("/armv7/sbin/init", process_info);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "spawn_load_by_name");
-    }
-    free(process_info);
+//    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+//    err = spawn_load_by_name("/armv7/sbin/init", process_info);
+//    if(err_is_fail(err)){
+//        DEBUG_ERR(err, "spawn_load_by_name");
+//    }
+//    free(process_info);
 
     debug_printf("Runing tests!\n");
 
-//    test_paging();
+    test_paging();
 //    runtests_mem_alloc();
 
     debug_printf("Message handler loop\n");
@@ -247,7 +247,10 @@ void test_paging(void)
 
     PRINT_TEST("Allocate big big page (over several L2)");
     number = (int*)test_alloc_and_map(5 * LARGE_PAGE_SIZE);
-    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); ++i)
-        number[i] = 42;
+    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); i+=BASE_PAGE_SIZE)
+        number[i] = 42+i;
+
+    for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); i+=BASE_PAGE_SIZE)
+		debug_printf("Reading byte from page: %d it should be %d and it is: %d\n", i+1, i+42, number[i]);
 
 }

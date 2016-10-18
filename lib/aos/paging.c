@@ -24,7 +24,7 @@
 
 static struct paging_state current;
 
-#define PAGING_KEEP_GAPS 40
+//#define PAGING_KEEP_GAPS 40
 
 /**
  * \brief Helper function that allocates a slot and
@@ -274,6 +274,11 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         debug_printf("Several L2 map finished\n");
         return SYS_ERR_OK;
     }
+
+    struct capref copied_frame;
+    slot_alloc(&copied_frame);
+    ERROR_RET1(cap_copy(copied_frame, frame));
+
     // TODO:
     // Copy if partially mapping large frames (cf Milestone1.pdf)
     // cap_copy(struct capref dest, struct capref src)
@@ -316,7 +321,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (err_is_fail(err))
         return err_push(err, PAGE_ERR_ALLOC_SLOT);
 
-    err = vnode_map(*l2_cap, frame,
+    err = vnode_map(*l2_cap, copied_frame,
             l2_slot, flags,
             0, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref);
     if (err_is_fail(err))
