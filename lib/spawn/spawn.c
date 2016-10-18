@@ -46,15 +46,19 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     ERROR_RET1(spawn_setup_minimal_child_paging(si));
 
     // 5- Load the ELF binary
+    debug_printf("Load ELF...\n");
     ERROR_RET1(spawn_parse_elf(si, (lvaddr_t)address));
 
     // 6- Setup dispatcher
+    debug_printf("Setup dispatcher...\n");
     ERROR_RET1(spawn_setup_dispatcher(si));
 
     // 7- Setup arguments
+    debug_printf("Setup arguments...\n");
     ERROR_RET1(spawn_setup_arguments(si, process_mem_reg));
 
     // 8- Make dispatcher runnable
+    debug_printf("And finally invoke dispatcher :)\n");
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPATCHER
@@ -181,7 +185,7 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     ERROR_RET1(slot_alloc(&dispatcher_endpoint));
     ERROR_RET1(dispatcher_create(si->child_dispatcher_own_cap));
     ERROR_RET1(cap_retype(dispatcher_endpoint, si->child_dispatcher_own_cap, 0,
-        ObjType_EndPoint, 1<<DISPATCHER_FRAME_BITS, 1));
+        ObjType_EndPoint, 0, 1));
 
     // II. Create dispatcher frame cap
     struct capref ram_for_dispatcher;
