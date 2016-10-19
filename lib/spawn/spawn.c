@@ -304,7 +304,6 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     child_args->tls_total_len = 0;
     child_args->pagesize = BASE_PAGE_SIZE;
 
-	//Need this TASKCN_SLOT_ARGSPAGE and struct spawn_domain_params* child_args to lie here
 
     // TODO: Setup arguments
     return SYS_ERR_OK;
@@ -325,7 +324,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
     if (!got)
         return SPAWN_ERR_LOAD;
     si->got = (lvaddr_t)got;
-    debug_printf("Got it...\n");
+debug_printf("Got it...\n");
     return SYS_ERR_OK;
 }
 
