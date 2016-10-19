@@ -306,8 +306,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
         si->module_bytes, ".got");
     if (!got)
         return SPAWN_ERR_LOAD;
-    si->got = (lvaddr_t)got;
-debug_printf("Got it...\n");
+    si->got = got_shdr->sh_addr;
     return SYS_ERR_OK;
 }
 
