@@ -57,7 +57,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     debug_printf("Setup arguments...\n");
     ERROR_RET1(spawn_setup_arguments(si, process_mem_reg));
 
-    // 8- Make dispatcher runnable
+    // 8- Make dispatcher runnable0
     debug_printf("And finally invoke dispatcher :)\n");
 	struct capref slot_dispatcher={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
@@ -293,17 +293,21 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
 
     struct spawn_domain_params* child_args=(struct spawn_domain_params*)args_page;
     // Fill initial values
-    child_args->argc = 0;
     memset(&child_args->argv[0], 0, sizeof(child_args->argv));
     memset(&child_args->envp[0], 0, sizeof(child_args->envp));
+    //Copy first argument, name of the program
+    char program_name[]="/armv7/sbin/hello";
+    strncpy(args_page+sizeof(args_page),program_name,sizeof(program_name));
+    child_args->argv[0]=foreign_mapped_args+sizeof(args_page);
+    child_args->argc = 1;
+
     // Don't care about this for now.
-    child_args->vspace_buf = foreign_mapped_args;   //Not sure if this should be used in this way
-    child_args->vspace_buf_len = domain_params_frame_size;  //or this
+    child_args->vspace_buf = NULL;   //Not sure if this should be used in this way
+    child_args->vspace_buf_len = 0;  //or this
     child_args->tls_init_base = NULL;
     child_args->tls_init_len = 0;
     child_args->tls_total_len = 0;
-    child_args->pagesize = BASE_PAGE_SIZE;
-
+    child_args->pagesize = 0;
 
     // TODO: Setup arguments
     return SYS_ERR_OK;
