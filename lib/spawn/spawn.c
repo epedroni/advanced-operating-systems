@@ -95,7 +95,7 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
 {
     // Slot 0 contains L1 PageTable
     si->l1_pagetable_child_cap.cnode = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
-    si->l1_pagetable_child_cap.slot = 0;
+    si->l1_pagetable_child_cap.slot = PAGECN_SLOT_VROOT;
 
     ERROR_RET1(slot_alloc(&si->l1_pagetable_own_cap));
     // Allocate L1 arm vnode
@@ -120,7 +120,7 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
     si->child_paging_state.on_new_mapping_cap = &spawn_on_new_mapping_cap;
     si->child_paging_state.on_new_mapping_cap_state = si;
 
-    si->pagecn_next_slot = 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
+    si->pagecn_next_slot = PAGECN_SLOT_VROOT + 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
     return SYS_ERR_OK;
 }
 
@@ -163,7 +163,6 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
     child_rootcn.slot = TASKCN_SLOT_ROOTCN;
     ERROR_RET2(cap_copy(child_rootcn, si->l1_cnode_cap),
         SPAWN_ERR_MINT_ROOTCN);
-        // TASKCN_SLOT_DISPFRAME ??
         // TASKCN_SLOT_ARGSPAGE ??
 
     struct capref child_frame_ref;
@@ -267,26 +266,45 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     domain_params_frame_size = ROUND_UP(domain_params_frame_size, BASE_PAGE_SIZE);
 
     // Get a frame with enough space to store that.
-    struct spawn_domain_params* child_args;
-    struct capref frame;
+    void* args_page;
     struct capref ram_cap;
+    struct capref frame_cap;
     ERROR_RET1(ram_alloc(&ram_cap, domain_params_frame_size));
-    ERROR_RET1(slot_alloc(&frame));
-    ERROR_RET1(cap_retype(frame, ram_cap, 0, ObjType_Frame, domain_params_frame_size, 1));
-    ERROR_RET1(paging_map_frame(get_current_paging_state(), (void*)&child_args,
-        domain_params_frame_size, frame, NULL, NULL));
+    ERROR_RET1(slot_alloc(&frame_cap));
+    ERROR_RET1(cap_retype(frame_cap, ram_cap, 0,
+        ObjType_Frame, domain_params_frame_size, 1));
+    ERROR_RET1(paging_map_frame(get_current_paging_state(), &args_page,
+        domain_params_frame_size, frame_cap, NULL, NULL));
 
+    debug_printf("Frame size: %lu\n", domain_params_frame_size);
+
+    struct capref slot_arguments_page={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+        .slot=TASKCN_SLOT_ARGSPAGE
+    };
+
+    void* foreign_mapped_args;
+    ERROR_RET1(slot_alloc(&si->child_arguments_frame_own_cap));
+    ERROR_RET1(cap_copy(si->child_arguments_frame_own_cap, frame_cap));
+    ERROR_RET1(paging_map_frame(&si->child_paging_state, &foreign_mapped_args,
+            domain_params_frame_size, si->child_arguments_frame_own_cap, NULL, NULL));
+
+    ERROR_RET1(cap_copy(slot_arguments_page, si->child_arguments_frame_own_cap));
+
+    struct spawn_domain_params* child_args=(struct spawn_domain_params*)args_page;
     // Fill initial values
     child_args->argc = 0;
     memset(&child_args->argv[0], 0, sizeof(child_args->argv));
     memset(&child_args->envp[0], 0, sizeof(child_args->envp));
     // Don't care about this for now.
-    child_args->vspace_buf = NULL;
-    child_args->vspace_buf_len = 0;
+    child_args->vspace_buf = foreign_mapped_args;   //Not sure if this should be used in this way
+    child_args->vspace_buf_len = domain_params_frame_size;  //or this
     child_args->tls_init_base = NULL;
     child_args->tls_init_len = 0;
     child_args->tls_total_len = 0;
-    child_args->pagesize = 0;
+    child_args->pagesize = BASE_PAGE_SIZE;
+
+	//Need this TASKCN_SLOT_ARGSPAGE and struct spawn_domain_params* child_args to lie here
 
     // TODO: Setup arguments
     return SYS_ERR_OK;
@@ -307,7 +325,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address)
     if (!got)
         return SPAWN_ERR_LOAD;
     si->got = (lvaddr_t)got;
-debug_printf("Got it...\n");
+    debug_printf("Got it...\n");
     return SYS_ERR_OK;
 }
 
@@ -344,7 +362,6 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 
     return SYS_ERR_OK;
 }
-
 
 errval_t spawn_map_multiboot(struct spawninfo* si, void** address)
 {
