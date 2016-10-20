@@ -308,7 +308,7 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     child_args->tls_total_len = 0;
     child_args->pagesize = 0;
 
-    si->enabled_area->named.r0 = (int)foreign_mapped_args;
+    si->enabled_area->named.r0 = (uint32_t)foreign_mapped_args;
     return SYS_ERR_OK;
 }
 
