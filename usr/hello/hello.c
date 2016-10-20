@@ -24,6 +24,10 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 int main(int argc, char *argv[])
 {
-    printf("Hello, world! from userspace\n");
+    int i=0;
+    for(;i<argc;++i){
+        printf("Printing argument: %d %s\n",i, argv[i]);
+    }
+
     return 0;
 }

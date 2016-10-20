@@ -25,6 +25,9 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
 errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 
+//Util functions
+errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
+
 // TODO(M2): Implement this function such that it starts a new process
 // TODO(M4): Build and pass a messaging channel to your child process
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
@@ -256,6 +259,33 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     return SYS_ERR_OK;
 }
 
+errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address){
+    char* last_word=(char*)child_args+sizeof(struct spawn_domain_params);
+    char* base_address=last_word;
+    child_base_address+=sizeof(struct spawn_domain_params);
+    strcpy(base_address, arguments);
+
+    assert(arguments[0]!=0 && "Argument list must contain at least one argument, program name");
+
+    size_t arg_count=0;
+    char* iterator=base_address;
+
+    do{
+        if(*iterator==' '){
+            *iterator=0;
+            child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
+            iterator++;
+            last_word=iterator;
+        }
+        iterator++;
+    }while(*iterator);
+
+    child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
+    child_args->argc=arg_count;
+
+    return SYS_ERR_OK;
+}
+
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg)
 {
     const char* args = multiboot_module_opts(process_mem_reg);
@@ -275,8 +305,6 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     ERROR_RET1(paging_map_frame(get_current_paging_state(), &args_page,
         domain_params_frame_size, frame_cap, NULL, NULL));
 
-    debug_printf("Frame size: %lu\n", domain_params_frame_size);
-
     struct capref slot_arguments_page={
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_ARGSPAGE
@@ -295,10 +323,8 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     memset(&child_args->argv[0], 0, sizeof(child_args->argv));
     memset(&child_args->envp[0], 0, sizeof(child_args->envp));
     //Copy first argument, name of the program
-    char program_name[]="/armv7/sbin/hello";
-    strncpy(args_page+sizeof(args_page),program_name,sizeof(program_name));
-    child_args->argv[0]=foreign_mapped_args+sizeof(args_page);
-    child_args->argc = 1;
+
+    map_argument_to_child_vspace(args, child_args, (lvaddr_t)foreign_mapped_args);
 
     // Don't care about this for now.
     child_args->vspace_buf = NULL;   //Not sure if this should be used in this way
