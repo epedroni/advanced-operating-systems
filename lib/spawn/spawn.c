@@ -231,8 +231,7 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(si->dispatcher_handle);
     struct dispatcher_shared_arm *disp_arm =
         get_dispatcher_shared_arm(si->dispatcher_handle);
-    arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(si->dispatcher_handle);
+    si->enabled_area = dispatcher_get_enabled_save_area(si->dispatcher_handle);
     arch_registers_state_t *disabled_area =
         dispatcher_get_disabled_save_area(si->dispatcher_handle);
 
@@ -246,9 +245,9 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     disabled_area->named.pc = si->child_entry_point; // Set program counter (where it should start to execute)
     // Initialize offset registers
     disp_arm->got_base = si->got; // Address of .got in childs VSpace.
-    enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
+    si->enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = si->got; // same as above
-    enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
+    si->enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     disabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     disp_gen->eh_frame = 0;
     disp_gen->eh_frame_size = 0;
@@ -309,7 +308,7 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     child_args->tls_total_len = 0;
     child_args->pagesize = 0;
 
-    // TODO: Setup arguments
+    si->enabled_area->named.r0 = (int)foreign_mapped_args;
     return SYS_ERR_OK;
 }
 

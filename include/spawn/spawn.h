@@ -49,6 +49,9 @@ struct spawninfo {
     struct capref child_l2_pt_own_cap;
     int pagecn_next_slot;
     struct paging_state child_paging_state;
+
+    // Dispatcher
+    arch_registers_state_t* enabled_area;
 };
 
 // Start a child process by binary name. Fills in si
