@@ -348,6 +348,8 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             // -> Linked list ie another slab etc...
             assert(ARM_L1_OFFSET(address_to_free) == ARM_L1_OFFSET(address_to_free + virtual_addr->size - 1) &&
                 "Unmap for mappings spawning over different L2 VNodes not implemented yet.");
+            ERROR_RET1(vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
+                virtual_addr->mapping));
             // Merge with previous <- me
             if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
             {
@@ -363,8 +365,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
                 vm_block_merge_next_into_me(st, virtual_addr);
             }
             virtual_addr->type = VirtualBlock_Free;
-            return vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
-                virtual_addr->mapping);
+            return SYS_ERR_OK;
         }
     }
 
