@@ -247,7 +247,6 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     disp->disabled = 1; // Start in disabled mode
     disp->fpu_trap = 1; // Trap on fpu instructions
     strncpy(disp->name, si->binary_name, DISP_NAME_LEN); // A name (for debugging)
-    // TODO: Map, and give address in child's space?
     disabled_area->named.pc = si->child_entry_point; // Set program counter (where it should start to execute)
     // Initialize offset registers
     disp_arm->got_base = si->got; // Address of .got in childs VSpace.
