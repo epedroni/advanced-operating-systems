@@ -170,12 +170,15 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
 
     struct capref child_frame_ref;
     child_frame_ref.cnode = si->l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
-    for (child_frame_ref.slot = 0; child_frame_ref.slot < L2_CNODE_SLOTS; ++child_frame_ref.slot)
-    {
-        struct capref page_ref;
-        ERROR_RET2(ram_alloc(&page_ref, BASE_PAGE_SIZE), SPAWN_ERR_CREATE_SMALLCN);
-        ERROR_RET2(cap_copy(child_frame_ref, page_ref), SPAWN_ERR_CREATE_SMALLCN);
-    }
+    child_frame_ref.slot = 0;
+    struct capref page_ref;
+    ERROR_RET2(ram_alloc(&page_ref, BASE_PAGE_SIZE * L2_CNODE_SLOTS), SPAWN_ERR_CREATE_SMALLCN);
+    ERROR_RET2(cap_retype(child_frame_ref,
+        page_ref,
+        0,
+        ObjType_RAM,
+        BASE_PAGE_SIZE,
+        L2_CNODE_SLOTS), SPAWN_ERR_CREATE_SMALLCN);
     return SYS_ERR_OK;
 }
 
