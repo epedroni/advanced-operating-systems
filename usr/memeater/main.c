@@ -20,7 +20,16 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
+#define EXCLUDE_MEMEATER 1
+
+#ifndef EXCLUDE_MEMEATER
 static struct aos_rpc init_rpc;
+#endif
+
+errval_t aos_slab_refill(struct slab_allocator *slabs){
+    //TODO: We have to think of a way how to provide refill function to every application
+    return SYS_ERR_OK;
+}
 
 const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
                   "sed do eiusmod tempor incididunt ut labore et dolore magna "
@@ -31,6 +40,7 @@ const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
                   "occaecat cupidatat non proident, sunt in culpa qui officia "
                   "deserunt mollit anim id est laborum.";
 
+#ifndef EXCLUDE_MEMEATER
 static errval_t request_and_map_memory(void)
 {
     errval_t err;
@@ -105,7 +115,9 @@ static errval_t request_and_map_memory(void)
     return SYS_ERR_OK;
 
 }
+#endif
 
+#ifndef EXCLUDE_MEMEATER
 static errval_t test_basic_rpc(void)
 {
     errval_t err;
@@ -137,10 +149,12 @@ static errval_t test_basic_rpc(void)
 
     return SYS_ERR_OK;
 }
-
+#endif
 
 int main(int argc, char *argv[])
 {
+#ifndef EXCLUDE_MEMEATER
+
     errval_t err;
 
     debug_printf("memeater started....\n");
@@ -167,6 +181,8 @@ int main(int argc, char *argv[])
     printf("Hello world using terminal service\n");
 
     debug_printf("memeater terminated....\n");
+
+#endif
 
     return EXIT_SUCCESS;
 }
