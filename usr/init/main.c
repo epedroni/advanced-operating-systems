@@ -79,12 +79,15 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
-    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
-    err = spawn_load_by_name("/armv7/sbin/hello", process_info);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "spawn_load_by_name");
+    for (int i = 0; i < 2; ++i)
+    {
+        struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+        err = spawn_load_by_name("/armv7/sbin/hello", process_info);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "spawn_load_by_name");
+        }
+        free(process_info);
     }
-    free(process_info);
 
     debug_printf("Runing tests!\n");
 
