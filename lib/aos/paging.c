@@ -50,9 +50,10 @@ static errval_t arml2_alloc(struct paging_state * st, struct capref *ret)
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
-    st->on_new_mapping_cap = NULL;
     st->l1_pagetable = pdir;
     st->slot_alloc = ca;
+    st->cap_slot_in_own_space = NULL_CAP;
+
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
     slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
@@ -274,7 +275,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     }
 
     // 1. Find cap to L2 for mapping (possibly create it)
-    struct capref* l2_cap=NULL;
+    struct capref l2_cap;
     if(!st->l2nodes[l1_slot].used){
         ERROR_RET2(arml2_alloc(st, &st->l2nodes[l1_slot].vnode_ref),
             PAGE_ERR_ALLOC_ARML2);
@@ -289,30 +290,33 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
                 l1_slot, VREGION_FLAGS_READ_WRITE,
                 0, 1, mapping_l2_to_l1),
                 PAGE_ERR_VNODE_MAP_L2);
-
-        if (st->on_new_mapping_cap)
-            ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
-                mapping_l2_to_l1), PAGE_ERR_ON_MAPCAP_CALLBACK);
     }
 
-    l2_cap=&st->l2nodes[l1_slot].vnode_ref;
-    MM_ASSERT(l2_cap!=NULL, "L2 capability should point to something");
+    l2_cap = st->l2nodes[l1_slot].vnode_ref;
 
     // 2. Map Frame to L2
     struct capref mapping_ref;
     ERROR_RET2(st->slot_alloc->alloc(st->slot_alloc, &mapping_ref),
         PAGE_ERR_ALLOC_SLOT);
 
-    ERROR_RET2(vnode_map(*l2_cap, frame,
+    bool remote = get_croot_addr(l2_cap) != CPTR_ROOTCN;
+    if (remote)
+    {
+        struct capref l2_cap_remote = l2_cap;
+        ERROR_RET1(get_default_slot_allocator()->alloc(
+            get_default_slot_allocator(),
+            &l2_cap));
+        ERROR_RET1(cap_copy(l2_cap, l2_cap_remote));
+    }
+    ERROR_RET2(vnode_map(l2_cap, frame,
             l2_slot, flags,
             offset, (((bytes- 1) / BASE_PAGE_SIZE) + 1), mapping_ref),
             PAGE_ERR_VNODE_MAP_FRAME);
+    if (remote)
+        ERROR_RET1(cap_destroy(l2_cap));
 
     if (block)
         block->mapping = mapping_ref;
-    if (st->on_new_mapping_cap)
-        ERROR_RET2(st->on_new_mapping_cap(st->on_new_mapping_cap_state,
-            mapping_ref), PAGE_ERR_ON_MAPCAP_CALLBACK);
     return SYS_ERR_OK;
 }
 

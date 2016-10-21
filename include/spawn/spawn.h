@@ -18,6 +18,12 @@
 #include "aos/slot_alloc.h"
 #include "aos/paging.h"
 
+struct child_slot_allocator {
+    struct slot_allocator a;      ///< Public data
+    int pagecn_next_slot;
+    struct cnoderef pagecn;
+};
+
 struct spawninfo {
 
     // Information about the binary
@@ -25,9 +31,6 @@ struct spawninfo {
     struct capref module_frame;
     size_t module_bytes;
 
-    // TODO: Use this structure to keep track
-    // of information you need for building/starting
-    // your new process!
     struct cnoderef l2_cnodes[ROOTCN_SLOTS_USER];
     struct capref l1_cnode_cap;
     struct capref l1_pagetable_child_cap;
@@ -42,12 +45,13 @@ struct spawninfo {
     lvaddr_t got;
     genvaddr_t child_entry_point;
 
+    struct child_slot_allocator slot_alloc;
+
     //Arguments
     struct capref child_arguments_frame_own_cap;
 
     // Child paging information
     struct capref child_l2_pt_own_cap;
-    int pagecn_next_slot;
     struct paging_state child_paging_state;
 
     // Dispatcher

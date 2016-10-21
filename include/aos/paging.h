@@ -74,9 +74,8 @@ struct paging_state {
     struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
     struct vm_block* head;
     struct capref l1_pagetable;
-    // Callbacks
-    func_on_new_mapping_cap_t on_new_mapping_cap;
-    void* on_new_mapping_cap_state;
+
+    struct capref cap_slot_in_own_space;
 };
 
 extern errval_t aos_slab_refill(struct slab_allocator *slabs);

@@ -18,8 +18,12 @@ errval_t spawn_setup_vspace(struct spawninfo* si);
 
 // Child paging
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si);
-errval_t spawn_on_new_mapping_cap(void* state, struct capref mapping_cap);
 struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count);
+
+// Child slot alloc
+errval_t spawn_child_slot_alloc(struct slot_allocator *ca, struct capref *cap);
+errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap);
+
 
 errval_t spawn_setup_dispatcher(struct spawninfo* si);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
@@ -116,36 +120,32 @@ errval_t spawn_setup_vspace(struct spawninfo* si)
  */
 errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
 {
+    // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
+    si->slot_alloc.pagecn_next_slot = PAGECN_SLOT_VROOT + 1;
+    si->slot_alloc.a.alloc = spawn_child_slot_alloc;
+    si->slot_alloc.a.free = spawn_child_slot_free;
+    si->slot_alloc.pagecn = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
+
     ERROR_RET1(paging_init_state(&si->child_paging_state,
         VADDR_OFFSET,
         si->l1_pagetable_own_cap,
-        get_default_slot_allocator()));
-    si->child_paging_state.on_new_mapping_cap = &spawn_on_new_mapping_cap;
-    si->child_paging_state.on_new_mapping_cap_state = si;
-
-    si->pagecn_next_slot = PAGECN_SLOT_VROOT + 1; // Index 0 is reserved for L1 PT, so we start adding l2 pt from slot 1
+        (struct slot_allocator*)&si->slot_alloc));
     return SYS_ERR_OK;
 }
 
-struct capref spawn_paging_alloc_child_slot(struct spawninfo* si, int count)
+errval_t spawn_child_slot_alloc(struct slot_allocator *ca, struct capref *cap)
 {
-    struct capref cap;
-    cap.cnode = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
-    cap.slot = si->pagecn_next_slot;
-    si->pagecn_next_slot += count;
-    assert(si->pagecn_next_slot <= L2_CNODE_SLOTS);
-    return cap;
+    struct child_slot_allocator *sla = (struct child_slot_allocator *)ca;
+    cap->cnode = sla->pagecn;
+    cap->slot = sla->pagecn_next_slot;
+    sla->pagecn_next_slot++;
+    assert(sla->pagecn_next_slot <= L2_CNODE_SLOTS);
+    return SYS_ERR_OK;
 }
 
-/**
- * Callback function called by paging system once a mapping cap is created.
- * We need to copy this mapping cap to the child process
- */
-errval_t spawn_on_new_mapping_cap(void* state, struct capref mapping_cap)
+errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap)
 {
-    struct spawninfo* si = (struct spawninfo*)state;
-    struct capref l2_arm_vtable = spawn_paging_alloc_child_slot(si, 1);
-    return cap_copy(l2_arm_vtable, mapping_cap);
+    return SYS_ERR_OK;
 }
 
 errval_t spawn_setup_cspace(struct spawninfo* si)
