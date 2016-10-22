@@ -267,12 +267,18 @@ errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain
     child_base_address+=sizeof(struct spawn_domain_params);
     strcpy(base_address, arguments);
 
+    //Truncate ending spaces
+    size_t arguments_length=strlen(base_address)-1;
+    while(base_address>0 && base_address[arguments_length]==' '){
+        base_address[arguments_length--]=0;
+    }
+
     assert(arguments[0]!=0 && "Argument list must contain at least one argument, program name");
 
     size_t arg_count=0;
     char* iterator=base_address;
 
-    do{
+    while(*iterator){
         if(*iterator==' '){
             *iterator=0;
             child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
@@ -280,7 +286,7 @@ errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain
             last_word=iterator;
         }
         iterator++;
-    }while(*iterator);
+    }
 
     child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
     child_args->argc=arg_count;
