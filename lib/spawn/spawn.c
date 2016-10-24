@@ -168,6 +168,7 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
         SPAWN_ERR_MINT_ROOTCN);
         // TASKCN_SLOT_ARGSPAGE ??
 
+	//
     struct capref child_frame_ref;
     child_frame_ref.cnode = si->l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
     child_frame_ref.slot = 0;
@@ -179,6 +180,9 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
         ObjType_RAM,
         BASE_PAGE_SIZE,
         L2_CNODE_SLOTS), SPAWN_ERR_CREATE_SMALLCN);
+
+
+
     return SYS_ERR_OK;
 }
 
@@ -213,9 +217,15 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPFRAME
 	};
+	// give the child a cap to init's endpoint
+	struct capref child_init_ep={
+		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+		.slot=TASKCN_SLOT_INITEP
+	};
     ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
+	ERROR_RET1(cap_copy(child_init_ep, cap_selfep));
 
     // IV. Map in child process
     // Map dispatcher frame for child
