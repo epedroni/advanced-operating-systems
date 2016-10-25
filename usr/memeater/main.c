@@ -20,8 +20,6 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-#define EXCLUDE_MEMEATER 1
-
 #ifndef EXCLUDE_MEMEATER
 static struct aos_rpc init_rpc;
 #endif
