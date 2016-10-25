@@ -166,9 +166,7 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
     child_rootcn.slot = TASKCN_SLOT_ROOTCN;
     ERROR_RET2(cap_copy(child_rootcn, si->l1_cnode_cap),
         SPAWN_ERR_MINT_ROOTCN);
-        // TASKCN_SLOT_ARGSPAGE ??
 
-	//
     struct capref child_frame_ref;
     child_frame_ref.cnode = si->l2_cnodes[ROOTCN_SLOT_BASE_PAGE_CN];
     child_frame_ref.slot = 0;
@@ -180,8 +178,6 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
         ObjType_RAM,
         BASE_PAGE_SIZE,
         L2_CNODE_SLOTS), SPAWN_ERR_CREATE_SMALLCN);
-
-
 
     return SYS_ERR_OK;
 }
@@ -209,10 +205,12 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPATCHER
 	};
+
     struct capref slot_selfep={
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_SELFEP
     };
+
 	struct capref slot_dispatcher_frame={
 		.cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
 		.slot=TASKCN_SLOT_DISPFRAME
@@ -221,6 +219,17 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
+
+    //Create endpoint to send to child, place it in Task CN in first user slot
+    debug_printf("Creating local endpoint\n");
+    struct capref slot_parent_endpoint={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+        .slot=TASKCN_SLOTS_USER
+    };
+
+    struct lmp_chan lc;
+    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
+    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
 
     // IV. Map in child process
     // Map dispatcher frame for child
