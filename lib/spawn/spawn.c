@@ -32,7 +32,6 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 //Util functions
 errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
 
-// TODO(M2): Implement this function such that it starts a new process
 // TODO(M4): Build and pass a messaging channel to your child process
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
     printf("spawn start_child: starting: %s\n", binary_name);
@@ -220,16 +219,15 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
 
-    //Create endpoint to send to child, place it in Task CN in first user slot
-    debug_printf("Creating local endpoint\n");
-    struct capref slot_parent_endpoint={
-        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
-        .slot=TASKCN_SLOTS_USER
-    };
-
-    struct lmp_chan lc;
-    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
-    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
+//    //Create endpoint to send to child, place it in Task CN in first user slot
+//    debug_printf("Creating local endpoint\n");
+//    struct capref slot_parent_endpoint={
+//        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+//        .slot=TASKCN_SLOTS_USER
+//    };
+//    struct lmp_chan lc;
+//    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
+//    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
 
     // IV. Map in child process
     // Map dispatcher frame for child
@@ -256,7 +254,7 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
         dispatcher_get_disabled_save_area(si->dispatcher_handle);
 
         // my_core_id only usable from kernel!!
-    disp_gen->core_id = 0; // TODO: core id of the process
+    disp_gen->core_id = si->core_id;
     disp->udisp = si->dispatcher_frame_mapped_child; // Virtual address of the dispatcher frame in childs VSpace
     disp->disabled = 1; // Start in disabled mode
     disp->fpu_trap = 1; // Trap on fpu instructions

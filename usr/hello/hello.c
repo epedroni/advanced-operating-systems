@@ -24,7 +24,7 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 }
 
 static errval_t setup_endpoint(void){
-    debug_printf("child_hello: lmp_endpoint_init\n");
+        debug_printf("child_hello: lmp_endpoint_init\n");
         lmp_endpoint_init();
 
         debug_printf("Allocating slot\n");
@@ -49,12 +49,27 @@ static errval_t setup_endpoint(void){
 
 int main(int argc, char *argv[])
 {
-    printf("Received %d arguments \n",argc);
-    int i=0;
-    for(;i<argc;++i){
-        printf("Printing argument: %d %s\n",i, argv[i]);
+    debug_printf("Received %d arguments \n",argc);
+    for(int i=0;i<argc;++i){
+        debug_printf("Printing argument: %d %s\n",i, argv[i]);
     }
 
+    //Create endpoint to send to child, place it in Task CN in first user slot
+    debug_printf("Creating local endpoint\n");
+
+    struct lmp_chan lc;
+    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
+
+
+// Check how many slots can we allocate.
+//    debug_printf("allocating dummy slots\n");
+//    static const size_t slots=520;
+//    struct capref tmpCaps[slots];
+//    for(int i=0;i<slots;i++){
+//        slot_alloc(tmpCaps+i);
+//    }
+
+    //Check if we can map ram caps passed from parent, needed for later paging
     errval_t err=setup_endpoint();
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing endpoint");

@@ -80,8 +80,8 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
-
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+    process_info->core_id=my_core_id;   //Run it on same core
     err = spawn_load_by_name("/armv7/sbin/hello", process_info);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
