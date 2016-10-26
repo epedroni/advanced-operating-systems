@@ -69,6 +69,7 @@ static void rcv_callback(void* args){
         ret_flags|=RPC_RAM_CAP;
     	break;
     case RPC_NUMBER:
+        debug_printf("We received a number: %d\n", message.words[1]);
     	break;
     case RPC_STRING:
     	break;
@@ -92,6 +93,9 @@ static void rcv_callback(void* args){
     if(err_is_fail(err)){
         debug_printf("Message not sent\n");
     }
+
+    debug_printf("Reregistring, ofcourse \n");
+    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
 }
 
 int main(int argc, char *argv[])
@@ -182,7 +186,7 @@ int main(int argc, char *argv[])
 	struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
-//        debug_printf("Got event");
+        debug_printf("Got event\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();

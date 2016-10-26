@@ -131,6 +131,7 @@ void barrelfish_libc_glue_init(void)
 //    }
 //}
 
+
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -182,15 +183,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
-    static struct lmp_chan lc;  //TODO: added static just for testing
-    /* create local endpoint */
-    /* set remote endpoint to init's endpoint */
-    /* TODO: wait for init to acknowledge receiving the endpoint */
-    struct aos_rpc rpc={
-        .lc=&lc,
-        .ws=get_default_waitset()
-    };
-    aos_rpc_init(&rpc);
 
     /* initialize init RPC client with lmp channel */
     /* set init RPC client in our program state */
