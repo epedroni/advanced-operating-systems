@@ -42,7 +42,7 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static void rcv_callback(void* args){
-    debug_printf("Receive callback invoked!");
+    debug_printf("Receive callback invoked!\n");
     struct lmp_chan* lc=(struct lmp_chan*)args;
 
     struct lmp_recv_msg message;
