@@ -53,8 +53,14 @@ static void rcv_callback(void* args){
 
     switch(message.words[0]) {
     case RPC_HANDSHAKE:
+    	// get cap, create new endpoint?
+    	errval_t err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
+		if(err_is_fail(err)){
+			DEBUG_ERR(err, "accepting new client");
+		}
     	break;
     case RPC_RAM_CAP:
+    	// create ram
     	break;
     case RPC_ACK:
     	break;
@@ -77,15 +83,8 @@ static void rcv_callback(void* args){
 
     }
 
-    debug_printf("Received number! %d\n", message.words[0]);
-
-    errval_t err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "initialize_ram_alloc");
-    }
-
-    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, 43);
-    debug_printf("Sent message\n");
+    //err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, 43);
+    //debug_printf("Sent message\n");
 }
 
 int main(int argc, char *argv[])
