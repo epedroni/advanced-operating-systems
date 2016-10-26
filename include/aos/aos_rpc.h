@@ -17,6 +17,19 @@
 
 #include <aos/aos.h>
 
+enum message_header {
+    HANDSHAKE = 0,
+	ACK,
+    NUMBER,
+	STRING,
+	RAM_CAP,
+	PUT_CHAR,
+	GET_CHAR,
+	SPAWN,
+	GET_NAME,
+	GET_PID
+};
+
 struct aos_rpc {
     struct lmp_chan* lc;
 };

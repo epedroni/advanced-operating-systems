@@ -14,10 +14,29 @@
 
 #include <aos/aos_rpc.h>
 
+/*
+*   // does the sender want to yield their timeslice on success?
+	bool sync = flags & LMP_FLAG_SYNC;
+	// does the sender want to yield to the target
+	// if undeliverable?
+	bool yield = flags & LMP_FLAG_YIELD;
+	// is the cap (if present) to be deleted on send?
+	bool give_away = flags & LMP_FLAG_GIVEAWAY;
+ */
+
 errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
 {
-    // TODO: implement functionality to send a number ofer the channel
+    // TODO: implement functionality to send a number over the channel
     // given channel and wait until the ack gets returned.
+
+
+	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL_CAP, val);
+	if(err_is_fail(err)){
+		DEBUG_ERR(err, "sending number");
+	}
+
+
+
     return SYS_ERR_OK;
 }
 
@@ -25,6 +44,18 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 {
     // TODO: implement functionality to send a string over the given channel
     // and wait for a response.
+
+	// we can only send strings of up to 8 characters
+	if (sizeof(string) / sizeof(char) > 8) {
+		// ??
+		return SYS_ERR_LMP_CHAN_SEND;
+	}
+
+	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL_CAP, val);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "sending number");
+	}
+
     return SYS_ERR_OK;
 }
 
