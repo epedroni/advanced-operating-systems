@@ -45,7 +45,7 @@ void test_paging(void);
 static void rcv_callback(void* args){
     errval_t err;
 
-    debug_printf("Server is receiving request\n");
+    debug_printf("** Server is receiving request\n");
     struct lmp_chan* lc=(struct lmp_chan*)args;
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref child_endpoint;
@@ -54,14 +54,16 @@ static void rcv_callback(void* args){
 
     uint32_t ret_flags=0;
 
+    debug_printf("We have message type: 0x%X\n",message.words[0]);
+
     switch(message.words[0]) {
     case RPC_HANDSHAKE:
         debug_printf("Received handshake message!\n");
-    	// get cap, create new endpoint?
-    	err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
-		if(err_is_fail(err)){
-			DEBUG_ERR(err, "accepting new client");
-		}
+//    	err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
+//		if(err_is_fail(err)){
+//			DEBUG_ERR(err, "accepting new client");
+//		}
+        lc->remote_cap=child_endpoint;
 		ret_flags|=RPC_HANDSHAKE;
     	break;
     case RPC_RAM_CAP:
@@ -89,13 +91,16 @@ static void rcv_callback(void* args){
 
     ret_flags|=RPC_ACK;
 
+    debug_printf("Reregistring, ofcourse \n");
+    MM_ASSERT(lmp_chan_alloc_recv_slot(lc), "Allocating slot for receive");
+    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
+
     err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, ret_flags);
     if(err_is_fail(err)){
         debug_printf("Message not sent\n");
     }
 
-    debug_printf("Reregistring, ofcourse \n");
-    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
+    message.words[0]=0;
 }
 
 int main(int argc, char *argv[])
@@ -184,6 +189,7 @@ int main(int argc, char *argv[])
     LOGO("                                        ... Well actually we are simply TeamF. But we are still awesome ;)");
     // Hang around
 	struct waitset *default_ws = get_default_waitset();
+
     while (true) {
         err = event_dispatch(default_ws);
         debug_printf("Got event\n");

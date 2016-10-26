@@ -90,7 +90,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
     // given channel and wait until the ack gets returned.
 
     wait_for_send(chan);
-    errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, val);
+    errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_NUMBER, val);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "sending number");
     }
