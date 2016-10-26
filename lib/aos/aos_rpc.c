@@ -38,7 +38,8 @@ void cb_send_ready(void* args){
 
 static
 void wait_for_send(struct aos_rpc* rpc){
-    //struct waitset *default_ws = get_default_waitset();
+    errval_t err;
+
     while (!rpc->can_send) {
         err = event_dispatch(rpc->ws);
         if (err_is_fail(err)) {
@@ -51,6 +52,8 @@ void wait_for_send(struct aos_rpc* rpc){
 
 static
 void wait_for_ack(struct aos_rpc* rpc){
+    errval_t err;
+
     while (!rpc->ack_received) {
         err = event_dispatch(rpc->ws);
         if (err_is_fail(err)) {
@@ -67,7 +70,11 @@ errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
     // given channel and wait until the ack gets returned.
 
     wait_for_send(chan);
-    //send
+    errval_t err=lmp_chan_send1(chan->lc, LMP_FLAG_SYNC, NULL_CAP, val);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "sending number");
+    }
+
     wait_for_ack(chan);
     return SYS_ERR_OK;
 }
@@ -80,13 +87,14 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 	// we can only send strings of up to 8 characters
 	if (sizeof(string) / sizeof(char) > 8) {
 		// ??
-		return SYS_ERR_LMP_CHAN_SEND;
+		return LIB_ERR_LMP_CHAN_SEND;
 	}
 
-	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL_CAP, val);
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "sending number");
-	}
+    errval_t err=lmp_chan_send1(chan->lc, LMP_FLAG_SYNC, NULL_CAP, string[0]);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "sending number");
+    }
+
 
     return SYS_ERR_OK;
 }
@@ -136,10 +144,8 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
     return SYS_ERR_OK;
 }
 
-
 errval_t aos_rpc_init(struct aos_rpc *rpc)
 {
-
     ERROR_RET1(lmp_chan_accept(rpc->lc,
             DEFAULT_LMP_BUF_WORDS, cap_initep));
     rpc->ack_received=false;

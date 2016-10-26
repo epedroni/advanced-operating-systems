@@ -19,15 +19,15 @@
 
 enum message_header {
     HANDSHAKE = 0,
-	ACK,
-    NUMBER,
-	STRING,
-	RAM_CAP,
-	PUT_CHAR,
-	GET_CHAR,
-	SPAWN,
-	GET_NAME,
-	GET_PID
+    RAM_CAP=1,
+	ACK=2,
+    NUMBER=4,
+	STRING=8,
+	PUT_CHAR=0x10,
+	GET_CHAR=0x11,
+	SPAWN=0x12,
+	GET_NAME=0x14,
+	GET_PID=0x18
 };
 
 struct aos_rpc {
