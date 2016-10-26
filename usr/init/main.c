@@ -55,7 +55,7 @@ static void rcv_callback(void* args){
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
-    err=lmp_chan_send1(lc, LMP_FLAG_SYNC | LMP_FLAG_SYNC, NULL_CAP, 43);
+    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, 43);
     debug_printf("Sent message\n");
 }
 
