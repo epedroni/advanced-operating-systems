@@ -25,7 +25,7 @@ errval_t spawn_child_slot_alloc(struct slot_allocator *ca, struct capref *cap);
 errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap);
 
 
-errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc);
+errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc   );
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
 errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 
@@ -223,7 +223,6 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_INITEP
     };
-    debug_printf("Copy parents endpoint to predefined slot in childs cspace 0x%X\n",lc);
     ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
 
     // IV. Map in child process

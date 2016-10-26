@@ -41,6 +41,16 @@ void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
+static void rcv_callback(void* args){
+    debug_printf("Receive callback invoked!");
+    struct lmp_chan* lc=(struct lmp_chan*)args;
+
+    struct lmp_recv_msg message;
+    struct capref capref;
+    lmp_chan_recv(lc, &message,&capref);
+    debug_printf("Received number! %d\n", message.words[0]);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -85,7 +95,13 @@ int main(int argc, char *argv[])
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
     struct lmp_chan lc;
-    MM_ASSERT(lmp_chan_accept(&lc, 10, NULL_CAP), "Error creating lmp channel");
+    MM_ASSERT(lmp_chan_accept(&lc, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
+    MM_ASSERT(lmp_chan_alloc_recv_slot(&lc), "Allocating slot for receive");
+    struct event_closure rcv_closure={
+       .handler=rcv_callback,
+       .arg=(void*)&lc
+    };
+    ERROR_RET1(lmp_chan_register_recv(&lc, get_default_waitset(), rcv_closure));
 
     //Spawn child
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
@@ -93,11 +109,6 @@ int main(int argc, char *argv[])
     err = spawn_load_by_name("/armv7/sbin/hello", process_info, &lc);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
-    }
-
-    while(1) {
-    	struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
-		ERROR_RET1(lmp_chan_recv(&lc, &msg, NULL));
     }
 
     free(process_info);
