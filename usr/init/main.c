@@ -42,12 +42,41 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static void rcv_callback(void* args){
-    debug_printf("Receive callback invoked!\n");
+    debug_printf("Server is receiving request\n");
     struct lmp_chan* lc=(struct lmp_chan*)args;
-
-    struct lmp_recv_msg message;
+    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref child_endpoint;
-    lmp_chan_recv(lc, &message,&child_endpoint);
+
+    assert(sizeof(message.words) <= 0);
+
+    lmp_chan_recv(lc, &message, &child_endpoint);
+
+    switch(message.words[0]) {
+    case RPC_HANDSHAKE:
+    	break;
+    case RPC_RAM_CAP:
+    	break;
+    case RPC_ACK:
+    	break;
+    case RPC_NUMBER:
+    	break;
+    case RPC_STRING:
+    	break;
+    case RPC_PUT_CHAR:
+    	break;
+    case RPC_GET_CHAR:
+    	break;
+    case RPC_SPAWN:
+    	break;
+    case RPC_GET_NAME:
+    	break;
+    case RPC_GET_PID:
+    	break;
+    default:
+    	break;
+
+    }
+
     debug_printf("Received number! %d\n", message.words[0]);
 
     errval_t err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);

@@ -18,16 +18,16 @@
 #include <aos/aos.h>
 
 enum message_header {
-    HANDSHAKE = 0,
-    RAM_CAP=1,
-	ACK=2,
-    NUMBER=4,
-	STRING=8,
-	PUT_CHAR=0x10,
-	GET_CHAR=0x11,
-	SPAWN=0x12,
-	GET_NAME=0x14,
-	GET_PID=0x18
+    RPC_HANDSHAKE = 0,
+    RPC_RAM_CAP=1,
+	RPC_ACK=2,
+    RPC_NUMBER=4,
+	RPC_STRING=8,
+	RPC_PUT_CHAR=0x10,
+	RPC_GET_CHAR=0x11,
+	RPC_SPAWN=0x12,
+	RPC_GET_NAME=0x14,
+	RPC_GET_PID=0x18
 };
 
 struct aos_rpc {

@@ -90,11 +90,10 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 		return LIB_ERR_LMP_CHAN_SEND;
 	}
 
-    errval_t err=lmp_chan_send1(chan->lc, LMP_FLAG_SYNC, NULL_CAP, string[0]);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "sending number");
-    }
-
+	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL_CAP, val);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "sending string");
+	}
 
     return SYS_ERR_OK;
 }
@@ -104,13 +103,33 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t request_bits,
 {
     // TODO: implement functionality to request a RAM capability over the
     // given channel and wait until it is delivered.
-    return SYS_ERR_OK;
+
+	// wait for send
+
+	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL, request_bits);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "sending ram request");
+	}
+
+	// wait for ack, need to get retcap and ret_bits from it
+
+	return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
+
+	// wait for send
+
+	errval_t err=lmp_chan_send0(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "sending get char request");
+	}
+
+	// wait for ack, place char in retc
+
     return SYS_ERR_OK;
 }
 
@@ -119,6 +138,16 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c)
 {
     // TODO implement functionality to send a character to the
     // serial port.
+
+	// wait for send
+
+	errval_t err=lmp_chan_send1(chan->lc->remote_cap, LMP_FLAG_SYNC, NULL, c);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "sending put char request");
+	}
+
+	// wait for ack
+
     return SYS_ERR_OK;
 }
 
