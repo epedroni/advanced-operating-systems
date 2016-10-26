@@ -107,8 +107,15 @@ void barrelfish_libc_glue_init(void)
 }
 
 static
-void rcv_ready_callback(void* arg){
+void rcv_ready_callback(void* args){
     debug_printf("rcv ready callback \n");
+
+    struct lmp_chan* lc=(struct lmp_chan*)args;
+
+    struct lmp_recv_msg message;
+    struct capref dummy;
+    lmp_chan_recv(lc, &message,&dummy);
+    debug_printf("Received number in child! %d\n", message.words[0]);
 }
 
 static
@@ -184,7 +191,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     lmp_chan_alloc_recv_slot(&lc);  //TODO: check if we actually need this
     struct event_closure rcv_closure={
         .handler=rcv_ready_callback,
-        .arg=NULL
+        .arg=(void*)&lc
     };
     ERROR_RET1(lmp_chan_register_recv(&lc, default_ws, rcv_closure));
 

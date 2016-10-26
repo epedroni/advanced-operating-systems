@@ -46,9 +46,17 @@ static void rcv_callback(void* args){
     struct lmp_chan* lc=(struct lmp_chan*)args;
 
     struct lmp_recv_msg message;
-    struct capref capref;
-    lmp_chan_recv(lc, &message,&capref);
+    struct capref child_endpoint;
+    lmp_chan_recv(lc, &message,&child_endpoint);
     debug_printf("Received number! %d\n", message.words[0]);
+
+    errval_t err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "initialize_ram_alloc");
+    }
+
+    err=lmp_chan_send1(lc, LMP_FLAG_SYNC | LMP_FLAG_SYNC, NULL_CAP, 43);
+    debug_printf("Sent message\n");
 }
 
 int main(int argc, char *argv[])
@@ -139,7 +147,7 @@ int main(int argc, char *argv[])
 	struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
-        debug_printf("Got event");
+//        debug_printf("Got event");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
