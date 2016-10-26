@@ -108,7 +108,7 @@ void barrelfish_libc_glue_init(void)
 
 static
 void rcv_ready_callback(void* arg){
-    debug_printf("rcv ready callback \n");
+    debug_printf("rcv ready callback\n");
 }
 
 static
@@ -117,7 +117,7 @@ void send_ready_callback(void* arg){
 
     struct lmp_chan* lc=(struct lmp_chan*)arg;
     debug_printf("sending our own local cap\n");
-    err=lmp_chan_send1(lc, LMP_FLAG_SYNC | LMP_FLAG_SYNC, lc->local_cap, 42);
+    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, lc->local_cap, 42);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error sending message");
     }

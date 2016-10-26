@@ -42,7 +42,7 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static void rcv_callback(void* args){
-    debug_printf("Receive callback invoked!");
+    debug_printf("Receive callback invoked!\n");
     struct lmp_chan* lc=(struct lmp_chan*)args;
 
     struct lmp_recv_msg message;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 	struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
-        debug_printf("Got event");
+        debug_printf("Got event\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
