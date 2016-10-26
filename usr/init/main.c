@@ -80,20 +80,22 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "slot_alloc_init");
     }
 
+    // Retype dispatcher to endpoint
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
+    //Create lmp channel
+    struct lmp_chan lc;
+    MM_ASSERT(lmp_chan_accept(&lc, 10, NULL_CAP), "Error creating lmp channel");
 
+    //Spawn child
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=my_core_id;   //Run it on same core
-    err = spawn_load_by_name("/armv7/sbin/hello", process_info);
+    err = spawn_load_by_name("/armv7/sbin/hello", process_info, &lc);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }
     free(process_info);
     debug_printf("Runing tests!\n");
-
-//    test_paging();
-//    runtests_mem_alloc();
 
     debug_printf("Starting lmp server...");
     MM_ASSERT(lmp_server_init(process_info), "Error initializing server");

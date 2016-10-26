@@ -18,7 +18,7 @@
 #include <aos/aos.h>
 
 struct aos_rpc {
-    // TODO: add state for your implementation
+    struct lmp_chan* lc;
 };
 
 /**

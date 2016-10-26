@@ -106,6 +106,16 @@ void barrelfish_libc_glue_init(void)
     setvbuf(stderr, ebuf, _IOLBF, sizeof(buf));
 }
 
+static
+void rcv_ready_callback(void* arg){
+    debug_printf("rcv ready callback \n");
+}
+
+static
+void send_ready_callback(void* arg){
+    debug_printf("send ready callback \n");
+}
+
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -157,11 +167,27 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
+    static struct lmp_chan lc;  //TODO: added static just for testing
     /* create local endpoint */
     /* set remote endpoint to init's endpoint */
+    debug_printf("Creating child endpoint\n");
+    ERROR_RET1(lmp_chan_accept(&lc, 10, cap_initep));
     /* set receive handler */
-    /* send local ep to init */
-    /* wait for init to acknowledge receiving the endpoint */
+    lmp_chan_alloc_recv_slot(&lc);  //TODO: check if we actually need this
+    struct event_closure rcv_closure={
+        .handler=rcv_ready_callback,
+        .arg=NULL
+    };
+    ERROR_RET1(lmp_chan_register_recv(&lc, default_ws, rcv_closure));
+    /* TODO: send local ep to init */
+    struct event_closure send_closure={
+        .handler=send_ready_callback,
+        .arg=NULL
+    };
+    debug_printf("lmp_chan_send, invoking!\n");
+    ERROR_RET1(lmp_chan_register_send(&lc, get_default_waitset(), send_closure));
+    /* TODO: wait for init to acknowledge receiving the endpoint */
+
     /* initialize init RPC client with lmp channel */
     /* set init RPC client in our program state */
 

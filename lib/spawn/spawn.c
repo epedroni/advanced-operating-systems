@@ -25,7 +25,7 @@ errval_t spawn_child_slot_alloc(struct slot_allocator *ca, struct capref *cap);
 errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap);
 
 
-errval_t spawn_setup_dispatcher(struct spawninfo* si);
+errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc);
 errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
 errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 
@@ -33,7 +33,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
 
 // TODO(M4): Build and pass a messaging channel to your child process
-errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
+errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lmp_chan* lc) {
     printf("spawn start_child: starting: %s\n", binary_name);
 
     // 1- Get the binary from multiboot image
@@ -57,7 +57,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si) {
 
     // 6- Setup dispatcher
     debug_printf("Setup dispatcher...\n");
-    ERROR_RET1(spawn_setup_dispatcher(si));
+    ERROR_RET1(spawn_setup_dispatcher(si, lc));
 
     // 7- Setup arguments
     debug_printf("Setup arguments...\n");
@@ -181,7 +181,7 @@ errval_t spawn_setup_cspace(struct spawninfo* si)
     return SYS_ERR_OK;
 }
 
-errval_t spawn_setup_dispatcher(struct spawninfo* si)
+errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
 {
     // I. Create dispatcher and endpoint
     struct capref dispatcher_endpoint;
@@ -219,16 +219,12 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
 
-    //Create endpoint to send to child, place it in Task CN in first user slot
-    debug_printf("Creating local endpoint\n");
     struct capref slot_parent_endpoint={
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_INITEP
     };
-    struct lmp_chan lc;
-    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
-    debug_printf("copy created endpoint to predefined slot in child cspace\n");
-    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
+    debug_printf("Copy parents endpoint to predefined slot in childs cspace 0x%X\n",lc);
+    ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
 
     // IV. Map in child process
     // Map dispatcher frame for child

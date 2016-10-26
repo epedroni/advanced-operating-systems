@@ -39,31 +39,6 @@ static errval_t allocate_ram(void){
     return SYS_ERR_OK;
 }
 
-static
-void send_message_handler(void* arg){
-    debug_printf("We can send now\n");
-}
-
-static
-errval_t setup_endpoint(struct lmp_chan* lmp_chan){
-        debug_printf("child_hello: lmp_endpoint_init\n");
-        lmp_endpoint_init();
-
-        debug_printf("Creating child endpoint\n");
-
-        ERROR_RET1(lmp_chan_accept(lmp_chan, 10, cap_initep));
-        debug_printf("child_hello: Endpoint created\n");
-
-        struct event_closure closure={
-            .handler=send_message_handler,
-            .arg=NULL
-        };
-        debug_printf("lmp_chan_send, invoking!\n");
-        lmp_chan_register_send(lmp_chan, get_default_waitset(), closure);
-
-        return SYS_ERR_OK;
-}
-
 int main(int argc, char *argv[])
 {
     debug_printf("Received %d arguments \n",argc);
@@ -71,10 +46,7 @@ int main(int argc, char *argv[])
         debug_printf("Printing argument: %d %s\n",i, argv[i]);
     }
 
-    allocate_ram();
-
-    struct lmp_chan lmp_chan;
-    errval_t err=setup_endpoint(&lmp_chan);
+    errval_t err=allocate_ram();
 
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing endpoint");
