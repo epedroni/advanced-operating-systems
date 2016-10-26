@@ -25,6 +25,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include "threads_priv.h"
 #include "init.h"
+#include <aos/aos_rpc.h>
 
 /// Are we the init domain (and thus need to take some special paths)?
 static bool init_domain;
@@ -105,30 +106,30 @@ void barrelfish_libc_glue_init(void)
     static char ebuf[BUFSIZ];
     setvbuf(stderr, ebuf, _IOLBF, sizeof(buf));
 }
-
-static
-void rcv_ready_callback(void* args){
-    debug_printf("rcv ready callback\n");
-
-    struct lmp_chan* lc=(struct lmp_chan*)args;
-
-    struct lmp_recv_msg message;
-    struct capref dummy;
-    lmp_chan_recv(lc, &message,&dummy);
-    debug_printf("Received number in child! %d\n", message.words[0]);
-}
-
-static
-void send_ready_callback(void* arg){
-    errval_t err;
-
-    struct lmp_chan* lc=(struct lmp_chan*)arg;
-    debug_printf("sending our own local cap\n");
-    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, lc->local_cap, 42);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Error sending message");
-    }
-}
+//
+//static
+//void rcv_ready_callback(void* args){
+//    debug_printf("rcv ready callback\n");
+//
+//    struct lmp_chan* lc=(struct lmp_chan*)args;
+//
+//    struct lmp_recv_msg message;
+//    struct capref dummy;
+//    lmp_chan_recv(lc, &message,&dummy);
+//    debug_printf("Received number in child! %d\n", message.words[0] & STRING);
+//}
+//
+//static
+//void send_ready_callback(void* arg){
+//    errval_t err;
+//
+//    struct lmp_chan* lc=(struct lmp_chan*)arg;
+//    debug_printf("sending our own local cap\n");
+//    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, lc->local_cap, 42);
+//    if (err_is_fail(err)) {
+//        USER_PANIC_ERR(err, "Error sending message");
+//    }
+//}
 
 /** \brief Initialise libbarrelfish.
  *
@@ -184,27 +185,12 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     static struct lmp_chan lc;  //TODO: added static just for testing
     /* create local endpoint */
     /* set remote endpoint to init's endpoint */
-    debug_printf("Creating child endpoint\n");
-    ERROR_RET1(lmp_chan_accept(&lc, DEFAULT_LMP_BUF_WORDS, cap_initep));
-
-    /* set receive handler */
-    lmp_chan_alloc_recv_slot(&lc);  //TODO: check if we actually need this
-    struct event_closure rcv_closure={
-        .handler=rcv_ready_callback,
-        .arg=(void*)&lc
-    };
-    ERROR_RET1(lmp_chan_register_recv(&lc, default_ws, rcv_closure));
-
-    /* TODO: send local ep to init */
-    struct event_closure send_closure={
-        .handler=send_ready_callback,
-        .arg=(void*)&lc
-    };
-    debug_printf("lmp_chan_register_send, invoking!\n");
-    ERROR_RET1(lmp_chan_register_send(&lc, get_default_waitset(), send_closure));
-
     /* TODO: wait for init to acknowledge receiving the endpoint */
-
+    struct aos_rpc rpc={
+        .lc=&lc,
+        .ws=get_default_waitset()
+    };
+    aos_rpc_init(&rpc);
 
     /* initialize init RPC client with lmp channel */
     /* set init RPC client in our program state */
@@ -214,7 +200,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // right now we don't have the nameservice & don't need the terminal
     // and domain spanning, so we return here
-    debug_printf("finished init\n");
     return SYS_ERR_OK;
 }
 

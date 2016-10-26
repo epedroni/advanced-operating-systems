@@ -19,6 +19,9 @@
 
 struct aos_rpc {
     struct lmp_chan* lc;
+    bool can_send;
+    bool ack_received;
+    struct waitset* ws;
 };
 
 /**

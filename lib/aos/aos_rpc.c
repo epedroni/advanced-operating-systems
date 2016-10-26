@@ -14,10 +14,51 @@
 
 #include <aos/aos_rpc.h>
 
+static
+void cb_recv_ready(void* args){
+    struct aos_rpc *rpc=args;
+    rpc->ack_received=true;
+}
+
+static
+void cb_send_ready(void* args){
+    struct aos_rpc *rpc=args;
+    rpc->can_send=true;
+}
+
+static
+void wait_for_send(struct aos_rpc* rpc){
+    //struct waitset *default_ws = get_default_waitset();
+    while (!rpc->can_send) {
+        err = event_dispatch(rpc->ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    }
+    rpc->can_send=false;
+}
+
+static
+void wait_for_ack(struct aos_rpc* rpc){
+    while (!rpc->ack_received) {
+        err = event_dispatch(rpc->ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    }
+    rpc->ack_received=false;
+}
+
 errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
 {
     // TODO: implement functionality to send a number ofer the channel
     // given channel and wait until the ack gets returned.
+
+    wait_for_send(chan);
+    //send
+    wait_for_ack(chan);
     return SYS_ERR_OK;
 }
 
@@ -73,9 +114,29 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
     return SYS_ERR_OK;
 }
 
-
 errval_t aos_rpc_init(struct aos_rpc *rpc)
 {
-    // TODO: Initialize given rpc channel
+
+    ERROR_RET1(lmp_chan_accept(rpc->lc,
+            DEFAULT_LMP_BUF_WORDS, cap_initep));
+    rpc->ack_received=false;
+    rpc->can_send=false;
+
+    /* set receive handler */
+    lmp_chan_alloc_recv_slot(rpc->lc);
+    struct event_closure rcv_closure={
+        .handler=cb_recv_ready,
+        .arg=(void*)rpc
+    };
+    ERROR_RET1(lmp_chan_register_recv(rpc->lc,
+            rpc->ws, rcv_closure));
+
+    /* TODO: send local ep to init */
+    struct event_closure send_closure={
+        .handler=cb_send_ready,
+        .arg=(void*)rpc
+    };
+    debug_printf("lmp_chan_register_send, invoking!\n");
+    ERROR_RET1(lmp_chan_register_send(rpc->lc, rpc->ws, send_closure));
     return SYS_ERR_OK;
 }
