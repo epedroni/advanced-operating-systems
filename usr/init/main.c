@@ -24,6 +24,7 @@
 #include <spawn/spawn.h>
 #include "mem_alloc.h"
 #include "lrpc_server.h"
+#include <aos/aos_rpc.h>
 
 coreid_t my_core_id;
 struct bootinfo *bi;
@@ -42,27 +43,30 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static void rcv_callback(void* args){
+    errval_t err;
+
     debug_printf("Server is receiving request\n");
     struct lmp_chan* lc=(struct lmp_chan*)args;
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref child_endpoint;
 
-    assert(sizeof(message.words) <= 0);
-
     lmp_chan_recv(lc, &message, &child_endpoint);
+
+    uint32_t ret_flags=0;
 
     switch(message.words[0]) {
     case RPC_HANDSHAKE:
+        debug_printf("Received handshake message!\n");
     	// get cap, create new endpoint?
-    	errval_t err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
+    	err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
 		if(err_is_fail(err)){
 			DEBUG_ERR(err, "accepting new client");
 		}
+		ret_flags|=RPC_HANDSHAKE;
     	break;
     case RPC_RAM_CAP:
     	// create ram
-    	break;
-    case RPC_ACK:
+        ret_flags|=RPC_RAM_CAP;
     	break;
     case RPC_NUMBER:
     	break;
@@ -80,11 +84,14 @@ static void rcv_callback(void* args){
     	break;
     default:
     	break;
-
     }
 
-    //err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, 43);
-    //debug_printf("Sent message\n");
+    ret_flags|=RPC_ACK;
+
+    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, ret_flags);
+    if(err_is_fail(err)){
+        debug_printf("Message not sent\n");
+    }
 }
 
 int main(int argc, char *argv[])

@@ -24,10 +24,10 @@ enum message_header {
     RPC_NUMBER=4,
 	RPC_STRING=8,
 	RPC_PUT_CHAR=0x10,
-	RPC_GET_CHAR=0x11,
-	RPC_SPAWN=0x12,
-	RPC_GET_NAME=0x14,
-	RPC_GET_PID=0x18
+	RPC_GET_CHAR=0x20,
+	RPC_SPAWN=0x40,
+	RPC_GET_NAME=0x80,
+	RPC_GET_PID=0x100
 };
 
 struct aos_rpc {
