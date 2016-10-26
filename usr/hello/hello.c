@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     errval_t err=allocate_ram();
 
     if(err_is_fail(err)){
-        DEBUG_ERR(err, "Failed initializing endpoint");
+        DEBUG_ERR(err, "Failed initializing ram");
     }
 
     return 0;

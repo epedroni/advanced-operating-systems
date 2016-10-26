@@ -94,10 +94,16 @@ int main(int argc, char *argv[])
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }
+
+    while(1) {
+    	struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
+		ERROR_RET1(lmp_chan_recv(&lc, &msg, NULL));
+    }
+
     free(process_info);
     debug_printf("Runing tests!\n");
 
-    debug_printf("Starting lmp server...");
+    debug_printf("Starting lmp server...\n");
     MM_ASSERT(lmp_server_init(process_info), "Error initializing server");
 
     debug_printf("Message handler loop\n");
@@ -119,9 +125,10 @@ int main(int argc, char *argv[])
     LOGO("  `---`   `--`---'                  `----'    `--`---'            `----'       `----'    `----'            ");
     LOGO("                                        ... Well actually we are simply TeamF. But we are still awesome ;)");
     // Hang around
-    struct waitset *default_ws = get_default_waitset();
+	struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
+        debug_printf("Got event");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();

@@ -172,6 +172,11 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     /* set remote endpoint to init's endpoint */
     debug_printf("Creating child endpoint\n");
     ERROR_RET1(lmp_chan_accept(&lc, 10, cap_initep));
+
+    // try to send something haha
+    debug_printf("sending our own local cap\n");
+    lmp_chan_send0(&lc, 0, lc.local_cap);
+
     /* set receive handler */
     lmp_chan_alloc_recv_slot(&lc);  //TODO: check if we actually need this
     struct event_closure rcv_closure={
@@ -179,14 +184,17 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         .arg=NULL
     };
     ERROR_RET1(lmp_chan_register_recv(&lc, default_ws, rcv_closure));
+
     /* TODO: send local ep to init */
     struct event_closure send_closure={
         .handler=send_ready_callback,
         .arg=NULL
     };
-    debug_printf("lmp_chan_send, invoking!\n");
+    debug_printf("lmp_chan_register_send, invoking!\n");
     ERROR_RET1(lmp_chan_register_send(&lc, get_default_waitset(), send_closure));
+
     /* TODO: wait for init to acknowledge receiving the endpoint */
+
 
     /* initialize init RPC client with lmp channel */
     /* set init RPC client in our program state */
