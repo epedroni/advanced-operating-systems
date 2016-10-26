@@ -219,15 +219,16 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si)
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
 
-//    //Create endpoint to send to child, place it in Task CN in first user slot
-//    debug_printf("Creating local endpoint\n");
-//    struct capref slot_parent_endpoint={
-//        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
-//        .slot=TASKCN_SLOTS_USER
-//    };
-//    struct lmp_chan lc;
-//    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
-//    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
+    //Create endpoint to send to child, place it in Task CN in first user slot
+    debug_printf("Creating local endpoint\n");
+    struct capref slot_parent_endpoint={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+        .slot=TASKCN_SLOT_INITEP
+    };
+    struct lmp_chan lc;
+    ERROR_RET1(lmp_chan_accept(&lc, 10, NULL_CAP));
+    debug_printf("copy created endpoint to predefined slot in child cspace\n");
+    ERROR_RET1(cap_copy(slot_parent_endpoint, lc.local_cap));
 
     // IV. Map in child process
     // Map dispatcher frame for child
