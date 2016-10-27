@@ -294,29 +294,15 @@ errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
             LMP_FLAG_SYNC,
             selfep,
             RPC_HANDSHAKE));
-    RPC_CHAN_WRAPPER_SEND(chan,
-        lmp_chan_send2(&chan->lc,
-            LMP_FLAG_SYNC,
-            chan->shared_memory_frame,
-            RPC_INIT_SHARED_BUFFER,
-            chan->shared_memory_size));
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake)
 {
     debug_printf("aos_rpc_init: invoked\n");
-    rpc->ws = get_default_waitset();
-
-    if (is_client)
-    {
-        rpc->shared_memory_size = BASE_PAGE_SIZE;
-        ERROR_RET1(ram_alloc(&rpc->shared_memory_frame, rpc->shared_memory_size));
-    }
-
+    rpc->ws=get_default_waitset();
     ERROR_RET1(lmp_chan_accept(&rpc->lc,
             DEFAULT_LMP_BUF_WORDS, remote_endpoint));
-
     rpc->ack_received=false;
     rpc->can_send=false;
 
@@ -324,7 +310,7 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
 
     /* set receive handler */
     lmp_chan_alloc_recv_slot(&rpc->lc);
-    if(is_client){
+    if(send_handshake){
         debug_printf("Sending handshake\n");
         aos_rpc_send_handshake(rpc, rpc->lc.local_cap);
     }
