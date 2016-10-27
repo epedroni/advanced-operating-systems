@@ -160,9 +160,20 @@ int main(int argc, char *argv[])
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }
-
     free(process_info);
-    debug_printf("Runing tests!\n");
+
+    // spawn another for kicks
+    struct lmp_chan lc2;
+	MM_ASSERT(lmp_chan_accept(&lc2, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
+	MM_ASSERT(lmp_chan_alloc_recv_slot(&lc2), "Allocating slot for receive");
+	ERROR_RET1(lmp_chan_register_recv(&lc2, get_default_waitset(), MKCLOSURE(rcv_callback, &lc2)));
+	process_info = malloc(sizeof(struct spawninfo));
+	process_info->core_id=my_core_id;   //Run it on same core
+	err = spawn_load_by_name("/armv7/sbin/memeater", process_info, &lc2);
+	if(err_is_fail(err)){
+		DEBUG_ERR(err, "spawn_load_by_name");
+	}
+	free(process_info);
 
     debug_printf("Starting lmp server...\n");
     MM_ASSERT(lmp_server_init(process_info), "Error initializing server");

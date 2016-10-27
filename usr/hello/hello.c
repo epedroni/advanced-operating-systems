@@ -18,6 +18,8 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
 
+struct aos_rpc *init_rpc;
+
 errval_t aos_slab_refill(struct slab_allocator *slabs){
     debug_printf("Aos slab refill!\n");
 	//TODO: We have to think of a way how to provide refill function to every application
@@ -51,6 +53,9 @@ int main(int argc, char *argv[])
 
     // moved to init.c
 //    aos_rpc_init(&rpc);
+
+    init_rpc = get_init_rpc();
+    debug_printf("init rpc: 0x%x\n", init_rpc);
     aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
 
     if(err_is_fail(err)){
