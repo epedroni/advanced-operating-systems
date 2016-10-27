@@ -170,7 +170,6 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
-
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");
 
