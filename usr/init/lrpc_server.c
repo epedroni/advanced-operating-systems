@@ -29,8 +29,6 @@ errval_t handle_string(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, s
 
     if(get_message_flags(msg) & RPC_FLAG_INCOMPLETE){
 
-        debug_printf("Received only part of string, starting from %d\n", sess->current_buff_position);
-
         if(sess->current_buff_position+LMP_MAX_BUFF_SIZE<sess->buffer_capacity){
             memcpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
             sess->current_buff_position+=LMP_MAX_BUFF_SIZE;
@@ -42,7 +40,7 @@ errval_t handle_string(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, s
         strncpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
         sess->current_buff_position=0;
 
-        debug_printf("Received string %s\n", sess->buffer);
+        sys_print(sess->buffer, strlen(sess->buffer)+1);
     }
 
     return SYS_ERR_OK;
