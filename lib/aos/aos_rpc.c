@@ -41,13 +41,12 @@ void cb_accept_loop(void* args)
     uint32_t return_opcode=0;
     uint32_t return_flags=0;
 
-    debug_printf("We have message type: 0x%X\n", message.words[0]);
-    uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
+    uint32_t message_opcode = RPC_HEADER_OPCODE(message.words[0]);
+    debug_printf("RECV: message opcode 0x%02x\n", (int)message_opcode);
 
     struct aos_rpc_message_handler_closure closure=cs->rpc->aos_rpc_message_handler_closure[message_opcode];
 
     if(closure.message_handler!=NULL){
-        debug_printf("Invoking function callback\n");
         struct capref ret_cap=NULL_CAP;
         closure.message_handler(cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
         if(closure.send_ack){
@@ -73,7 +72,6 @@ void cb_accept_loop(void* args)
 
 static
 void cb_recv_ready(void* args){
-    debug_printf("we are ready to receive\n");
     struct aos_rpc_session *cs=args;
 
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
@@ -83,20 +81,17 @@ void cb_recv_ready(void* args){
 
     if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK){
         cs->ack_received=true;
-        debug_printf("We received ack, yay!\n");
     }
 }
 
 static
 void cb_send_ready(void* args){
-    debug_printf("** we can send!\n");
     struct aos_rpc_session *sess = args;
     sess->can_send=true;
 }
 
 static
 void wait_for_send(struct aos_rpc_session* sess){
-    debug_printf("waiting for send\n");
     errval_t err;
 
     lmp_chan_register_send(&sess->lc, sess->rpc->ws, MKCLOSURE(cb_send_ready, (void*)sess));
@@ -109,7 +104,6 @@ void wait_for_send(struct aos_rpc_session* sess){
         }
     }
     sess->can_send=false;
-    debug_printf("can send received\n");
 }
 
 struct recv_block_helper_struct
@@ -160,7 +154,6 @@ void wait_for_ack(struct aos_rpc_session* sess){
     lmp_chan_register_recv(&sess->lc,
             sess->rpc->ws, MKCLOSURE(cb_recv_ready, (void*)sess));
 
-    debug_printf("wait for ack\n");
     while (!sess->ack_received) {
         errval_t err = event_dispatch(sess->rpc->ws);
         if (err_is_fail(err)) {
@@ -169,8 +162,6 @@ void wait_for_ack(struct aos_rpc_session* sess){
         }
     }
     sess->ack_received=false;
-
-    debug_printf("ack received\n");
 }
 
 // Waits for send, sends and waits for ack
@@ -324,10 +315,8 @@ errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opco
 errval_t aos_rpc_accept(struct aos_rpc* rpc){
     errval_t err;
 
-    debug_printf("aos_rpc_accept: invoked\n");
     while (true) {
         err = event_dispatch(rpc->ws);
-        debug_printf("Got event\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
