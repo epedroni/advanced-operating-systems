@@ -61,6 +61,10 @@ errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
 
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan);
 {
-    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
+    // TODO: Free this when process ends
+    struct aos_rpc_session* sess = malloc(sizeof(struct aos_rpc_session));
+    sess->ack_received=false;
+    sess->can_send=false;
+    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, sess));
     return SYS_ERR_OK;
 }
