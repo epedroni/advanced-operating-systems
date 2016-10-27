@@ -20,9 +20,6 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-#ifndef EXCLUDE_MEMEATER
-static struct aos_rpc init_rpc;
-#endif
 
 errval_t aos_slab_refill(struct slab_allocator *slabs){
     //TODO: We have to think of a way how to provide refill function to every application
@@ -41,6 +38,7 @@ const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
 #ifndef EXCLUDE_MEMEATER
 static errval_t request_and_map_memory(void)
 {
+    struct aos_rpc* rpc = get_init_rpc();
     errval_t err;
 
     size_t bytes;
@@ -52,7 +50,7 @@ static errval_t request_and_map_memory(void)
     debug_printf("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
 
     struct capref cap1;
-    err = aos_rpc_get_ram_cap(&init_rpc, BASE_PAGE_SIZE, &cap1, &bytes);
+    err = aos_rpc_get_ram_cap(rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
         return err;
@@ -118,26 +116,27 @@ static errval_t request_and_map_memory(void)
 #ifndef EXCLUDE_MEMEATER
 static errval_t test_basic_rpc(void)
 {
+    struct aos_rpc* rpc = get_init_rpc();
     errval_t err;
 
     debug_printf("RPC: testing basic RPCs...\n");
 
     debug_printf("RPC: sending number...\n");
-    err =  aos_rpc_send_number(&init_rpc, 42);
+    err =  aos_rpc_send_number(rpc, 42);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
     debug_printf("RPC: sending small string...\n");
-    err =  aos_rpc_send_string(&init_rpc, "Hello init");
+    err =  aos_rpc_send_string(rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
     debug_printf("RPC: sending large string...\n");
-    err =  aos_rpc_send_string(&init_rpc, str);
+    err =  aos_rpc_send_string(rpc, str);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
@@ -157,13 +156,6 @@ int main(int argc, char *argv[])
 
     debug_printf("memeater started....\n");
 
-    // this is not necessary, it happens in init.c
-//    err = aos_rpc_init(&init_rpc);
-//    if (err_is_fail(err)) {
-//        USER_PANIC_ERR(err, "could not initialize RPC\n");
-//    }
-    init_rpc = *get_init_rpc();
-    debug_printf("init rpc: 0x%x\n", &init_rpc);
 
     err = test_basic_rpc();
     if (err_is_fail(err)) {
