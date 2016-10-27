@@ -135,7 +135,6 @@ errval_t ram_alloc_set(ram_alloc_func_t local_allocator)
         return SYS_ERR_OK;
     }
 
-    USER_PANIC("ram_alloc_set(NULL) NYI");
     ram_alloc_state->ram_alloc_func = ram_alloc_remote;
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
