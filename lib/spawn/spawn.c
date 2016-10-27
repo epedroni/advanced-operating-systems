@@ -126,7 +126,7 @@ errval_t spawn_setup_minimal_child_paging(struct spawninfo* si)
     si->slot_alloc.pagecn = si->l2_cnodes[ROOTCN_SLOT_PAGECN];
 
     ERROR_RET1(paging_init_state(&si->child_paging_state,
-        VADDR_OFFSET,
+        BASE_PAGE_SIZE,
         si->l1_pagetable_own_cap,
         (struct slot_allocator*)&si->slot_alloc));
     return SYS_ERR_OK;
