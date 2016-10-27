@@ -44,6 +44,12 @@ enum message_flags {
 #define RPC_HEADER_OPCODE(header) (header & ((1 << RPC_OPCODE_BITS) - 1))
 #define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
 
+void (*rpc_num_handler_cb)(uintptr_t number);
+void (*rpc_string_handler_cb)(char* string);
+void (*rpc_get_ram_handler_cb)(size_t bytes, struct capref *retcap, size_t *ret_bytes);
+void (*rpc_get_char_handler_cb)(char *retc);
+void (*rpc_put_char_handler_cb)(char c);
+
 struct aos_rpc {
     struct lmp_chan lc;
     bool can_send;

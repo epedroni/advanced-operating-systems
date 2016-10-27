@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     }
     free(process_info);
 
-    // spawn another for kicks
+//  spawn another for kicks
 //    struct lmp_chan lc2;
 //	MM_ASSERT(lmp_chan_accept(&lc2, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
 //	MM_ASSERT(lmp_chan_alloc_recv_slot(&lc2), "Allocating slot for receive");

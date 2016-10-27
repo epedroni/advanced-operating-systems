@@ -42,7 +42,6 @@ struct lmp_endpoint {
     /* buffer beyond end of struct */
 };
 
-
 /**
  * \brief Message layout in user's buffer.
  *
