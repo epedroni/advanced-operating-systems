@@ -102,16 +102,39 @@ errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
 errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 {
 	// we can only send strings of up to 8 characters, need to do the stub
-	if (sizeof(string) / sizeof(char) > 8) {
-		return LIB_ERR_LMP_CHAN_SEND;
-	}
+    static const size_t MAX_BUFF_SIZE=8*sizeof(uintptr_t);
+    errval_t err;
 
-	wait_for_send(chan);
-	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_STRING, string[0]);
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "sending string");
-	}
-	wait_for_ack(chan);
+	size_t length=strlen(string);
+	length++;
+	size_t curr_position=0;
+    static uintptr_t buffer[8];
+
+	bool incomplete=0;
+	do{
+        memcpy(buffer, string+curr_position, (length>MAX_BUFF_SIZE)?MAX_BUFF_SIZE:length);
+
+        if (length>MAX_BUFF_SIZE){
+            curr_position+=MAX_BUFF_SIZE;
+            length-=MAX_BUFF_SIZE;
+            incomplete=RPC_INCOMPLETE;
+        }else{
+            incomplete=0;
+            curr_position+=length;
+        }
+
+        wait_for_send(chan);
+
+        err=lmp_ep_send(chan->lc.remote_cap, LMP_FLAG_SYNC, NULL_CAP, 9, RPC_STRING | incomplete,
+                buffer[0], buffer[1], buffer[2], buffer[3],
+                buffer[4], buffer[5], buffer[6], buffer[7]);
+
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "sending string");
+        }
+        wait_for_ack(chan);
+
+	}while(incomplete);
 
     return SYS_ERR_OK;
 }

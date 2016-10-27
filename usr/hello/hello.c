@@ -58,6 +58,8 @@ int main(int argc, char *argv[])
     debug_printf("init rpc: 0x%x\n", init_rpc);
     aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
 
+    aos_rpc_send_string(get_init_rpc(), "milan hello this is dog maaaaan bla bla bla asdads");
+
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing ram");
     }

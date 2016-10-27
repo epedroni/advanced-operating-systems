@@ -27,7 +27,9 @@ enum message_header {
 	RPC_GET_CHAR=0x20,
 	RPC_SPAWN=0x40,
 	RPC_GET_NAME=0x80,
-	RPC_GET_PID=0x100
+	RPC_GET_PID=0x100,
+	RPC_INCOMPLETE=0x200,
+	RPC_ERROR=0x400
 };
 
 struct aos_rpc {
@@ -35,7 +37,16 @@ struct aos_rpc {
     bool can_send;
     bool ack_received;
     struct waitset* ws;
+
 };
+
+struct number_handler_closure {
+    void (*num_handler_cb)(uintptr_t number);
+    void *arg;
+};
+
+errval_t aos_rpc_register_number_handler(struct aos_rpc *chan,
+        struct number_handler_closure cb);
 
 /**
  * \brief send a number over the given channel
@@ -92,6 +103,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
  */
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
                                       domainid_t **pids, size_t *pid_count);
+
 
 /**
  * \brief Initialize given rpc channel.
