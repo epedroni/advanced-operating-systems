@@ -21,7 +21,8 @@
 enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
-    RPC_RAM_CAP,
+    RPC_RAM_CAP_QUERY,
+    RPC_RAM_CAP_RESPONSE,
     RPC_NUMBER,
     RPC_STRING,
     RPC_PUT_CHAR,
@@ -43,6 +44,9 @@ enum message_flags {
 #define MAKE_RPC_MSG_HEADER(op, flags) (op | (flags << RPC_OPCODE_BITS))
 #define RPC_HEADER_OPCODE(header) (header & ((1 << RPC_OPCODE_BITS) - 1))
 #define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
+
+#define ASSERT_PROTOCOL(cond) { if (!(cond)) { debug_printf("RPC: Protocol error! Assertion %s failed\n", #cond); return RPC_ERR_INVALID_PROTOCOL; }}
+
 
 inline
 uint32_t getMessageFlags(struct lmp_recv_msg* msg){
@@ -81,6 +85,10 @@ struct number_handler_closure {
     void (*num_handler_cb)(uintptr_t number);
     void *arg;
 };
+
+errval_t recv_block(struct aos_rpc_session* sess,
+    struct lmp_recv_msg* message,
+    struct capref* cap);
 
 errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess);
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess);

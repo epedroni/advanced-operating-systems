@@ -110,16 +110,53 @@ void wait_for_send(struct aos_rpc_session* sess){
     debug_printf("can send received\n");
 }
 
+struct recv_block_helper_struct
+{
+    bool received;
+    errval_t err;
+    struct lmp_recv_msg* message;
+    struct capref* cap;
+    struct aos_rpc_session* sess;
+};
+
+static void cb_recv_first(void* args)
+{
+    debug_printf("cb_recv_first\n");
+    struct recv_block_helper_struct *rb = args;
+    rb->err = lmp_chan_recv(&rb->sess->lc, rb->message, rb->cap);
+    rb->received = true;
+}
+
+errval_t recv_block(struct aos_rpc_session* sess,
+    struct lmp_recv_msg* message,
+    struct capref* cap)
+{
+    debug_printf("recv_block\n");
+
+    struct recv_block_helper_struct rb;
+    rb.received = false;
+    rb.message = message;
+    rb.sess = sess;
+    rb.cap = cap;
+
+    ERROR_RET1(lmp_chan_register_recv(&sess->lc,
+            sess->rpc->ws,
+            MKCLOSURE(cb_recv_first, (void*)&rb)));
+
+    while (!rb.received)
+        ERROR_RET1(event_dispatch(sess->rpc->ws));
+
+    return rb.err;
+}
+
 static
 void wait_for_ack(struct aos_rpc_session* sess){
-    errval_t err;
-
     lmp_chan_register_recv(&sess->lc,
             sess->rpc->ws, MKCLOSURE(cb_recv_ready, (void*)sess));
 
     debug_printf("wait for ack\n");
     while (!sess->ack_received) {
-        err = event_dispatch(sess->rpc->ws);
+        errval_t err = event_dispatch(sess->rpc->ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
@@ -200,14 +237,21 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t request_bits,
-                             struct capref *retcap, size_t *ret_bits)
+errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc,
+    size_t request_bits,
+    struct capref *retcap,
+    size_t *ret_bits)
 {
-    RPC_CHAN_WRAPPER_SEND(rpc,
-        lmp_chan_send2(&rpc->server_sess->lc,
-            LMP_FLAG_SYNC, NULL_CAP,
-            RPC_RAM_CAP,
+    wait_for_send(rpc->server_sess);
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_RAM_CAP_QUERY,
             request_bits));
+    struct lmp_recv_msg message;
+    ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
+    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);
+    *ret_bits = message.words[1];
 	return SYS_ERR_OK;
 }
 
