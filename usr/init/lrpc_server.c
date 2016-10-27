@@ -1,5 +1,6 @@
 #include "lrpc_server.h"
 
+#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s, ##__VA_ARGS__)
 
 static const int SESSION_BUFF_SIZE=100;
 
@@ -7,6 +8,7 @@ static
 errval_t handle_handshake(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags)
 {
+    DEBUG_LRPC("Recv RPC_HANDSHAKE", 0);
     sess->lc.remote_cap=received_capref;
 
     sess->buffer=malloc(SESSION_BUFF_SIZE*sizeof(char));
@@ -19,7 +21,7 @@ static
 errval_t handle_number(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags)
 {
-    debug_printf("Received number %d\n",msg->words[1]);
+    DEBUG_LRPC("Received number %d\n",msg->words[1]);
     return SYS_ERR_OK;
 }
 
@@ -56,7 +58,7 @@ errval_t handle_ram_cap_opcode(struct aos_rpc_session* sess,
 {
     size_t requested_bytes = msg->words[1];
     size_t requested_aligment = msg->words[2];
-    debug_printf("Recvd RPC_RAM_CAP_QUERY [requested %d bytes | aligned 0x%x]\n",
+    DEBUG_LRPC("Recvd RPC_RAM_CAP_QUERY [requested %d bytes | aligned 0x%x]\n",
         (int)requested_bytes, (int)requested_aligment);
 
     struct capref return_cap;

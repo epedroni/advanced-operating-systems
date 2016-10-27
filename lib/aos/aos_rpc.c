@@ -146,6 +146,9 @@ errval_t recv_block(struct aos_rpc_session* sess,
     while (!rb.received)
         ERROR_RET1(event_dispatch(sess->rpc->ws));
 
+    if (!capcmp(*rb.cap, NULL_CAP))
+        ERROR_RET1(lmp_chan_alloc_recv_slot(&sess->lc));
+
     return rb.err;
 }
 
