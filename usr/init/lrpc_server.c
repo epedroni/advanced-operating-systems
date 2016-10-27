@@ -47,7 +47,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc, struct lmp_server_state* lmp_state
     return SYS_ERR_OK;
 }
 
-errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
+errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan)
 {
     *chan = malloc(sizeof(struct lmp_chan));
     ERROR_RET1(lmp_chan_accept(*chan,
@@ -57,7 +57,7 @@ errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
     return SYS_ERR_OK;
 }
 
-errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan);
+errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan)
 {
     // TODO: Free this when process ends
     struct aos_rpc_session* sess = malloc(sizeof(struct aos_rpc_session));

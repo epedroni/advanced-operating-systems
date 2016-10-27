@@ -182,7 +182,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 
         wait_for_send(rpc->server_sess);
 
-        err=lmp_ep_send(&rpc->server_sess->lc.remote_cap,
+        err=lmp_ep_send(rpc->server_sess->lc.remote_cap,
             LMP_FLAG_SYNC,
             NULL_CAP,
             9,
@@ -193,7 +193,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "sending string");
         }
-        wait_for_ack(chan);
+        wait_for_ack(rpc->server_sess);
 
 	} while (flags);
 
