@@ -161,18 +161,18 @@ int main(int argc, char *argv[])
     // Init server
     struct aos_rpc rpc;
     aos_rpc_init(&rpc, NULL_CAP, false);
-    struct lmp_chan* chan = NULL;
-    aos_server_add_client(&rpc, &chan);
+    struct aos_rpc_session* sess = NULL;
+    aos_server_add_client(&rpc, &sess);
 
     process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=my_core_id;   //Run it on same core
     err = spawn_load_by_name("/armv7/sbin/hello",
         process_info,
-        chan);
+        &sess->lc);
     if(err_is_fail(err))
         DEBUG_ERR(err, "spawn_load_by_name");
 
-    aos_server_register_client(&rpc, chan);
+    aos_server_register_client(&rpc, sess);
     free(process_info);
 
     debug_printf("Message handler loop\n");

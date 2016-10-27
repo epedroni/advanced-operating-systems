@@ -24,13 +24,13 @@
 	bool give_away = flags & LMP_FLAG_GIVEAWAY;
  */
 
-
 static
-void cb_accept_loop(void* args){
-    debug_printf("cb_accept_loop: invoked\n");
+void cb_accept_loop(void* args)
+{
+    struct aos_rpc_session* cs=(struct aos_rpc_session*)args;
+    debug_printf("cb_accept_loop: invoked. sess=0x%08x\n", (int)cs);
     errval_t err;
 
-    struct aos_rpc_session* cs=(struct aos_rpc_session*)args;
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref received_cap=NULL_CAP;
 
@@ -308,11 +308,12 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
     {
         rpc->server_sess = malloc(sizeof(struct aos_rpc_session));
         // Create chan to server
-        ERROR_RET1(lmp_chan_accept(&rpc->server_sess,
+        ERROR_RET1(lmp_chan_accept(&rpc->server_sess->lc,
                 DEFAULT_LMP_BUF_WORDS, remote_endpoint));
         rpc->server_sess->ack_received=false;
         rpc->server_sess->can_send=false;
-        lmp_chan_alloc_recv_slot(&rpc->server_sess);
+        rpc->server_sess->rpc = rpc;
+        lmp_chan_alloc_recv_slot(&rpc->server_sess->lc);
 
         debug_printf("Sending handshake\n");
         aos_rpc_send_handshake(rpc, rpc->server_sess->lc.local_cap);
@@ -323,5 +324,25 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
     // store it at a well known location
     set_init_rpc(rpc);
 
+    return SYS_ERR_OK;
+}
+
+errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess)
+{
+    // TODO: Free this when process ends
+    *sess = malloc(sizeof(struct aos_rpc_session));
+    (*sess)->ack_received=false;
+    (*sess)->can_send=false;
+    (*sess)->rpc = rpc;
+    ERROR_RET1(lmp_chan_accept(&(*sess)->lc,
+            DEFAULT_LMP_BUF_WORDS,
+            NULL_CAP));
+    ERROR_RET1(lmp_chan_alloc_recv_slot(&(*sess)->lc));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess)
+{
+    lmp_chan_register_recv(&sess->lc, rpc->ws, MKCLOSURE(cb_accept_loop, sess));
     return SYS_ERR_OK;
 }

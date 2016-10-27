@@ -82,8 +82,8 @@ struct number_handler_closure {
     void *arg;
 };
 
-errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
-errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan);
+errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess);
+errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess);
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
         aos_rpc_handler message_handler, bool send_ack, void* context);

@@ -46,23 +46,3 @@ errval_t lmp_server_init(struct aos_rpc* rpc, struct lmp_server_state* lmp_state
 
     return SYS_ERR_OK;
 }
-
-errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan)
-{
-    *chan = malloc(sizeof(struct lmp_chan));
-    ERROR_RET1(lmp_chan_accept(*chan,
-            DEFAULT_LMP_BUF_WORDS,
-            NULL_CAP));
-    ERROR_RET1(lmp_chan_alloc_recv_slot(*chan));
-    return SYS_ERR_OK;
-}
-
-errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan)
-{
-    // TODO: Free this when process ends
-    struct aos_rpc_session* sess = malloc(sizeof(struct aos_rpc_session));
-    sess->ack_received=false;
-    sess->can_send=false;
-    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, sess));
-    return SYS_ERR_OK;
-}
