@@ -4,26 +4,24 @@
 //        struct capref* ret_cap, uint32_t* ret_type);
 
 static
-errval_t handle_handshake(void* context, struct lmp_chan* lc, struct lmp_recv_msg* msg, struct capref received_capref,
+errval_t handle_handshake(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags){
 
     debug_printf("Received handshake message!\n");
-    lc->remote_cap=received_capref;
-
+    sess->lc.remote_cap=received_capref;
     return SYS_ERR_OK;
 }
 
 static
-errval_t handle_number(void* context, struct lmp_chan* lc, struct lmp_recv_msg* msg, struct capref received_capref,
+errval_t handle_number(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags){
 
     debug_printf("Received number handshake %d\n",msg->words[1]);
-
     return SYS_ERR_OK;
 }
 
 static
-errval_t handle_string(void* context, struct lmp_chan* lc, struct lmp_recv_msg* msg, struct capref received_capref,
+errval_t handle_string(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags){
 
     if(getMessageFlags(msg) & RPC_FLAG_INCOMPLETE){

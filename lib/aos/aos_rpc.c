@@ -47,7 +47,7 @@ void cb_accept_loop(void* args){
     if(closure.message_handler!=NULL){
         debug_printf("Invoking function callback\n");
         struct capref ret_cap=NULL_CAP;
-        closure.message_handler(closure.context, &cs->lc, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
+        closure.message_handler(closure.context, cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
         if(closure.send_ack){
 
             err=lmp_chan_send1(&cs->lc,

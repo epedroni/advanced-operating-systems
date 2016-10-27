@@ -49,7 +49,9 @@ uint32_t getMessageFlags(struct lmp_recv_msg* msg){
     return RPC_HEADER_FLAGS(msg->words[0]);
 }
 
-typedef errval_t (*aos_rpc_handler)(void* context, struct lmp_chan* lc, struct lmp_recv_msg* msg, struct capref received_capref,
+struct aos_rpc_session;
+
+typedef errval_t (*aos_rpc_handler)(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
 
 struct aos_rpc_message_handler_closure{
@@ -58,7 +60,6 @@ struct aos_rpc_message_handler_closure{
     void* context;
 };
 
-struct aos_rpc_session;
 
 struct aos_rpc {
     // For client only:
