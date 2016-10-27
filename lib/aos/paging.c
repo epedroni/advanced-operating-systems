@@ -217,6 +217,80 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
     return PAGE_ERR_OUT_OF_VMEM;
 }
 
+errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
+{
+    struct vm_block* virtual_addr=st->head;
+
+    lvaddr_t start_address=ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
+    lvaddr_t end_address=ROUND_UP((lvaddr_t) desired_address, BASE_PAGE_SIZE);
+
+    for(;virtual_addr!=NULL; virtual_addr=virtual_addr->next){
+        // If it is used or too small, skip it
+
+        if((virtual_addr->start_address <= start_address) &&
+            virtual_addr->start_address+virtual_addr->size>=end_address){
+
+            debug_printf("We found a block that fits our needs\n");
+
+            assert(virtual_addr->type == VirtualBlock_Free);
+
+            //if we have some space in the beginning, split it
+            if(virtual_addr->start_address<start_address){
+                debug_printf("Splitting front part\n");
+                struct vm_block* previous_block=virtual_addr;
+                size_t prev_size=previous_block->size;
+                previous_block->size=start_address-previous_block->size;
+
+                virtual_addr=slab_alloc(&st->slabs);
+
+                virtual_addr->next=previous_block->next;
+                previous_block->next=virtual_addr;
+                virtual_addr->type=VirtualBlock_Free;
+                virtual_addr->start_address=start_address;
+                virtual_addr->size=prev_size-previous_block->size;
+                virtual_addr->prev=previous_block;
+                if(virtual_addr->next != NULL){
+                    virtual_addr->next->prev=virtual_addr;
+                }
+            }
+
+            virtual_addr->type = VirtualBlock_Allocated;
+            if (virtual_addr->size==bytes){
+                debug_printf("we have super alligned block, returning\n");
+                //*buf=(void*)virtual_addr->start_address;
+                return SYS_ERR_OK;
+            }
+
+            assert(virtual_addr->size > bytes);
+            debug_printf("doing the old fashion way\n");
+            struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+            // Create block for remaining free size
+            remaining_free_space->type = VirtualBlock_Free;
+            remaining_free_space->next = virtual_addr->next;
+            remaining_free_space->prev = virtual_addr->prev;
+            if (remaining_free_space->next != NULL)
+                remaining_free_space->next->prev = remaining_free_space;
+            remaining_free_space->start_address = virtual_addr->start_address + bytes;
+            remaining_free_space->size = virtual_addr->size - bytes;
+            // Mark returned block as allocated
+            virtual_addr->next = remaining_free_space;
+            virtual_addr->size = bytes;
+
+//            *buf=(void*)virtual_addr->start_address;
+//            if (block)
+//                *block = virtual_addr;
+
+            if (!slab_has_freecount(&st->slabs, 5))
+                st->slabs.refill_func(&st->slabs);
+            return SYS_ERR_OK;
+        }else{
+            //This is not block that is of interest
+            continue;
+        }
+    }
+    return PAGE_ERR_OUT_OF_VMEM;
+}
+
 /**
  * \brief map a user provided frame, and return the VA of the mapped
  *        frame in `buf`.

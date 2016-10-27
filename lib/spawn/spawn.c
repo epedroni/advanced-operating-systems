@@ -395,12 +395,16 @@ errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags
 
     // 3. Map in my own space and fill return buffer
 	struct paging_state* ps= get_current_paging_state();
+
+
 	ERROR_RET1(paging_map_frame(ps, ret, size, frame_cap, NULL, NULL));
 
     *ret = (((void*)*ret) + (size_t)base_offset);
     debug_printf("Allocated at 0x%08x\n", (int)*ret);
 
     // 4. Map in child VSpace at given 'base' address
+    ERROR_RET1(paging_alloc_fixed_address(&si->child_paging_state,
+            base, size));
     ERROR_RET1(paging_map_fixed(&si->child_paging_state,
         base, frame_cap, size));
 

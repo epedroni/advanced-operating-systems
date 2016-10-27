@@ -119,7 +119,7 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  *        accomodate a buffer of size `bytes`.
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block);
-errval_t paging_alloc_fixed_address(struct paging_state *st, void *desired_address, size_t bytes);
+errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes);
 
 /**
  * Functions to map a user provided frame.
