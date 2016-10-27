@@ -21,6 +21,7 @@
 enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
+    RPC_INIT_SHARED_BUFFER,
     RPC_RAM_CAP,
     RPC_NUMBER,
     RPC_STRING,
@@ -65,6 +66,10 @@ struct aos_rpc {
     struct waitset* ws;
 
     struct aos_rpc_message_handler_closure aos_rpc_message_handler_closure[RPC_NUM_OPCODES];
+
+    // Shared memory - Frame created by client
+    struct capref shared_memory_frame;
+    size_t shared_memory_size;
 };
 
 struct number_handler_closure {
