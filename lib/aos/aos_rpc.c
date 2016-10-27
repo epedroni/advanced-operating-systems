@@ -210,6 +210,7 @@ errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
 errval_t aos_rpc_init(struct aos_rpc *rpc)
 {
     debug_printf("aos_rpc_init: invoked\n");
+    rpc->ws=get_default_waitset();
     ERROR_RET1(lmp_chan_accept(&rpc->lc,
             DEFAULT_LMP_BUF_WORDS, cap_initep));
     rpc->ack_received=false;
@@ -219,6 +220,9 @@ errval_t aos_rpc_init(struct aos_rpc *rpc)
     lmp_chan_alloc_recv_slot(&rpc->lc);
     debug_printf("lmp_chan_register_send, invoking!\n");
     aos_rpc_send_handshake(rpc, rpc->lc.local_cap);
+
+    // store it at a well known location
+    set_init_rpc(rpc);
 
     return SYS_ERR_OK;
 }

@@ -187,6 +187,13 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     /* initialize init RPC client with lmp channel */
     /* set init RPC client in our program state */
 
+    // will this still work with two processes?
+    static struct aos_rpc rpc;
+    err = aos_rpc_init(&rpc);
+	if (err_is_fail(err)) {
+		return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+	}
+
     /* TODO MILESTONE 3: now we should have a channel with init set up and can
      * use it for the ram allocator */
 

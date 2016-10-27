@@ -40,8 +40,6 @@ static errval_t allocate_ram(void){
     return SYS_ERR_OK;
 }
 
-static struct aos_rpc rpc;
-
 int main(int argc, char *argv[])
 {
     debug_printf("Received %d arguments \n",argc);
@@ -51,9 +49,9 @@ int main(int argc, char *argv[])
 
     errval_t err=allocate_ram();
 
-    rpc.ws=get_default_waitset();
-    aos_rpc_init(&rpc);
-    aos_rpc_send_number(&rpc, (uintptr_t)42);
+    // moved to init.c
+//    aos_rpc_init(&rpc);
+    aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
 
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing ram");
