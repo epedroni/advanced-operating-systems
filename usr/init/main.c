@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 //    free(process_info);
 
     spawn_process("/armv7/sbin/hello", &rpc);
-    spawn_process("/armv7/sbin/memeater", &rpc);
+//    spawn_process("/armv7/sbin/memeater", &rpc);
 
     debug_printf("Message handler loop\n");
     //#define LOGO(s) debug_printf("%s\n", s);

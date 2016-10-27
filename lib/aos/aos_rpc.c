@@ -13,6 +13,7 @@
  */
 
 #include <aos/aos_rpc.h>
+#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 /*
 *   // does the sender want to yield their timeslice on success?
@@ -198,12 +199,18 @@ void wait_for_ack(struct aos_rpc_session* sess){
 // Waits for send, sends and waits for ack
 #define RPC_CHAN_WRAPPER_SEND(rpc, call) \
     { \
+		reset_cycle_counter(); \
         assert(rpc->server_sess); \
+        uint32_t cycles1 = get_cycle_count(); \
         wait_for_send(rpc->server_sess); \
+        uint32_t cycles2 = get_cycle_count(); \
         errval_t _err = call; \
+        uint32_t cycles3 = get_cycle_count(); \
         if (err_is_fail(_err)) \
             DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__); \
         wait_for_ack(rpc->server_sess); \
+        uint32_t cycles4 = get_cycle_count(); \
+        debug_printf("Before wait: %d, after wait: %d, after call: %d, after ack: %d, overflow: %d\n", cycles1, cycles2, cycles3, cycles4, is_cycle_counter_overflow); \
     }
 
 /*
