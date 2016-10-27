@@ -42,6 +42,11 @@ void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
+/*
+ * Server receive callback
+ * The server does not need to spontaneously send messages,
+ * all it does is respond to received messages with this function.
+ */
 static void rcv_callback(void* args){
     errval_t err;
 
@@ -59,10 +64,6 @@ static void rcv_callback(void* args){
     switch(message.words[0]) {
     case RPC_HANDSHAKE:
         debug_printf("Received handshake message!\n");
-//    	err=lmp_chan_accept(lc, DEFAULT_LMP_BUF_WORDS, child_endpoint);
-//		if(err_is_fail(err)){
-//			DEBUG_ERR(err, "accepting new client");
-//		}
         lc->remote_cap=child_endpoint;
 		ret_flags|=RPC_HANDSHAKE;
     	break;
@@ -74,6 +75,7 @@ static void rcv_callback(void* args){
         debug_printf("We received a number: %d\n", message.words[1]);
     	break;
     case RPC_STRING:
+    	debug_printf("We received a string: %d\n", message.words[0]);
     	break;
     case RPC_PUT_CHAR:
     	break;
@@ -93,6 +95,7 @@ static void rcv_callback(void* args){
 
     debug_printf("Reregistring, ofcourse \n");
     MM_ASSERT(lmp_chan_alloc_recv_slot(lc), "Allocating slot for receive");
+
     lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
 
     err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, ret_flags);
@@ -100,7 +103,6 @@ static void rcv_callback(void* args){
         debug_printf("Message not sent\n");
     }
 
-    message.words[0]=0;
 }
 
 int main(int argc, char *argv[])
@@ -149,11 +151,7 @@ int main(int argc, char *argv[])
     struct lmp_chan lc;
     MM_ASSERT(lmp_chan_accept(&lc, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
     MM_ASSERT(lmp_chan_alloc_recv_slot(&lc), "Allocating slot for receive");
-    struct event_closure rcv_closure={
-       .handler=rcv_callback,
-       .arg=(void*)&lc
-    };
-    ERROR_RET1(lmp_chan_register_recv(&lc, get_default_waitset(), rcv_closure));
+    ERROR_RET1(lmp_chan_register_recv(&lc, get_default_waitset(), MKCLOSURE(rcv_callback, &lc)));
 
     //Spawn child
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));

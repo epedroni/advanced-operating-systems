@@ -215,14 +215,15 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
 		.slot=TASKCN_SLOT_DISPFRAME
 	};
 
-    ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
-    ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
-    ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
-
+	// new in milestone 3 - give the child an endpoint back to init so it can finish the handshake
     struct capref slot_parent_endpoint={
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_INITEP
     };
+
+    ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
+    ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
+    ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
     ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
 
     // IV. Map in child process
