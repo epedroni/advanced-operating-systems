@@ -47,64 +47,72 @@ void test_paging(void);
  * The server does not need to spontaneously send messages,
  * all it does is respond to received messages with this function.
  */
-static void rcv_callback(void* args){
-    errval_t err;
+//static void rcv_callback(void* args){
+//    errval_t err;
+//
+//    debug_printf("** Server is receiving request\n");
+//    struct lmp_chan* lc=(struct lmp_chan*)args;
+//    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
+//    struct capref child_endpoint;
+//
+//    lmp_chan_recv(lc, &message, &child_endpoint);
+//
+//    uint32_t ret_opcode = RPC_NULL_OPCODE;
+//
+//    debug_printf("We have message type: 0x%X\n",message.words[0]);
+//
+//    uint32_t  RPC_HEADER_OPCODE(message.words[0]);
+//
+//    uint32_t opcode = RPC_HEADER_OPCODE(message.words[0]);
+//    // Mark that we need to send ack with next response
+//    // Calling registered callback
+//    switch(opcode) {
+//    case RPC_HANDSHAKE:
+//        debug_printf("Received handshake message!\n");
+//        lc->remote_cap=child_endpoint;
+//    	break;
+//    case RPC_RAM_CAP:
+//    	// create ram
+//        ret_opcode = RPC_RAM_CAP;
+//    	break;
+//    case RPC_NUMBER:
+//        debug_printf("We received a number: %d\n", message.words[1]);
+//    	break;
+//    case RPC_STRING:
+//    	debug_printf("We received a string: %s \n", message.words+1);
+//    	break;
+//    case RPC_PUT_CHAR:
+//    	break;
+//    case RPC_GET_CHAR:
+//    	break;
+//    case RPC_SPAWN:
+//    	break;
+//    case RPC_GET_NAME:
+//    	break;
+//    case RPC_GET_PID:
+//    	break;
+//    default:
+//    	break;
+//    }
+//
+//    debug_printf("Reregistring, ofcourse \n");
+//    MM_ASSERT(lmp_chan_alloc_recv_slot(lc), "Allocating slot for receive");
+//
+//    // If we need to send ACK...
+//    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
+//
+//    err=lmp_chan_send1(lc,
+//        LMP_FLAG_SYNC,
+//        NULL_CAP,
+//        MAKE_RPC_MSG_HEADER(ret_opcode, RPC_FLAG_ACK));
+//    if(err_is_fail(err)){
+//        debug_printf("Message not sent\n");
+//    }
 
-    debug_printf("** Server is receiving request\n");
-    struct lmp_chan* lc=(struct lmp_chan*)args;
-    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
-    struct capref child_endpoint;
+//}
 
-    lmp_chan_recv(lc, &message, &child_endpoint);
-
-    uint32_t ret_opcode = RPC_NULL_OPCODE;
-
-    debug_printf("We have message type: 0x%X\n",message.words[0]);
-
-    uint32_t opcode = RPC_HEADER_OPCODE(message.words[0]);
-    switch(opcode) {
-    case RPC_HANDSHAKE:
-        debug_printf("Received handshake message!\n");
-        lc->remote_cap=child_endpoint;
-    	break;
-    case RPC_RAM_CAP:
-    	// create ram
-        ret_opcode = RPC_RAM_CAP;
-    	break;
-    case RPC_NUMBER:
-        debug_printf("We received a number: %d\n", message.words[1]);
-    	break;
-    case RPC_STRING:
-    	debug_printf("We received a string: %s \n", message.words+1);
-    	break;
-    case RPC_PUT_CHAR:
-    	break;
-    case RPC_GET_CHAR:
-    	break;
-    case RPC_SPAWN:
-    	break;
-    case RPC_GET_NAME:
-    	break;
-    case RPC_GET_PID:
-    	break;
-    default:
-    	break;
-    }
-
-    debug_printf("Reregistring, ofcourse \n");
-    MM_ASSERT(lmp_chan_alloc_recv_slot(lc), "Allocating slot for receive");
-
-    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
-
-    err=lmp_chan_send1(lc,
-        LMP_FLAG_SYNC,
-        NULL_CAP,
-        MAKE_RPC_MSG_HEADER(ret_opcode, RPC_FLAG_ACK));
-    if(err_is_fail(err)){
-        debug_printf("Message not sent\n");
-    }
-
-}
+#define RPC_BUFF_SIZE 100
+static char rpc_rcv_buffer[RPC_BUFF_SIZE];
 
 int main(int argc, char *argv[])
 {
@@ -152,13 +160,12 @@ int main(int argc, char *argv[])
     struct spawninfo* process_info;
 
     //Spawn child
-    struct lmp_chan lc;
-    MM_ASSERT(lmp_chan_accept(&lc, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
-    MM_ASSERT(lmp_chan_alloc_recv_slot(&lc), "Allocating slot for receive");
-    ERROR_RET1(lmp_chan_register_recv(&lc, get_default_waitset(), MKCLOSURE(rcv_callback, &lc)));
+    struct aos_rpc rpc;
+    aos_rpc_init(&rpc, NULL_CAP, false);
+
     process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=my_core_id;   //Run it on same core
-    err = spawn_load_by_name("/armv7/sbin/hello", process_info, &lc);
+    err = spawn_load_by_name("/armv7/sbin/hello", process_info, &rpc.lc);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "spawn_load_by_name");
     }
@@ -176,9 +183,6 @@ int main(int argc, char *argv[])
 //		DEBUG_ERR(err, "spawn_load_by_name");
 //	}
 //	free(process_info);
-
-    debug_printf("Starting lmp server...\n");
-    MM_ASSERT(lmp_server_init(process_info), "Error initializing server");
 
     debug_printf("Message handler loop\n");
     //#define LOGO(s) debug_printf("%s\n", s);
@@ -199,16 +203,16 @@ int main(int argc, char *argv[])
     LOGO("  `---`   `--`---'                  `----'    `--`---'            `----'       `----'    `----'            ");
     LOGO("                                        ... Well actually we are simply TeamF. But we are still awesome ;)");
     // Hang around
-	struct waitset *default_ws = get_default_waitset();
+    debug_printf("Starting lmp server...\n");
 
-    while (true) {
-        err = event_dispatch(default_ws);
-        debug_printf("Got event\n");
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    }
+
+    struct lmp_server_state lmp_state={
+            .buffer=rpc_rcv_buffer,
+            .buffer_size=RPC_BUFF_SIZE
+    };
+    lmp_server_init(&rpc, &lmp_state);
+
+    aos_rpc_accept(&rpc);
 
     return EXIT_SUCCESS;
 }

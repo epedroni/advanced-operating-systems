@@ -44,11 +44,19 @@ enum message_flags {
 #define RPC_HEADER_OPCODE(header) (header & ((1 << RPC_OPCODE_BITS) - 1))
 #define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
 
-void (*rpc_num_handler_cb)(uintptr_t number);
-void (*rpc_string_handler_cb)(char* string);
-void (*rpc_get_ram_handler_cb)(size_t bytes, struct capref *retcap, size_t *ret_bytes);
-void (*rpc_get_char_handler_cb)(char *retc);
-void (*rpc_put_char_handler_cb)(char c);
+inline
+uint32_t getMessageFlags(struct lmp_recv_msg* msg){
+    return RPC_HEADER_FLAGS(msg->words[0]);
+}
+
+typedef errval_t (*aos_rpc_handler)(void* context, struct lmp_chan* lc, struct lmp_recv_msg* msg, struct capref received_capref,
+        struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
+
+struct aos_rpc_message_handler_closure{
+    aos_rpc_handler message_handler;
+    bool send_ack;
+    void* context;
+};
 
 struct aos_rpc {
     struct lmp_chan lc;
@@ -56,6 +64,7 @@ struct aos_rpc {
     bool ack_received;
     struct waitset* ws;
 
+    struct aos_rpc_message_handler_closure aos_rpc_message_handler_closure[RPC_NUM_OPCODES];
 };
 
 struct number_handler_closure {
@@ -63,8 +72,10 @@ struct number_handler_closure {
     void *arg;
 };
 
-errval_t aos_rpc_register_number_handler(struct aos_rpc *chan,
-        struct number_handler_closure cb);
+errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
+        aos_rpc_handler message_handler, bool send_ack, void* context);
+
+errval_t aos_rpc_accept(struct aos_rpc* rpc);
 
 /**
  * \brief send a number over the given channel
@@ -128,6 +139,6 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
  * TODO: you may want to change the inteface of your init function, depending
  * on how you design your message passing code.
  */
-errval_t aos_rpc_init(struct aos_rpc *rpc);
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

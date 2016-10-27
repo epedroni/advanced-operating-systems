@@ -51,14 +51,11 @@ int main(int argc, char *argv[])
 
     errval_t err=allocate_ram();
 
-    // moved to init.c
-//    aos_rpc_init(&rpc);
-
     init_rpc = get_init_rpc();
     debug_printf("init rpc: 0x%x\n", init_rpc);
     aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
 
-    aos_rpc_send_string(get_init_rpc(), "milan hello this is dog maaaaan bla bla bla asdads");
+    aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha");
 
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing ram");

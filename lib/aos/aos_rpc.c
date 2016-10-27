@@ -25,6 +25,56 @@
  */
 
 static
+inline bool cmp_cap(struct capref c1, struct capref c2)
+{
+    return c1.slot == c2.slot && cnodecmp(c1.cnode, c2.cnode);
+}
+
+static
+void cb_accept_loop(void* args){
+    debug_printf("cb_accept_loop: invoked\n");
+    errval_t err;
+
+    struct aos_rpc* rpc=(struct aos_rpc*)args;
+    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
+    struct capref received_cap=NULL_CAP;
+
+    lmp_chan_recv(&rpc->lc, &message, &received_cap);
+
+    uint32_t return_opcode=0;
+    uint32_t return_flags=0;
+
+    debug_printf("We have message type: 0x%X\n",message.words[0]);
+    uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
+
+    struct aos_rpc_message_handler_closure closure=rpc->aos_rpc_message_handler_closure[message_opcode];
+
+    if(closure.message_handler!=NULL){
+        debug_printf("Invoking function callback\n");
+        struct capref ret_cap=NULL_CAP;
+        closure.message_handler(closure.context, &rpc->lc, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
+        if(closure.send_ack){
+
+            err=lmp_chan_send1(&rpc->lc,
+                LMP_FLAG_SYNC,
+                ret_cap,
+                MAKE_RPC_MSG_HEADER(return_opcode, return_flags|RPC_FLAG_ACK));
+            if(err_is_fail(err)){
+                debug_printf("Response message not sent\n");
+            }
+        }
+    }else{
+        debug_printf("Callback not registered, skipping\n");
+    }
+
+    if(!cmp_cap(received_cap, NULL_CAP)){
+        debug_printf("Capabilities changed, allocating new slot\n");
+        lmp_chan_alloc_recv_slot(&rpc->lc);
+    }
+    lmp_chan_register_recv(&rpc->lc, rpc->ws, MKCLOSURE(cb_accept_loop, args));
+}
+
+static
 void cb_recv_ready(void* args){
     debug_printf("we are ready to receive\n");
     struct aos_rpc *rpc=args;
@@ -215,6 +265,32 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
+        aos_rpc_handler message_handler, bool send_ack, void* context){
+
+    rpc->aos_rpc_message_handler_closure[opcode].send_ack=send_ack;
+    rpc->aos_rpc_message_handler_closure[opcode].context=context;
+    rpc->aos_rpc_message_handler_closure[opcode].message_handler=message_handler;
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_accept(struct aos_rpc* rpc){
+    errval_t err;
+
+    debug_printf("aos_rpc_accept: invoked\n");
+    ERROR_RET1(lmp_chan_alloc_recv_slot(&rpc->lc));
+    lmp_chan_register_recv(&rpc->lc, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
+    while (true) {
+        err = event_dispatch(rpc->ws);
+        debug_printf("Got event\n");
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    }
+}
+
 static
 errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
 {
@@ -226,19 +302,23 @@ errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake)
 {
     debug_printf("aos_rpc_init: invoked\n");
     rpc->ws=get_default_waitset();
     ERROR_RET1(lmp_chan_accept(&rpc->lc,
-            DEFAULT_LMP_BUF_WORDS, cap_initep));
+            DEFAULT_LMP_BUF_WORDS, remote_endpoint));
     rpc->ack_received=false;
     rpc->can_send=false;
 
+    memset(rpc->aos_rpc_message_handler_closure, 0, sizeof(rpc->aos_rpc_message_handler_closure));
+
     /* set receive handler */
     lmp_chan_alloc_recv_slot(&rpc->lc);
-    debug_printf("lmp_chan_register_send, invoking!\n");
-    aos_rpc_send_handshake(rpc, rpc->lc.local_cap);
+    if(send_handshake){
+        debug_printf("Sending handshake\n");
+        aos_rpc_send_handshake(rpc, rpc->lc.local_cap);
+    }
 
     // store it at a well known location
     set_init_rpc(rpc);
