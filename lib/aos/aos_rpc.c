@@ -24,6 +24,8 @@
 	bool give_away = flags & LMP_FLAG_GIVEAWAY;
  */
 
+const size_t LMP_MAX_BUFF_SIZE=8*sizeof(uintptr_t);
+
 static
 void cb_accept_loop(void* args)
 {
@@ -158,22 +160,21 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t val)
 errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
     assert(rpc->server_sess);
-	// we can only send strings of up to 8 characters, need to do the stub
-    static const size_t MAX_BUFF_SIZE=8*sizeof(uintptr_t);
+    // we can only send strings of up to 8 characters, need to do the stub
     errval_t err;
 
-	size_t length=strlen(string);
-	length++;
-	size_t curr_position=0;
-    static uintptr_t buffer[8];
+    size_t length=strlen(string);
+    length++;
+    size_t curr_position=0;
+        intptr_t buffer[8];
 
-	uint32_t flags = RPG_FLAG_NONE;
-	do{
-        memcpy(buffer, string+curr_position, (length>MAX_BUFF_SIZE)?MAX_BUFF_SIZE:length);
+    uint32_t flags = RPG_FLAG_NONE;
+    do{
+        memcpy(buffer, string+curr_position, (length>LMP_MAX_BUFF_SIZE)?LMP_MAX_BUFF_SIZE:length);
 
-        if (length>MAX_BUFF_SIZE){
-            curr_position+=MAX_BUFF_SIZE;
-            length-=MAX_BUFF_SIZE;
+        if (length>LMP_MAX_BUFF_SIZE){
+            curr_position+=LMP_MAX_BUFF_SIZE;
+            length-=LMP_MAX_BUFF_SIZE;
             flags = RPC_FLAG_INCOMPLETE;
         }else{
             flags = RPG_FLAG_NONE;
@@ -195,7 +196,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
         }
         wait_for_ack(rpc->server_sess);
 
-	} while (flags);
+    } while (flags);
 
     return SYS_ERR_OK;
 }

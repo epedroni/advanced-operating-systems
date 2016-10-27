@@ -45,11 +45,13 @@ enum message_flags {
 #define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
 
 inline
-uint32_t getMessageFlags(struct lmp_recv_msg* msg){
+uint32_t get_message_flags(struct lmp_recv_msg* msg){
     return RPC_HEADER_FLAGS(msg->words[0]);
 }
 
 struct aos_rpc_session;
+
+extern const size_t LMP_MAX_BUFF_SIZE;
 
 typedef errval_t (*aos_rpc_handler)(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
@@ -75,7 +77,7 @@ struct aos_rpc_session {
     bool ack_received;
     struct aos_rpc* rpc;
 
-    size_t buff_capacity;
+    size_t buffer_capacity;
     char* buffer;
     size_t current_buff_position;
 };

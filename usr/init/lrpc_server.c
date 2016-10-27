@@ -13,7 +13,7 @@ errval_t handle_handshake(void* context, struct aos_rpc_session* sess, struct lm
     sess->lc.remote_cap=received_capref;
 
     sess->buffer=malloc(SESSION_BUFF_SIZE*sizeof(char));
-    sess->buff_capacity=SESSION_BUFF_SIZE;
+    sess->buffer_capacity=SESSION_BUFF_SIZE;
 
     return SYS_ERR_OK;
 }
@@ -30,16 +30,27 @@ static
 errval_t handle_string(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags){
 
-    if(getMessageFlags(msg) & RPC_FLAG_INCOMPLETE){
+    if(get_message_flags(msg) & RPC_FLAG_INCOMPLETE){
 
-        debug_printf("Received only part of string\n");
+        debug_printf("Received only part of string, starting from %d\n", sess->current_buff_position);
+
+        if(sess->current_buff_position+LMP_MAX_BUFF_SIZE<sess->buffer_capacity){
+            memcpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
+            sess->current_buff_position+=LMP_MAX_BUFF_SIZE;
+        }else{
+            return LIB_ERR_LMP_RECV_BUF_OVERFLOW;
+        }
+
     }else{
-        debug_printf("Received end of string\n");
-        debug_printf("Received string %s\n", msg->words+1);
+        strncpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
+        sess->current_buff_position=0;
+
+        debug_printf("Received string %s\n", sess->buffer);
     }
 
     return SYS_ERR_OK;
 }
+
 errval_t lmp_server_init(struct aos_rpc* rpc){
 
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true, NULL);
