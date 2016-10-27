@@ -58,14 +58,18 @@ struct aos_rpc_message_handler_closure{
     void* context;
 };
 
-struct aos_rpc {
-    struct lmp_chan lc; // Server chan for client
-    struct waitset* ws;
+struct aos_rpc_session;
 
+struct aos_rpc {
+    // For client only:
+    struct aos_rpc_session* server_sess; // Server chan for client
+
+    // For client and server
+    struct waitset* ws;
     struct aos_rpc_message_handler_closure aos_rpc_message_handler_closure[RPC_NUM_OPCODES];
 };
 
-struct aos_rpc_client_session {
+struct aos_rpc_session {
     struct lmp_chan lc;
     bool can_send;
     bool ack_received;

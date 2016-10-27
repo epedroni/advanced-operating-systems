@@ -173,11 +173,6 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "spawn_load_by_name");
 
     aos_server_register_client(&rpc, chan);
-    // -- MOVE THIS INTO 'aos_server_register_client'
-    ERROR_RET1(lmp_chan_alloc_recv_slot(chan));
-    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
-    // --
-
     free(process_info);
 
     debug_printf("Message handler loop\n");

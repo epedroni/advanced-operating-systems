@@ -295,23 +295,28 @@ errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client)
 {
-    debug_printf("aos_rpc_init: invoked\n");
-    rpc->ws=get_default_waitset();
-    ERROR_RET1(lmp_chan_accept(&rpc->lc,
-            DEFAULT_LMP_BUF_WORDS, remote_endpoint));
-    rpc->ack_received=false;
-    rpc->can_send=false;
+    debug_printf("aos_rpc_init: Created for %s\n", is_client ? "CLIENT" : "SERVER");
+    rpc->ws = get_default_waitset();
+    memset(rpc->aos_rpc_message_handler_closure,
+        0, sizeof(rpc->aos_rpc_message_handler_closure));
 
-    memset(rpc->aos_rpc_message_handler_closure, 0, sizeof(rpc->aos_rpc_message_handler_closure));
+    if (is_client)
+    {
+        rpc->server_sess = malloc(sizeof(struct aos_rpc_session));
+        // Create chan to server
+        ERROR_RET1(lmp_chan_accept(&rpc->server_sess,
+                DEFAULT_LMP_BUF_WORDS, remote_endpoint));
+        rpc->server_sess->ack_received=false;
+        rpc->server_sess->can_send=false;
+        lmp_chan_alloc_recv_slot(&rpc->server_sess);
 
-    /* set receive handler */
-    lmp_chan_alloc_recv_slot(&rpc->lc);
-    if(send_handshake){
         debug_printf("Sending handshake\n");
-        aos_rpc_send_handshake(rpc, rpc->lc.local_cap);
+        aos_rpc_send_handshake(rpc, rpc->server_sess->lc.local_cap);
     }
+    else
+        rpc->server_sess = NULL;
 
     // store it at a well known location
     set_init_rpc(rpc);

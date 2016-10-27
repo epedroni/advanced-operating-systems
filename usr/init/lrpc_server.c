@@ -48,3 +48,19 @@ errval_t lmp_server_init(struct aos_rpc* rpc, struct lmp_server_state* lmp_state
 
     return SYS_ERR_OK;
 }
+
+errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
+{
+    *chan = malloc(sizeof(struct lmp_chan));
+    ERROR_RET1(lmp_chan_accept(*chan,
+            DEFAULT_LMP_BUF_WORDS,
+            NULL_CAP));
+    ERROR_RET1(lmp_chan_alloc_recv_slot(*chan));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan);
+{
+    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
+    return SYS_ERR_OK;
+}
