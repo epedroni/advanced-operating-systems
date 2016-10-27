@@ -77,10 +77,10 @@ void cb_recv_ready(void* args){
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref dummy_capref;
 
-    lmp_chan_recv(&rpc->lc, &message, &dummy_capref);
+    lmp_chan_recv(&cs->lc, &message, &dummy_capref);
 
     if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK){
-        rpc->ack_received=true;
+        cs->ack_received=true;
         debug_printf("We received ack, yay!\n");
     }
 }
@@ -88,65 +88,66 @@ void cb_recv_ready(void* args){
 static
 void cb_send_ready(void* args){
     debug_printf("** we can send!\n");
-    struct aos_rpc *rpc=args;
-    rpc->can_send=true;
+    struct aos_rpc_session *sess = args;
+    sess->can_send=true;
 }
 
 static
-void wait_for_send(struct aos_rpc* rpc){
+void wait_for_send(struct aos_rpc_session* sess){
     debug_printf("waiting for send\n");
     errval_t err;
 
-    lmp_chan_register_send(&rpc->lc, rpc->ws, MKCLOSURE(cb_send_ready, (void*)rpc));
+    lmp_chan_register_send(&sess->lc, sess->rpc->ws, MKCLOSURE(cb_send_ready, (void*)sess));
 
-    while (!rpc->can_send) {
-        err = event_dispatch(rpc->ws);
+    while (!sess->can_send) {
+        err = event_dispatch(sess->rpc->ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
         }
     }
-    rpc->can_send=false;
+    sess->can_send=false;
     debug_printf("can send received\n");
 }
 
 static
-void wait_for_ack(struct aos_rpc* rpc){
+void wait_for_ack(struct aos_rpc_session* sess){
     errval_t err;
 
-    lmp_chan_register_recv(&rpc->lc,
-            rpc->ws, MKCLOSURE(cb_recv_ready, (void*)rpc));
+    lmp_chan_register_recv(&sess->lc,
+            sess->rpc->ws, MKCLOSURE(cb_recv_ready, (void*)sess));
 
     debug_printf("wait for ack\n");
-    while (!rpc->ack_received) {
-        err = event_dispatch(rpc->ws);
+    while (!sess->ack_received) {
+        err = event_dispatch(sess->rpc->ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
         }
     }
-    rpc->ack_received=false;
+    sess->ack_received=false;
 
     debug_printf("ack received\n");
 }
 
 // Waits for send, sends and waits for ack
-#define RPC_CHAN_WRAPPER_SEND(chan, call) \
+#define RPC_CHAN_WRAPPER_SEND(rpc, call) \
     { \
-        wait_for_send(chan); \
+        assert(rpc->server_sess); \
+        wait_for_send(rpc->server_sess); \
         errval_t _err = call; \
         if (err_is_fail(_err)) \
             DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__); \
-        wait_for_ack(chan); \
+        wait_for_ack(rpc->server_sess); \
     }
 
 /*
  * sends a number over the channel
  */
-errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
+errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t val)
 {
-    RPC_CHAN_WRAPPER_SEND(chan,
-        lmp_chan_send2(&chan->lc,
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_NUMBER,
@@ -154,8 +155,9 @@ errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
+errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
+    assert(rpc->server_sess);
 	// we can only send strings of up to 8 characters, need to do the stub
     static const size_t MAX_BUFF_SIZE=8*sizeof(uintptr_t);
     errval_t err;
@@ -178,9 +180,9 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
             curr_position+=length;
         }
 
-        wait_for_send(chan);
+        wait_for_send(rpc->server_sess);
 
-        err=lmp_ep_send(chan->lc.remote_cap,
+        err=lmp_ep_send(&rpc->server_sess->lc.remote_cap,
             LMP_FLAG_SYNC,
             NULL_CAP,
             9,
@@ -198,24 +200,24 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t request_bits,
+errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t request_bits,
                              struct capref *retcap, size_t *ret_bits)
 {
-    RPC_CHAN_WRAPPER_SEND(chan,
-        lmp_chan_send2(&chan->lc,
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC, NULL_CAP,
             RPC_RAM_CAP,
             request_bits));
 	return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc)
+errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
 
-    wait_for_send(chan);
-	errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_GET_CHAR);
+    wait_for_send(rpc->server_sess);
+	errval_t err=lmp_chan_send1(&rpc->server_sess->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_GET_CHAR);
 	if (err_is_fail(err))
 		DEBUG_ERR(err, "sending get char request");
 
@@ -227,10 +229,10 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc)
 /*
  * Sends a character to the serial port.
  */
-errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c)
+errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 {
-    RPC_CHAN_WRAPPER_SEND(chan,
-        lmp_chan_send2(&chan->lc,
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_PUT_CHAR,
@@ -238,14 +240,14 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *name,
+errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
                                coreid_t core, domainid_t *newpid)
 {
     // TODO (milestone 5): implement spawn new process rpc
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
+errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
                                   char **name)
 {
     // TODO (milestone 5): implement name lookup for process given a process
@@ -253,7 +255,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
+errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc,
                                       domainid_t **pids, size_t *pid_count)
 {
     // TODO (milestone 5): implement process id discovery
@@ -285,10 +287,10 @@ errval_t aos_rpc_accept(struct aos_rpc* rpc){
 }
 
 static
-errval_t aos_rpc_send_handshake(struct aos_rpc *chan, struct capref selfep)
+errval_t aos_rpc_send_handshake(struct aos_rpc *rpc, struct capref selfep)
 {
-    RPC_CHAN_WRAPPER_SEND(chan,
-        lmp_chan_send1(&chan->lc,
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send1(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             selfep,
             RPC_HANDSHAKE));
