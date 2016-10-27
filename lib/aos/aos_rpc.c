@@ -81,6 +81,7 @@ void wait_for_ack(struct aos_rpc* rpc){
         }
     }
     rpc->ack_received=false;
+
     debug_printf("ack received\n");
 }
 
@@ -94,26 +95,23 @@ errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val)
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "sending number");
     }
-
     wait_for_ack(chan);
     return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 {
-    // TODO: implement functionality to send a string over the given channel
-    // and wait for a response.
-
-	// we can only send strings of up to 8 characters
+	// we can only send strings of up to 8 characters, need to do the stub
 	if (sizeof(string) / sizeof(char) > 8) {
-		// ??
 		return LIB_ERR_LMP_CHAN_SEND;
 	}
 
+	wait_for_send(chan);
 	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_STRING, string[0]);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending string");
 	}
+	wait_for_ack(chan);
 
     return SYS_ERR_OK;
 }
@@ -124,15 +122,13 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t request_bits,
     // TODO: implement functionality to request a RAM capability over the
     // given channel and wait until it is delivered.
 
-	// wait for send
-
+	wait_for_send(chan);
 	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC,
 	        NULL_CAP, RPC_RAM_CAP, request_bits);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending ram request");
 	}
-
-	// wait for ack, need to get retcap and ret_bits from it
+	wait_for_ack(chan);
 
 	return SYS_ERR_OK;
 }
@@ -159,14 +155,12 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c)
     // TODO implement functionality to send a character to the
     // serial port.
 
-	// wait for send
-
+	wait_for_send(chan);
 	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_PUT_CHAR, c);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending put char request");
 	}
-
-	// wait for ack
+	wait_for_ack(chan);
 
     return SYS_ERR_OK;
 }
