@@ -135,6 +135,13 @@ static void cb_recv_first(void* args)
     debug_printf("cb_recv_first\n");
     struct recv_block_helper_struct *rb = args;
     rb->err = lmp_chan_recv(&rb->sess->lc, rb->message, rb->cap);
+    // Re-register if fails
+    if (err_is_fail(rb->err) && lmp_err_is_transient(rb->err))
+    {
+        lmp_chan_register_recv(&rb->sess->lc, rb->sess->rpc->ws,
+            MKCLOSURE(cb_recv_first, args));
+        return;
+    }
     rb->received = true;
 }
 
@@ -167,11 +174,10 @@ errval_t recv_block(struct aos_rpc_session* sess,
     if (!capcmp(*rb.cap, NULL_CAP))
         ERROR_RET1(lmp_chan_alloc_recv_slot(&sess->lc));
 
-    if (RPC_HEADER_FLAGS(rb.message->words[0]) & RPC_FLAG_ERROR){
+    if (RPC_HEADER_FLAGS(rb.message->words[0]) & RPC_FLAG_ERROR)
         return rb.message->words[1];
-    }
 
-    return rb.err;
+    return SYS_ERR_OK;
 }
 
 static
