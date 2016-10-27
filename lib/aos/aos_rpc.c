@@ -110,7 +110,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 		return LIB_ERR_LMP_CHAN_SEND;
 	}
 
-	errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, string[0]);
+	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_STRING, string[0]);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending string");
 	}
@@ -126,8 +126,8 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t request_bits,
 
 	// wait for send
 
-	errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC,
-	        NULL_CAP, request_bits);
+	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC,
+	        NULL_CAP, RPC_RAM_CAP, request_bits);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending ram request");
 	}
@@ -144,7 +144,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc)
 
 	// wait for send
 
-	errval_t err=lmp_chan_send0(&chan->lc, LMP_FLAG_SYNC, NULL_CAP);
+	errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_GET_CHAR);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending get char request");
 	}
@@ -161,7 +161,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c)
 
 	// wait for send
 
-	errval_t err=lmp_chan_send1(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, c);
+	errval_t err=lmp_chan_send2(&chan->lc, LMP_FLAG_SYNC, NULL_CAP, RPC_PUT_CHAR, c);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "sending put char request");
 	}

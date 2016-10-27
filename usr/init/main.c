@@ -75,7 +75,7 @@ static void rcv_callback(void* args){
         debug_printf("We received a number: %d\n", message.words[1]);
     	break;
     case RPC_STRING:
-    	debug_printf("We received a string: %d\n", message.words[0]);
+    	debug_printf("We received a string: %c (0x%x)\n", message.words[1], message.words[1]);
     	break;
     case RPC_PUT_CHAR:
     	break;
@@ -148,13 +148,14 @@ int main(int argc, char *argv[])
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
+    struct spawninfo* process_info;
+
+    //Spawn child
     struct lmp_chan lc;
     MM_ASSERT(lmp_chan_accept(&lc, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
     MM_ASSERT(lmp_chan_alloc_recv_slot(&lc), "Allocating slot for receive");
     ERROR_RET1(lmp_chan_register_recv(&lc, get_default_waitset(), MKCLOSURE(rcv_callback, &lc)));
-
-    //Spawn child
-    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+    process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=my_core_id;   //Run it on same core
     err = spawn_load_by_name("/armv7/sbin/hello", process_info, &lc);
     if(err_is_fail(err)){
