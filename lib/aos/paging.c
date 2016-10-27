@@ -25,6 +25,7 @@
 static struct paging_state current;
 
 //#define PAGING_KEEP_GAPS 40
+#define DEBUG_PAGING(s, ...) //debug_printf(s, ##__VA_ARGS__)
 
 /**
  * \brief Helper function that allocates a slot and
@@ -77,7 +78,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
  */
 errval_t paging_init(void)
 {
-    debug_printf("Initializing paging@0x%08x... \n", (int)&current);
+    DEBUG_PAGING("Initializing paging@0x%08x... \n", (int)&current);
 
     // TODO (M4): initialize self-paging handler
     // TIP: use thread_set_exception_handler() to setup a page fault handler
@@ -249,14 +250,14 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (offset != 0 && BASE_PAGE_OFFSET(offset))
         return PAGE_ERR_OFFSET_NOT_ALIGNED;
 
-    debug_printf("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
+    DEBUG_PAGING("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
         (int)vaddr, (int)bytes, (int)offset);
     capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
     capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
     if (l1_slot != l1_slot_end)
     {
-        debug_printf("Several L2 map [%u - %u]\n",
+        DEBUG_PAGING("Several L2 map [%u - %u]\n",
             (int)l1_slot, (int)l1_slot_end);
         for (; l1_slot < l1_slot_end; ++l1_slot)
         {
@@ -270,7 +271,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             bytes -= bytes_this_l1;
         }
         ERROR_RET1(paging_map_fixed_attr(st, vaddr, frame, bytes, offset, flags, block));
-        debug_printf("Several L2 map finished\n");
+        DEBUG_PAGING("Several L2 map finished\n");
         return SYS_ERR_OK;
     }
 
