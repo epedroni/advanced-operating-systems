@@ -30,27 +30,27 @@ void cb_accept_loop(void* args){
     debug_printf("cb_accept_loop: invoked\n");
     errval_t err;
 
-    struct aos_rpc* rpc=(struct aos_rpc*)args;
+    struct aos_rpc_session* cs=(struct aos_rpc_session*)args;
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref received_cap=NULL_CAP;
 
-    lmp_chan_recv(&rpc->lc, &message, &received_cap);
+    lmp_chan_recv(&cs->lc, &message, &received_cap);
 
     uint32_t return_opcode=0;
     uint32_t return_flags=0;
 
-    debug_printf("We have message type: 0x%X\n",message.words[0]);
+    debug_printf("We have message type: 0x%X\n", message.words[0]);
     uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
 
-    struct aos_rpc_message_handler_closure closure=rpc->aos_rpc_message_handler_closure[message_opcode];
+    struct aos_rpc_message_handler_closure closure=cs->rpc->aos_rpc_message_handler_closure[message_opcode];
 
     if(closure.message_handler!=NULL){
         debug_printf("Invoking function callback\n");
         struct capref ret_cap=NULL_CAP;
-        closure.message_handler(closure.context, &rpc->lc, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
+        closure.message_handler(closure.context, &cs->lc, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
         if(closure.send_ack){
 
-            err=lmp_chan_send1(&rpc->lc,
+            err=lmp_chan_send1(&cs->lc,
                 LMP_FLAG_SYNC,
                 ret_cap,
                 MAKE_RPC_MSG_HEADER(return_opcode, return_flags|RPC_FLAG_ACK));
@@ -64,15 +64,15 @@ void cb_accept_loop(void* args){
 
     if(!capcmp(received_cap, NULL_CAP)){
         debug_printf("Capabilities changed, allocating new slot\n");
-        lmp_chan_alloc_recv_slot(&rpc->lc);
+        lmp_chan_alloc_recv_slot(&cs->lc);
     }
-    lmp_chan_register_recv(&rpc->lc, rpc->ws, MKCLOSURE(cb_accept_loop, args));
+    lmp_chan_register_recv(&cs->lc, cs->rpc->ws, MKCLOSURE(cb_accept_loop, args));
 }
 
 static
 void cb_recv_ready(void* args){
     debug_printf("we are ready to receive\n");
-    struct aos_rpc *rpc=args;
+    struct aos_rpc_session *cs=args;
 
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref dummy_capref;
