@@ -48,13 +48,17 @@ void cb_accept_loop(void* args)
 
     if(closure.message_handler!=NULL){
         struct capref ret_cap=NULL_CAP;
-        closure.message_handler(cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
-        if(closure.send_ack){
+        err=closure.message_handler(cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
+        if(closure.send_ack || err_is_fail(err)){
 
-            err=lmp_chan_send1(&cs->lc,
+            if(err_is_fail(err))
+                return_flags = RPC_FLAG_ERROR;
+
+            err=lmp_chan_send2(&cs->lc,
                 LMP_FLAG_SYNC,
                 ret_cap,
-                MAKE_RPC_MSG_HEADER(return_opcode, return_flags|RPC_FLAG_ACK));
+                MAKE_RPC_MSG_HEADER(return_opcode, return_flags|RPC_FLAG_ACK),
+                err);
             if(err_is_fail(err)){
                 debug_printf("Response message not sent\n");
             }
@@ -157,8 +161,15 @@ errval_t recv_block(struct aos_rpc_session* sess,
     while (!rb.received)
         ERROR_RET1(event_dispatch(sess->rpc->ws));
 
+    if (err_is_fail(rb.err))
+        return rb.err;
+
     if (!capcmp(*rb.cap, NULL_CAP))
         ERROR_RET1(lmp_chan_alloc_recv_slot(&sess->lc));
+
+    if (RPC_HEADER_FLAGS(rb.message->words[0]) & RPC_FLAG_ERROR){
+        return rb.message->words[1];
+    }
 
     return rb.err;
 }
