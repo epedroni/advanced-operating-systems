@@ -1237,3 +1237,7 @@ errors cpuid CPUID_ERR_ {
     failure UNKNOWN_VENDOR          "The CPU vendor is not supported",
     failure INVALID_INDEX           "There is no leaf with this index",
 };
+
+errors rpc RPC_ERR_ {
+    failure INVALID_PROTOCOL        "Protocol mistmatch error.",
+};

@@ -21,7 +21,8 @@
 enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
-    RPC_RAM_CAP,
+    RPC_RAM_CAP_QUERY,
+    RPC_RAM_CAP_RESPONSE,
     RPC_NUMBER,
     RPC_STRING,
     RPC_PUT_CHAR,
@@ -44,6 +45,9 @@ enum message_flags {
 #define RPC_HEADER_OPCODE(header) (header & ((1 << RPC_OPCODE_BITS) - 1))
 #define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
 
+#define ASSERT_PROTOCOL(cond) { if (!(cond)) { debug_printf("RPC: Protocol error! Assertion %s failed\n", #cond); return RPC_ERR_INVALID_PROTOCOL; }}
+
+
 inline
 uint32_t get_message_flags(struct lmp_recv_msg* msg){
     return RPC_HEADER_FLAGS(msg->words[0]);
@@ -53,13 +57,12 @@ struct aos_rpc_session;
 
 extern const size_t LMP_MAX_BUFF_SIZE;
 
-typedef errval_t (*aos_rpc_handler)(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
+typedef errval_t (*aos_rpc_handler)(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
 
 struct aos_rpc_message_handler_closure{
     aos_rpc_handler message_handler;
     bool send_ack;
-    void* context;
 };
 
 struct aos_rpc {
@@ -87,11 +90,15 @@ struct number_handler_closure {
     void *arg;
 };
 
+errval_t recv_block(struct aos_rpc_session* sess,
+    struct lmp_recv_msg* message,
+    struct capref* cap);
+
 errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess);
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess);
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
-        aos_rpc_handler message_handler, bool send_ack, void* context);
+        aos_rpc_handler message_handler, bool send_ack);
 
 errval_t aos_rpc_accept(struct aos_rpc* rpc);
 
