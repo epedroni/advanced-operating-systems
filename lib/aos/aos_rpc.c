@@ -274,8 +274,6 @@ errval_t aos_rpc_accept(struct aos_rpc* rpc){
     errval_t err;
 
     debug_printf("aos_rpc_accept: invoked\n");
-    ERROR_RET1(lmp_chan_alloc_recv_slot(&rpc->lc));
-    lmp_chan_register_recv(&rpc->lc, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
     while (true) {
         err = event_dispatch(rpc->ws);
         debug_printf("Got event\n");

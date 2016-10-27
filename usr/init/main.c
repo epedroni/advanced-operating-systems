@@ -116,7 +116,6 @@ static char rpc_rcv_buffer[RPC_BUFF_SIZE];
 
 int main(int argc, char *argv[])
 {
-
 	debug_printf("MAIN IS BEING INVOKED\n");
 
     errval_t err;
@@ -159,30 +158,27 @@ int main(int argc, char *argv[])
     //Create lmp channel
     struct spawninfo* process_info;
 
-    //Spawn child
+    // Init server
     struct aos_rpc rpc;
     aos_rpc_init(&rpc, NULL_CAP, false);
+    struct lmp_chan* chan = NULL;
+    aos_server_add_client(&rpc, &chan);
 
     process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=my_core_id;   //Run it on same core
-    err = spawn_load_by_name("/armv7/sbin/hello", process_info, &rpc.lc);
-    if(err_is_fail(err)){
+    err = spawn_load_by_name("/armv7/sbin/hello",
+        process_info,
+        chan);
+    if(err_is_fail(err))
         DEBUG_ERR(err, "spawn_load_by_name");
-    }
-    free(process_info);
 
-//  spawn another for kicks
-//    struct lmp_chan lc2;
-//	MM_ASSERT(lmp_chan_accept(&lc2, DEFAULT_LMP_BUF_WORDS, NULL_CAP), "Error creating lmp channel");
-//	MM_ASSERT(lmp_chan_alloc_recv_slot(&lc2), "Allocating slot for receive");
-//	ERROR_RET1(lmp_chan_register_recv(&lc2, get_default_waitset(), MKCLOSURE(rcv_callback, &lc2)));
-//	process_info = malloc(sizeof(struct spawninfo));
-//	process_info->core_id=my_core_id;   //Run it on same core
-//	err = spawn_load_by_name("/armv7/sbin/memeater", process_info, &lc2);
-//	if(err_is_fail(err)){
-//		DEBUG_ERR(err, "spawn_load_by_name");
-//	}
-//	free(process_info);
+    aos_server_register_client(&rpc, chan);
+    // -- MOVE THIS INTO 'aos_server_register_client'
+    ERROR_RET1(lmp_chan_alloc_recv_slot(chan));
+    lmp_chan_register_recv(chan, rpc->ws, MKCLOSURE(cb_accept_loop, rpc));
+    // --
+
+    free(process_info);
 
     debug_printf("Message handler loop\n");
     //#define LOGO(s) debug_printf("%s\n", s);

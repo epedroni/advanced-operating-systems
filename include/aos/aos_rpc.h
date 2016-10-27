@@ -59,18 +59,26 @@ struct aos_rpc_message_handler_closure{
 };
 
 struct aos_rpc {
-    struct lmp_chan lc;
-    bool can_send;
-    bool ack_received;
+    struct lmp_chan lc; // Server chan for client
     struct waitset* ws;
 
     struct aos_rpc_message_handler_closure aos_rpc_message_handler_closure[RPC_NUM_OPCODES];
+};
+
+struct aos_rpc_client_session {
+    struct lmp_chan lc;
+    bool can_send;
+    bool ack_received;
+    struct aos_rpc* rpc;
 };
 
 struct number_handler_closure {
     void (*num_handler_cb)(uintptr_t number);
     void *arg;
 };
+
+errval_t aos_server_add_client(struct aos_rpc* rpc, struct lmp_chan** chan);
+errval_t aos_server_register_client(struct aos_rpc* rpc, struct lmp_chan* chan);
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
         aos_rpc_handler message_handler, bool send_ack, void* context);
