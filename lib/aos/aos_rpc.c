@@ -47,7 +47,6 @@ void cb_accept_loop(void* args)
     struct aos_rpc_message_handler_closure closure=cs->rpc->aos_rpc_message_handler_closure[message_opcode];
 
     if(closure.message_handler!=NULL){
-        debug_printf("Invoking function callback\n");
         struct capref ret_cap=NULL_CAP;
         closure.message_handler(cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
         if(closure.send_ack){
@@ -84,7 +83,6 @@ void cb_accept_loop(void* args)
 
 static
 void cb_recv_ready(void* args){
-    debug_printf("we are ready to receive\n");
     struct aos_rpc_session *cs=args;
 
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
@@ -94,20 +92,17 @@ void cb_recv_ready(void* args){
 
     if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK){
         cs->ack_received=true;
-        debug_printf("We received ack, yay!\n");
     }
 }
 
 static
 void cb_send_ready(void* args){
-    debug_printf("** we can send!\n");
     struct aos_rpc_session *sess = args;
     sess->can_send=true;
 }
 
 static
 void wait_for_send(struct aos_rpc_session* sess){
-    debug_printf("waiting for send\n");
     errval_t err;
 
     lmp_chan_register_send(&sess->lc, sess->rpc->ws, MKCLOSURE(cb_send_ready, (void*)sess));
@@ -120,7 +115,6 @@ void wait_for_send(struct aos_rpc_session* sess){
         }
     }
     sess->can_send=false;
-    debug_printf("can send received\n");
 }
 
 struct recv_block_helper_struct
@@ -145,6 +139,10 @@ errval_t recv_block(struct aos_rpc_session* sess,
     struct capref* cap)
 {
     debug_printf("recv_block\n");
+    if (!message || !cap)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    message->buf.buflen = LMP_MSG_LENGTH;
 
     struct recv_block_helper_struct rb;
     rb.received = false;
@@ -159,10 +157,8 @@ errval_t recv_block(struct aos_rpc_session* sess,
     while (!rb.received)
         ERROR_RET1(event_dispatch(sess->rpc->ws));
 
-    if(message->words[0] | RPC_FLAG_ERROR){
-        debug_printf("We have an error!\n");
-        rb.err=message->words[1];
-    }
+    if (!capcmp(*rb.cap, NULL_CAP))
+        ERROR_RET1(lmp_chan_alloc_recv_slot(&sess->lc));
 
     return rb.err;
 }
@@ -172,7 +168,6 @@ void wait_for_ack(struct aos_rpc_session* sess){
     lmp_chan_register_recv(&sess->lc,
             sess->rpc->ws, MKCLOSURE(cb_recv_ready, (void*)sess));
 
-    debug_printf("wait for ack\n");
     while (!sess->ack_received) {
         errval_t err = event_dispatch(sess->rpc->ws);
         if (err_is_fail(err)) {
@@ -181,8 +176,6 @@ void wait_for_ack(struct aos_rpc_session* sess){
         }
     }
     sess->ack_received=false;
-
-    debug_printf("ack received\n");
 }
 
 // Waits for send, sends and waits for ack
@@ -256,15 +249,16 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc,
     size_t request_bits,
+    size_t alignment,
     struct capref *retcap,
     size_t *ret_bits)
 {
     wait_for_send(rpc->server_sess);
-    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+    ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_RAM_CAP_QUERY,
-            request_bits));
+            request_bits, alignment));
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
     ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
     ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);
@@ -335,10 +329,8 @@ errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opco
 errval_t aos_rpc_accept(struct aos_rpc* rpc){
     errval_t err;
 
-    debug_printf("aos_rpc_accept: invoked\n");
     while (true) {
         err = event_dispatch(rpc->ws);
-        debug_printf("Got event\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();

@@ -1241,4 +1241,5 @@ errors cpuid CPUID_ERR_ {
 errors rpc RPC_ERR_ {
     failure INVALID_PROTOCOL        "Protocol mistmatch error.",
     failure SERVICE_NOT_FOUND       "Server didn't register message handler.",
+    failure INVALID_ARGUMENTS       "Invalid arguments",
 };

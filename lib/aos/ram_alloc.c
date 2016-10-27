@@ -14,13 +14,15 @@
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
+#include <aos/aos_rpc.h>
 
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    size_t actual_size = 0;
+    struct aos_rpc* rpc = get_init_rpc();
+    return aos_rpc_get_ram_cap(rpc, size, alignment, ret, &actual_size);
 }
-
 
 void ram_set_affinity(uint64_t minbase, uint64_t maxlimit)
 {

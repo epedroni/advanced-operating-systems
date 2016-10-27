@@ -20,9 +20,6 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-#ifndef EXCLUDE_MEMEATER
-static struct aos_rpc init_rpc;
-#endif
 
 errval_t aos_slab_refill(struct slab_allocator *slabs){
     //TODO: We have to think of a way how to provide refill function to every application
@@ -41,52 +38,56 @@ const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
 #ifndef EXCLUDE_MEMEATER
 static errval_t request_and_map_memory(void)
 {
-    errval_t err;
+    #define TEST_DEBUG(s) debug_printf("[TEST %d] %s", test_id, s)
+    int test_id = 0;
 
+    struct aos_rpc* rpc = get_init_rpc();
+    errval_t err;
     size_t bytes;
     struct frame_identity id;
-    debug_printf("testing memory server...\n");
+        struct paging_state *pstate = get_current_paging_state();
 
-    struct paging_state *pstate = get_current_paging_state();
 
-    debug_printf("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
+    TEST_DEBUG("Testing memory server...\n");
 
-    struct capref cap1;
-    err = aos_rpc_get_ram_cap(&init_rpc, BASE_PAGE_SIZE, &cap1, &bytes);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
-        return err;
+    for (int i = 0; i < 2; ++i)
+    {
+        ++test_id;
+        TEST_DEBUG("Obtaining cap of BASE_PAGE_SIZE bytes...\n");
+
+        struct capref cap1;
+        err = aos_rpc_get_ram_cap(rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
+            return err;
+        }
+
+        TEST_DEBUG("Retyping to frame ...\n");
+        struct capref cap1_frame;
+        err = slot_alloc(&cap1_frame);
+        assert(err_is_ok(err));
+
+        err = cap_retype(cap1_frame, cap1, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not retype RAM cap to frame cap\n");
+            return err;
+        }
+
+        err = invoke_frame_identify(cap1_frame, &id);
+        assert(err_is_ok(err));
+
+        void *buf1;
+        err = paging_map_frame(pstate, &buf1, BASE_PAGE_SIZE, cap1_frame, NULL, NULL);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
+            return err;
+        }
+        TEST_DEBUG("Got frame mapped. Performing memset\n");
+        memset(buf1, 0x00, BASE_PAGE_SIZE);
     }
 
-    struct capref cap1_frame;
-    err = slot_alloc(&cap1_frame);
-    assert(err_is_ok(err));
-
-    err = cap_retype(cap1_frame, cap1, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not retype RAM cap to frame cap\n");
-        return err;
-    }
-
-    err = invoke_frame_identify(cap1_frame, &id);
-    assert(err_is_ok(err));
-
-    void *buf1;
-    err = paging_map_frame(pstate, &buf1, BASE_PAGE_SIZE, cap1_frame, NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
-        return err;
-    }
-
-    debug_printf("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
-
-    debug_printf("performing memset.\n");
-    memset(buf1, 0x00, BASE_PAGE_SIZE);
-
-
-
-    debug_printf("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
-                 LARGE_PAGE_SIZE);
+    ++test_id;
+    TEST_DEBUG("Obtaining cap of LARGE_PAGE_SIZE bytes using frame alloc...\n");
 
     struct capref cap2;
     err = frame_alloc(&cap2, LARGE_PAGE_SIZE, &bytes);
@@ -105,9 +106,9 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-    debug_printf("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
+    TEST_DEBUG("Got frame: mapped\n");
 
-    debug_printf("performing memset.\n");
+    TEST_DEBUG("Performing memset\n");
     memset(buf2, 0x00, LARGE_PAGE_SIZE);
 
     return SYS_ERR_OK;
@@ -118,26 +119,27 @@ static errval_t request_and_map_memory(void)
 #ifndef EXCLUDE_MEMEATER
 static errval_t test_basic_rpc(void)
 {
+    struct aos_rpc* rpc = get_init_rpc();
     errval_t err;
 
     debug_printf("RPC: testing basic RPCs...\n");
 
     debug_printf("RPC: sending number...\n");
-    err =  aos_rpc_send_number(&init_rpc, 42);
+    err =  aos_rpc_send_number(rpc, 42);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
     debug_printf("RPC: sending small string...\n");
-    err =  aos_rpc_send_string(&init_rpc, "Hello init");
+    err =  aos_rpc_send_string(rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
     debug_printf("RPC: sending large string...\n");
-    err =  aos_rpc_send_string(&init_rpc, str);
+    err =  aos_rpc_send_string(rpc, str);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
@@ -157,13 +159,6 @@ int main(int argc, char *argv[])
 
     debug_printf("memeater started....\n");
 
-    // this is not necessary, it happens in init.c
-//    err = aos_rpc_init(&init_rpc);
-//    if (err_is_fail(err)) {
-//        USER_PANIC_ERR(err, "could not initialize RPC\n");
-//    }
-    init_rpc = *get_init_rpc();
-    debug_printf("init rpc: 0x%x\n", &init_rpc);
 
     err = test_basic_rpc();
     if (err_is_fail(err)) {

@@ -25,7 +25,7 @@
 static struct paging_state current;
 
 //#define PAGING_KEEP_GAPS 40
-#define DEBUG_PAGING(s, ...) //debug_printf(s, ##__VA_ARGS__)
+#define DEBUG_PAGING(s, ...) //debug_printf("[PAGING] " s, ##__VA_ARGS__)
 
 /**
  * \brief Helper function that allocates a slot and
@@ -175,6 +175,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
     #endif
 
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
         // If it is used or too small, skip it
@@ -243,6 +244,9 @@ slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame, size_t bytes, size_t offset, int flags, struct vm_block* block)
 {
+    DEBUG_PAGING("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
+        (int)vaddr, (int)bytes, (int)offset);
+
     if (!bytes)
         return PAGE_ERR_NO_BYTES;
     if (BASE_PAGE_OFFSET(vaddr))
@@ -250,8 +254,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (offset != 0 && BASE_PAGE_OFFSET(offset))
         return PAGE_ERR_OFFSET_NOT_ALIGNED;
 
-    DEBUG_PAGING("Paging: 0x%08x .. + 0x%08x [offset 0x%08x]\n",
-        (int)vaddr, (int)bytes, (int)offset);
     capaddr_t l1_slot = ARM_L1_OFFSET(vaddr);
     capaddr_t l1_slot_end = ARM_L1_OFFSET(vaddr + bytes - 1);
     capaddr_t l2_slot = ARM_L2_OFFSET(vaddr);
