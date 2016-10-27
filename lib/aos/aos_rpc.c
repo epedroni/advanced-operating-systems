@@ -134,6 +134,10 @@ errval_t recv_block(struct aos_rpc_session* sess,
     struct capref* cap)
 {
     debug_printf("recv_block\n");
+    if (!message || !cap)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    message->buf.buflen = LMP_MSG_LENGTH;
 
     struct recv_block_helper_struct rb;
     rb.received = false;
