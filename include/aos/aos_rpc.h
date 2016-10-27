@@ -60,7 +60,6 @@ struct aos_rpc_message_handler_closure{
     void* context;
 };
 
-
 struct aos_rpc {
     // For client only:
     struct aos_rpc_session* server_sess; // Server chan for client
@@ -75,6 +74,10 @@ struct aos_rpc_session {
     bool can_send;
     bool ack_received;
     struct aos_rpc* rpc;
+
+    size_t buff_capacity;
+    char* buffer;
+    size_t current_buff_position;
 };
 
 struct number_handler_closure {

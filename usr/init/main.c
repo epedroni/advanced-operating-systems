@@ -111,9 +111,6 @@ void test_paging(void);
 
 //}
 
-#define RPC_BUFF_SIZE 100
-static char rpc_rcv_buffer[RPC_BUFF_SIZE];
-
 int main(int argc, char *argv[])
 {
 	debug_printf("MAIN IS BEING INVOKED\n");
@@ -197,12 +194,7 @@ int main(int argc, char *argv[])
     debug_printf("Starting lmp server...\n");
 
 
-    struct lmp_server_state lmp_state={
-            .buffer=rpc_rcv_buffer,
-            .buffer_capacity=RPC_BUFF_SIZE
-    };
-    lmp_server_init(&rpc, &lmp_state);
-
+    lmp_server_init(&rpc);
     aos_rpc_accept(&rpc);
 
     return EXIT_SUCCESS;
