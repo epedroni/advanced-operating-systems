@@ -111,6 +111,27 @@ void test_paging(void);
 
 //}
 
+static
+errval_t spawn_process(char* process_name, struct aos_rpc* rpc){
+    errval_t err;
+
+    struct aos_rpc_session* sess = NULL;
+    aos_server_add_client(rpc, &sess);
+
+    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+    process_info->core_id=my_core_id;   //Run it on same core
+    err = spawn_load_by_name(process_name,
+        process_info,
+        &sess->lc);
+    if(err_is_fail(err))
+        DEBUG_ERR(err, "spawn_load_by_name");
+
+    aos_server_register_client(rpc, sess);
+    free(process_info);
+
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
 	debug_printf("MAIN IS BEING INVOKED\n");
@@ -153,24 +174,26 @@ int main(int argc, char *argv[])
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
-    struct spawninfo* process_info;
 
     // Init server
     struct aos_rpc rpc;
     aos_rpc_init(&rpc, NULL_CAP, false);
-    struct aos_rpc_session* sess = NULL;
-    aos_server_add_client(&rpc, &sess);
+//    struct aos_rpc_session* sess = NULL;
+//    aos_server_add_client(&rpc, &sess);
+//
+//    process_info = malloc(sizeof(struct spawninfo));
+//    process_info->core_id=my_core_id;   //Run it on same core
+//    err = spawn_load_by_name("/armv7/sbin/hello",
+//        process_info,
+//        &sess->lc);
+//    if(err_is_fail(err))
+//        DEBUG_ERR(err, "spawn_load_by_name");
+//
+//    aos_server_register_client(&rpc, sess);
+//    free(process_info);
 
-    process_info = malloc(sizeof(struct spawninfo));
-    process_info->core_id=my_core_id;   //Run it on same core
-    err = spawn_load_by_name("/armv7/sbin/hello",
-        process_info,
-        &sess->lc);
-    if(err_is_fail(err))
-        DEBUG_ERR(err, "spawn_load_by_name");
-
-    aos_server_register_client(&rpc, sess);
-    free(process_info);
+    spawn_process("/armv7/sbin/hello", &rpc);
+    spawn_process("/armv7/sbin/memeater", &rpc);
 
     debug_printf("Message handler loop\n");
     //#define LOGO(s) debug_printf("%s\n", s);
