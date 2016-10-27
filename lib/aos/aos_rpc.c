@@ -313,16 +313,17 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
         rpc->server_sess->ack_received=false;
         rpc->server_sess->can_send=false;
         rpc->server_sess->rpc = rpc;
-        lmp_chan_alloc_recv_slot(&rpc->server_sess->lc);
+        ERROR_RET1(lmp_chan_alloc_recv_slot(&rpc->server_sess->lc));
 
         debug_printf("Sending handshake\n");
-        aos_rpc_send_handshake(rpc, rpc->server_sess->lc.local_cap);
+        ERROR_RET1(aos_rpc_send_handshake(rpc,
+            rpc->server_sess->lc.local_cap));
+
+        // store it at a well known location
+        set_init_rpc(rpc);
     }
     else
         rpc->server_sess = NULL;
-
-    // store it at a well known location
-    set_init_rpc(rpc);
 
     return SYS_ERR_OK;
 }
@@ -343,6 +344,7 @@ errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** ses
 
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess)
 {
-    lmp_chan_register_recv(&sess->lc, rpc->ws, MKCLOSURE(cb_accept_loop, sess));
+    ERROR_RET1(lmp_chan_register_recv(&sess->lc,
+        rpc->ws, MKCLOSURE(cb_accept_loop, sess)));
     return SYS_ERR_OK;
 }
