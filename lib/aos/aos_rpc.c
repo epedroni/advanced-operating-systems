@@ -34,7 +34,7 @@ void cb_recv_ready(void* args){
 
     lmp_chan_recv(&rpc->lc, &message, &dummy_capref);
 
-    if(message.words[0] & RPC_ACK){
+    if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK){
         rpc->ack_received=true;
         debug_printf("We received ack, yay!\n");
     }
@@ -120,22 +120,26 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
 	size_t curr_position=0;
     static uintptr_t buffer[8];
 
-	bool incomplete=0;
+	uint32_t flags = RPG_FLAG_NONE;
 	do{
         memcpy(buffer, string+curr_position, (length>MAX_BUFF_SIZE)?MAX_BUFF_SIZE:length);
 
         if (length>MAX_BUFF_SIZE){
             curr_position+=MAX_BUFF_SIZE;
             length-=MAX_BUFF_SIZE;
-            incomplete=RPC_INCOMPLETE;
+            flags = RPC_FLAG_INCOMPLETE;
         }else{
-            incomplete=0;
+            flags = RPG_FLAG_NONE;
             curr_position+=length;
         }
 
         wait_for_send(chan);
 
-        err=lmp_ep_send(chan->lc.remote_cap, LMP_FLAG_SYNC, NULL_CAP, 9, RPC_STRING | incomplete,
+        err=lmp_ep_send(chan->lc.remote_cap,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            9,
+            MAKE_RPC_MSG_HEADER(RPC_STRING, flags),
                 buffer[0], buffer[1], buffer[2], buffer[3],
                 buffer[4], buffer[5], buffer[6], buffer[7]);
 
@@ -144,7 +148,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string)
         }
         wait_for_ack(chan);
 
-	}while(incomplete);
+	} while (flags);
 
     return SYS_ERR_OK;
 }

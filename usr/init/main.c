@@ -57,18 +57,19 @@ static void rcv_callback(void* args){
 
     lmp_chan_recv(lc, &message, &child_endpoint);
 
-    uint32_t ret_flags=0;
+    uint32_t ret_opcode = RPC_NULL_OPCODE;
 
     debug_printf("We have message type: 0x%X\n",message.words[0]);
 
-    switch(message.words[0]) {
+    uint32_t opcode = RPC_HEADER_OPCODE(message.words[0]);
+    switch(opcode) {
     case RPC_HANDSHAKE:
         debug_printf("Received handshake message!\n");
         lc->remote_cap=child_endpoint;
     	break;
     case RPC_RAM_CAP:
     	// create ram
-        ret_flags|=RPC_RAM_CAP;
+        ret_opcode = RPC_RAM_CAP;
     	break;
     case RPC_NUMBER:
         debug_printf("We received a number: %d\n", message.words[1]);
@@ -90,14 +91,15 @@ static void rcv_callback(void* args){
     	break;
     }
 
-    ret_flags|=RPC_ACK;
-
     debug_printf("Reregistring, ofcourse \n");
     MM_ASSERT(lmp_chan_alloc_recv_slot(lc), "Allocating slot for receive");
 
     lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(rcv_callback, args));
 
-    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, NULL_CAP, ret_flags);
+    err=lmp_chan_send1(lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        MAKE_RPC_MSG_HEADER(ret_opcode, RPC_FLAG_ACK));
     if(err_is_fail(err)){
         debug_printf("Message not sent\n");
     }

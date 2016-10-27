@@ -17,20 +17,32 @@
 
 #include <aos/aos.h>
 
-enum message_header {
-    RPC_HANDSHAKE = 0,
-    RPC_RAM_CAP=1,
-	RPC_ACK=2,
-    RPC_NUMBER=4,
-	RPC_STRING=8,
-	RPC_PUT_CHAR=0x10,
-	RPC_GET_CHAR=0x20,
-	RPC_SPAWN=0x40,
-	RPC_GET_NAME=0x80,
-	RPC_GET_PID=0x100,
-	RPC_INCOMPLETE=0x200,
-	RPC_ERROR=0x400
+// Maximum 255 opcodes
+enum message_opcodes {
+    RPC_NULL_OPCODE     = 0,
+    RPC_HANDSHAKE,
+    RPC_RAM_CAP,
+    RPC_NUMBER,
+    RPC_STRING,
+    RPC_PUT_CHAR,
+    RPC_GET_CHAR,
+    RPC_SPAWN,
+    RPC_GET_NAME,
+    RPC_GET_PID,
+    RPC_NUM_OPCODES,
 };
+
+enum message_flags {
+    RPG_FLAG_NONE       = 0x0,
+    RPC_FLAG_ACK        = 0x1,
+    RPC_FLAG_INCOMPLETE = 0x2,
+    RPC_FLAG_ERROR      = 0x4,
+};
+
+#define RPC_OPCODE_BITS 8
+#define MAKE_RPC_MSG_HEADER(op, flags) (op | (flags << RPC_OPCODE_BITS))
+#define RPC_HEADER_OPCODE(header) (header & ((1 << RPC_OPCODE_BITS) - 1))
+#define RPC_HEADER_FLAGS(header) (header >> RPC_OPCODE_BITS)
 
 struct aos_rpc {
     struct lmp_chan lc;
