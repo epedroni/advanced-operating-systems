@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 
     struct lmp_server_state lmp_state={
             .buffer=rpc_rcv_buffer,
-            .buffer_size=RPC_BUFF_SIZE
+            .buffer_capacity=RPC_BUFF_SIZE
     };
     lmp_server_init(&rpc, &lmp_state);
 
