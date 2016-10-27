@@ -240,15 +240,16 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc,
     size_t request_bits,
+    size_t alignment,
     struct capref *retcap,
     size_t *ret_bits)
 {
     wait_for_send(rpc->server_sess);
-    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+    ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_RAM_CAP_QUERY,
-            request_bits));
+            request_bits, alignment));
     struct lmp_recv_msg message;
     ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
     ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);

@@ -57,10 +57,12 @@ errval_t handle_ram_cap_opcode(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     size_t requested_bytes = msg->words[1];
-    debug_printf("Recvd RPC_RAM_CAP_QUERY [requested %d bytes]\n", (int)requested_bytes);
+    size_t requested_aligment = msg->words[2];
+    debug_printf("Recvd RPC_RAM_CAP_QUERY [requested %d bytes | aligned 0x%x]\n",
+        (int)requested_bytes, (int)requested_aligment);
 
     struct capref return_cap;
-    ERROR_RET1(ram_alloc(&return_cap, requested_bytes));
+    ERROR_RET1(ram_alloc_aligned(&return_cap, requested_bytes, requested_aligment));
     ERROR_RET1(lmp_chan_send2(&sess->lc,
         LMP_FLAG_SYNC,
         return_cap,
