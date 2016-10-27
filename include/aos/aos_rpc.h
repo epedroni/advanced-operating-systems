@@ -49,21 +49,21 @@ enum message_flags {
 
 
 inline
-uint32_t getMessageFlags(struct lmp_recv_msg* msg){
+uint32_t get_message_flags(struct lmp_recv_msg* msg){
     return RPC_HEADER_FLAGS(msg->words[0]);
 }
 
 struct aos_rpc_session;
 
-typedef errval_t (*aos_rpc_handler)(void* context, struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
+extern const size_t LMP_MAX_BUFF_SIZE;
+
+typedef errval_t (*aos_rpc_handler)(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
 
 struct aos_rpc_message_handler_closure{
     aos_rpc_handler message_handler;
     bool send_ack;
-    void* context;
 };
-
 
 struct aos_rpc {
     // For client only:
@@ -79,6 +79,10 @@ struct aos_rpc_session {
     bool can_send;
     bool ack_received;
     struct aos_rpc* rpc;
+
+    size_t buffer_capacity;
+    char* buffer;
+    size_t current_buff_position;
 };
 
 struct number_handler_closure {
@@ -94,7 +98,7 @@ errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** ses
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess);
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
-        aos_rpc_handler message_handler, bool send_ack, void* context);
+        aos_rpc_handler message_handler, bool send_ack);
 
 errval_t aos_rpc_accept(struct aos_rpc* rpc);
 
