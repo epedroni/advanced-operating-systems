@@ -24,11 +24,6 @@
 	bool give_away = flags & LMP_FLAG_GIVEAWAY;
  */
 
-static
-inline bool cmp_cap(struct capref c1, struct capref c2)
-{
-    return c1.slot == c2.slot && cnodecmp(c1.cnode, c2.cnode);
-}
 
 static
 void cb_accept_loop(void* args){
@@ -67,7 +62,7 @@ void cb_accept_loop(void* args){
         debug_printf("Callback not registered, skipping\n");
     }
 
-    if(!cmp_cap(received_cap, NULL_CAP)){
+    if(!capcmp(received_cap, NULL_CAP)){
         debug_printf("Capabilities changed, allocating new slot\n");
         lmp_chan_alloc_recv_slot(&rpc->lc);
     }
