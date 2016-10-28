@@ -24,7 +24,7 @@
 
 __BEGIN_DECLS
 
-#define MM_ASSERT(err, msg) { if (err_is_fail(err)) USER_PANIC_ERR(err, msg);}
+#define MM_ASSERT(call, msg) { errval_t _err = (call); if (err_is_fail(_err)) USER_PANIC_ERR(_err, msg);}
 
 enum nodetype {
     NodeType_Free,      ///< This region exists and is free

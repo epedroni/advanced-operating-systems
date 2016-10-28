@@ -105,6 +105,8 @@ int main(int argc, char *argv[])
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
+    runtests_mem_alloc();
+    test_paging();
 
     // Init server
     struct aos_rpc rpc;
