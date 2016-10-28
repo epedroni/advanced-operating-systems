@@ -102,7 +102,8 @@ int main(int argc, char *argv[])
     struct aos_rpc rpc;
     aos_rpc_init(&rpc, NULL_CAP, false);
 
-    spawn_process("/armv7/sbin/hello", &rpc);
+    for (int i = 0; i < 10; ++i)
+        spawn_process("/armv7/sbin/hello", &rpc);
     spawn_process("/armv7/sbin/memeater", &rpc);
 
     debug_printf("Message handler loop\n");
