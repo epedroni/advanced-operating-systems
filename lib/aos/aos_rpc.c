@@ -87,39 +87,23 @@ void cb_accept_loop(void* args)
 }
 
 static
-void cb_recv_ready(void* args){
-    struct aos_rpc_session *cs=args;
-
-    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
-    struct capref dummy_capref;
-
-    lmp_chan_recv(&cs->lc, &message, &dummy_capref);
-
-    if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK){
-        cs->ack_received=true;
-    }
-}
-
-static
 void cb_send_ready(void* args){
     struct aos_rpc_session *sess = args;
     sess->can_send=true;
 }
 
 static
-void wait_for_send(struct aos_rpc_session* sess){
-    errval_t err;
+errval_t wait_for_send(struct aos_rpc_session* sess)
+{
+    ERROR_RET2(lmp_chan_register_send(&sess->lc, sess->rpc->ws,
+        MKCLOSURE(cb_send_ready, (void*)sess)),
+        RPC_ERR_WAIT_SEND);
 
-    lmp_chan_register_send(&sess->lc, sess->rpc->ws, MKCLOSURE(cb_send_ready, (void*)sess));
-
-    while (!sess->can_send) {
-        err = event_dispatch(sess->rpc->ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    }
-    sess->can_send=false;
+    while (!sess->can_send)
+        ERROR_RET2(event_dispatch(sess->rpc->ws),
+            RPC_ERR_WAIT_SEND);
+    sess->can_send = false;
+    return SYS_ERR_OK;
 }
 
 struct recv_block_helper_struct
@@ -182,18 +166,16 @@ errval_t recv_block(struct aos_rpc_session* sess,
 }
 
 static
-void wait_for_ack(struct aos_rpc_session* sess){
-    lmp_chan_register_recv(&sess->lc,
-            sess->rpc->ws, MKCLOSURE(cb_recv_ready, (void*)sess));
+errval_t wait_for_ack(struct aos_rpc_session* sess)
+{
+    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
+    struct capref dummy_capref;
 
-    while (!sess->ack_received) {
-        errval_t err = event_dispatch(sess->rpc->ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    }
-    sess->ack_received=false;
+    ERROR_RET1(recv_block(sess, &message, &dummy_capref));
+
+    if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK)
+        return SYS_ERR_OK;
+    return RPC_ERR_INVALID_PROTOCOL;
 }
 
 // Waits for send, sends and waits for ack
@@ -201,11 +183,11 @@ void wait_for_ack(struct aos_rpc_session* sess){
     { \
 		reset_cycle_counter(); \
         assert(rpc->server_sess); \
-        wait_for_send(rpc->server_sess); \
+        ERROR_RET1(wait_for_send(rpc->server_sess)); \
         errval_t _err = call; \
         if (err_is_fail(_err)) \
             DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__); \
-        wait_for_ack(rpc->server_sess); \
+        ERROR_RET1(wait_for_ack(rpc->server_sess)); \
     }
 
 /*
@@ -226,8 +208,6 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
     assert(rpc->server_sess);
     // we can only send strings of up to 8 characters, need to do the stub
-    errval_t err;
-
     size_t length=strlen(string);
     length++;
     size_t curr_position=0;
@@ -246,20 +226,17 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
             curr_position+=length;
         }
 
-        wait_for_send(rpc->server_sess);
+        ERROR_RET1(wait_for_send(rpc->server_sess));
 
-        err=lmp_ep_send(rpc->server_sess->lc.remote_cap,
+        ERROR_RET1(lmp_ep_send(rpc->server_sess->lc.remote_cap,
             LMP_FLAG_SYNC,
             NULL_CAP,
             9,
             MAKE_RPC_MSG_HEADER(RPC_STRING, flags),
                 buffer[0], buffer[1], buffer[2], buffer[3],
-                buffer[4], buffer[5], buffer[6], buffer[7]);
+                buffer[4], buffer[5], buffer[6], buffer[7]));
 
-        if(err_is_fail(err)) {
-            DEBUG_ERR(err, "sending string");
-        }
-        wait_for_ack(rpc->server_sess);
+        ERROR_RET1(wait_for_ack(rpc->server_sess));
 
     } while (flags);
 
@@ -272,7 +249,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc,
     struct capref *retcap,
     size_t *ret_bits)
 {
-    wait_for_send(rpc->server_sess);
+    ERROR_RET1(wait_for_send(rpc->server_sess));
     ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
@@ -289,7 +266,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
-    wait_for_send(rpc->server_sess);
+    ERROR_RET1(wait_for_send(rpc->server_sess));
     ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
