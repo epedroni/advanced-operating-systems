@@ -96,11 +96,6 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "paging_init");
     }
 
-    err = slot_alloc_init();
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "slot_alloc_init");
-    }
-
     // Retype dispatcher to endpoint
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
@@ -232,7 +227,7 @@ void test_paging(void)
     test.mm = mm_get_default();
     int* number;
 
-    PRINT_TEST("Unmap test");
+    PRINT_TEST("Unmap test. Should cause a crash.");
     number = (int*)test_alloc_and_map(BASE_PAGE_SIZE);
     *number = 42;
     errval_t err = paging_unmap(get_current_paging_state(), (void*)number);
