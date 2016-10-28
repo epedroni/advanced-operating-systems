@@ -176,6 +176,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         assert(virtual_addr->size > bytes);
 
         struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+        assert(remaining_free_space);
         // Create block for remaining free size
         remaining_free_space->type = VirtualBlock_Free;
         remaining_free_space->next = virtual_addr->next;
