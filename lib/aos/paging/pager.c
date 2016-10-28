@@ -74,7 +74,22 @@ void paging_init_onthread(struct thread *t)
           NULL, NULL);
 }
 
+/**
+ * \brief Refills the slab without causing pagefault.
+ * \param slabs: slab to refill
+ * \param frame: valid slot to store a frame
+ * \param minbytes: minimum size to provide
+ */
 errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size_t minbytes)
 {
-    return SYS_ERR_NOT_IMPLEMENTED;
+    minbytes = ROUND_UP(minbytes, BASE_PAGE_SIZE);
+    struct capref ram_ref;
+    void* data;
+    ERROR_RET1(ram_alloc(&ram_ref, minbytes));
+    ERROR_RET1(cap_retype(frame, ram_ref, 0, ObjType_Frame, minbytes, 1));
+    ERROR_RET1(paging_map_frame(get_current_paging_state(),
+        &data, minbytes, frame, NULL, NULL));
+
+    slab_grow(slabs, data, minbytes);
+    return SYS_ERR_OK;
 }
