@@ -43,7 +43,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         if (err_no(err) != LIB_ERR_SLOT_ALLOC_NO_SPACE) {
             break;
         }
-        //prev = walk;
+        assert(walk != walk->next);
         walk = walk->next;
     }
     if (err_is_fail(err)) {
@@ -153,6 +153,7 @@ errval_t two_level_free(struct slot_allocator *ca, struct capref cap)
             thread_mutex_unlock(&ca->mutex);
             return err;
         }
+        assert(walk != walk->next);
         walk = walk->next;
     }
 
