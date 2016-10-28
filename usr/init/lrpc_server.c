@@ -1,4 +1,5 @@
 #include "lrpc_server.h"
+#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 #define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s, ##__VA_ARGS__)
 
@@ -21,7 +22,7 @@ static
 errval_t handle_number(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags)
 {
-    DEBUG_LRPC("Received number %d\n",msg->words[1]);
+    DEBUG_LRPC("Received number %d, it took %d cycles\n",msg->words[1], get_cycle_count());
     return SYS_ERR_OK;
 }
 

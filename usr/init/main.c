@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     aos_rpc_init(&rpc, NULL_CAP, false);
 
     spawn_process("/armv7/sbin/hello", &rpc);
-    spawn_process("/armv7/sbin/memeater", &rpc);
+//    spawn_process("/armv7/sbin/memeater", &rpc);
 
     debug_printf("Message handler loop\n");
 
