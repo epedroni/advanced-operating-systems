@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
+errval_t paging_refill_own_allocator(struct paging_state *state);
+
 static struct paging_state current;
 /**
  * \brief Helper function that allocates a slot and
@@ -168,6 +170,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         // Mark this one as used - for calls to alloc from refill functions
         // indirectly called here.
         virtual_addr->type = VirtualBlock_Allocated;
+
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
             *buf=(void*)virtual_addr->start_address;
@@ -185,15 +188,17 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
             remaining_free_space->next->prev = remaining_free_space;
         remaining_free_space->start_address = virtual_addr->start_address + bytes;
         remaining_free_space->size = virtual_addr->size - bytes;
+
         // Mark returned block as allocated
         virtual_addr->next = remaining_free_space;
         virtual_addr->size = bytes;
+
         *buf=(void*)virtual_addr->start_address;
         if (block)
             *block = virtual_addr;
 
         if (!slab_has_freecount(&st->slabs, 5))
-            st->slabs.refill_func(&st->slabs);
+            paging_refill_own_allocator(st);
         return SYS_ERR_OK;
     }
     return PAGE_ERR_OUT_OF_VMEM;
@@ -250,7 +255,7 @@ errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_ad
     virtual_addr->size = bytes;
 
     if (!slab_has_freecount(&st->slabs, 5))
-        st->slabs.refill_func(&st->slabs);
+        paging_refill_own_allocator(st);
     return SYS_ERR_OK;
 }
 
@@ -269,9 +274,17 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
 }
 
 errval_t
-slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size_t minbytes)
+paging_refill_own_allocator(struct paging_state *st)
 {
-    // Refill the two-level slot allocator without causing a page-fault
+    if (st->is_refilling_slab)
+        return SYS_ERR_OK;
+
+    // We should always have a block ready for slab next refill
+    st->is_refilling_slab = true;
+    char* buf = malloc(BASE_PAGE_SIZE);
+    buf[0] = 0; // Touch it, so we don't pagefault
+    slab_grow(&st->slabs, buf, BASE_PAGE_SIZE);
+    st->is_refilling_slab = false;
     return SYS_ERR_OK;
 }
 

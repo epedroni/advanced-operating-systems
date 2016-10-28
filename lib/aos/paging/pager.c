@@ -73,3 +73,8 @@ void paging_init_onthread(struct thread *t)
           NULL, NULL,
           NULL, NULL);
 }
+
+errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size_t minbytes)
+{
+    return SYS_ERR_NOT_IMPLEMENTED;
+}
