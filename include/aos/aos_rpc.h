@@ -21,6 +21,7 @@
 enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
+    RPC_SHARED_BUFFER_REQUEST,
     RPC_RAM_CAP_QUERY,
     RPC_RAM_CAP_RESPONSE,
     RPC_NUMBER,
@@ -80,6 +81,12 @@ struct aos_rpc_session {
     bool ack_received;
     struct aos_rpc* rpc;
 
+    // Shared buffer
+    struct capref shared_buffer_cap;
+    void* shared_buffer;
+    size_t shared_buffer_size;
+
+    // Obsolete
     size_t buffer_capacity;
     char* buffer;
     size_t current_buff_position;
@@ -101,6 +108,12 @@ errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opco
         aos_rpc_handler message_handler, bool send_ack);
 
 errval_t aos_rpc_accept(struct aos_rpc* rpc);
+errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size);
+
+/**
+ * \brief Requests a shared buffer of given size
+ */
+errval_t aos_rpc_request_shared_buffer(struct aos_rpc* rpc, size_t size);
 
 /**
  * \brief send a number over the given channel

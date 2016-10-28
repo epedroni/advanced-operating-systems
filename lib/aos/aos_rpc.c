@@ -340,11 +340,49 @@ errval_t aos_rpc_accept(struct aos_rpc* rpc){
 static
 errval_t aos_rpc_send_handshake(struct aos_rpc *rpc, struct capref selfep)
 {
+    // Client side
     RPC_CHAN_WRAPPER_SEND(rpc,
         lmp_chan_send1(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             selfep,
             RPC_HANDSHAKE));
+    return aos_rpc_request_shared_buffer(rpc, 100);
+}
+
+errval_t aos_rpc_request_shared_buffer(struct aos_rpc* rpc, size_t size)
+{
+    if (!rpc->server_sess)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+
+    // Request shared buffer
+    rpc->server_sess->shared_buffer_size = 0; // Disable buffer
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        RPC_SHARED_BUFFER_REQUEST,
+        size));
+    struct lmp_recv_msg message;
+    ERROR_RET1(recv_block(rpc->server_sess,
+        &message,
+        &rpc->server_sess->shared_buffer_cap));
+
+    // Setup buffer
+    return aos_rpc_map_shared_buffer(rpc->server_sess, size);
+}
+
+
+errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size)
+{
+    struct paging_state* ps = get_current_paging_state();
+    ERROR_RET1(paging_map_frame(ps, &sess->shared_buffer,
+        size,
+        sess->shared_buffer_cap,
+        NULL, NULL));
+
+    sess->shared_buffer_size = size;
     return SYS_ERR_OK;
 }
 
@@ -356,6 +394,8 @@ errval_t aos_rpc_session_init(struct aos_rpc_session* sess,
             DEFAULT_LMP_BUF_WORDS, remote_endpoint));
     sess->ack_received=false;
     sess->can_send=false;
+    sess->shared_buffer_size = 0; // Disable buffer
+    ERROR_RET1(slot_alloc(&sess->shared_buffer_cap));
     ERROR_RET1(lmp_chan_alloc_recv_slot(&sess->lc));
     return SYS_ERR_OK;
 }
