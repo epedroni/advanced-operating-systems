@@ -159,7 +159,6 @@ int main(int argc, char *argv[])
 
     debug_printf("memeater started....\n");
 
-
     err = test_basic_rpc();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failure in testing basic RPC\n");

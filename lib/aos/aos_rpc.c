@@ -416,6 +416,13 @@ errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** ses
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc,
+                                lpaddr_t paddr, size_t bytes,
+                                struct capref *frame)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess)
 {
     ERROR_RET1(lmp_chan_register_recv(&sess->lc,
