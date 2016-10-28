@@ -72,12 +72,52 @@ errval_t handle_ram_cap_opcode(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+static
+errval_t handle_get_char_handle(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    char ret_char;
+    sys_getchar(&ret_char);
+
+    ERROR_RET1(lmp_chan_send2(&sess->lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        MAKE_RPC_MSG_HEADER(RPC_GET_CHAR, RPC_FLAG_ACK),
+        ret_char));
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_put_char_handle(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    sys_print((char*)(msg->words+1),1);
+
+//
+//    ERROR_RET1(lmp_chan_send2(&sess->lc,
+//        LMP_FLAG_SYNC,
+//        NULL_CAP,
+//        MAKE_RPC_MSG_HEADER(RPC_GET_CHAR, RPC_FLAG_ACK),
+//        ret_char));
+    return SYS_ERR_OK;
+}
+
 errval_t lmp_server_init(struct aos_rpc* rpc){
 
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
     aos_rpc_register_handler(rpc, RPC_STRING, handle_string, true);
     aos_rpc_register_handler(rpc, RPC_RAM_CAP_QUERY, handle_ram_cap_opcode, false);
+    aos_rpc_register_handler(rpc, RPC_GET_CHAR, handle_get_char_handle, false);
+    aos_rpc_register_handler(rpc, RPC_PUT_CHAR, handle_put_char_handle, true);
 
     return SYS_ERR_OK;
 }

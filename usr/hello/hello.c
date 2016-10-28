@@ -57,6 +57,15 @@ int main(int argc, char *argv[])
 
     aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 
+    while(true){
+        char ret_char;
+        aos_rpc_serial_getchar(get_init_rpc(),&ret_char);
+        if(ret_char=='\r')
+            ret_char='\n';
+        if(ret_char!=0)
+            aos_rpc_serial_putchar(get_init_rpc(),ret_char);
+    }
+
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed initializing ram");
     }
