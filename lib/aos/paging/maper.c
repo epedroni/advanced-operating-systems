@@ -23,10 +23,6 @@
 #include <string.h>
 
 static struct paging_state current;
-
-//#define PAGING_KEEP_GAPS 40
-#define DEBUG_PAGING(s, ...) //debug_printf("[PAGING] " s, ##__VA_ARGS__)
-
 /**
  * \brief Helper function that allocates a slot and
  *        creates a ARM l2 page table capability
@@ -80,12 +76,6 @@ errval_t paging_init(void)
 {
     DEBUG_PAGING("Initializing paging@0x%08x... \n", (int)&current);
 
-    // TODO (M4): initialize self-paging handler
-    // TIP: use thread_set_exception_handler() to setup a page fault handler
-    // TIP: Think about the fact that later on, you'll have to make sure that
-    // you can handle page faults in any thread of a domain.
-    // TIP: it might be a good idea to call paging_init_state() from here to
-    // avoid code duplication.
     struct capref l1_pagetable = {
         .cnode = cnode_page,
         .slot = 0,
@@ -95,15 +85,6 @@ errval_t paging_init(void)
 
     // TODO: maybe add paging regions to paging state?
     return SYS_ERR_OK;
-}
-
-
-/**
- * \brief Initialize per-thread paging state
- */
-void paging_init_onthread(struct thread *t)
-{
-    // TODO (M4): setup exception handler for thread `t'.
 }
 
 /**
@@ -219,76 +200,57 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
 
 errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
 {
-    struct vm_block* virtual_addr=st->head;
+    lvaddr_t start_address = ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
 
-    lvaddr_t start_address=ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
-    lvaddr_t end_address=ROUND_UP((lvaddr_t) desired_address, BASE_PAGE_SIZE);
+    struct vm_block* virtual_addr = find_block_before(st, start_address);
+    if (!virtual_addr ||
+        virtual_addr->start_address + virtual_addr->size < desired_address + bytes ||
+        virtual_addr->type != VirtualBlock_Free)
+        return PAGE_ERR_OUT_OF_VMEM;
 
-    for(;virtual_addr!=NULL; virtual_addr=virtual_addr->next){
-        // If it is used or too small, skip it
+    //if we have some space in the beginning, split it
+    if(virtual_addr->start_address<start_address){
+        debug_printf("Splitting front part\n");
+        struct vm_block* previous_block=virtual_addr;
+        size_t prev_size=previous_block->size;
+        previous_block->size=start_address-previous_block->size;
 
-        if((virtual_addr->start_address <= start_address) &&
-            virtual_addr->start_address+virtual_addr->size>=end_address){
+        virtual_addr=slab_alloc(&st->slabs);
 
-            debug_printf("We found a block that fits our needs\n");
-
-            assert(virtual_addr->type == VirtualBlock_Free);
-
-            //if we have some space in the beginning, split it
-            if(virtual_addr->start_address<start_address){
-                debug_printf("Splitting front part\n");
-                struct vm_block* previous_block=virtual_addr;
-                size_t prev_size=previous_block->size;
-                previous_block->size=start_address-previous_block->size;
-
-                virtual_addr=slab_alloc(&st->slabs);
-
-                virtual_addr->next=previous_block->next;
-                previous_block->next=virtual_addr;
-                virtual_addr->type=VirtualBlock_Free;
-                virtual_addr->start_address=start_address;
-                virtual_addr->size=prev_size-previous_block->size;
-                virtual_addr->prev=previous_block;
-                if(virtual_addr->next != NULL){
-                    virtual_addr->next->prev=virtual_addr;
-                }
-            }
-
-            virtual_addr->type = VirtualBlock_Allocated;
-            if (virtual_addr->size==bytes){
-                debug_printf("we have super alligned block, returning\n");
-                //*buf=(void*)virtual_addr->start_address;
-                return SYS_ERR_OK;
-            }
-
-            assert(virtual_addr->size > bytes);
-            debug_printf("doing the old fashion way\n");
-            struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
-            // Create block for remaining free size
-            remaining_free_space->type = VirtualBlock_Free;
-            remaining_free_space->next = virtual_addr->next;
-            remaining_free_space->prev = virtual_addr->prev;
-            if (remaining_free_space->next != NULL)
-                remaining_free_space->next->prev = remaining_free_space;
-            remaining_free_space->start_address = virtual_addr->start_address + bytes;
-            remaining_free_space->size = virtual_addr->size - bytes;
-            // Mark returned block as allocated
-            virtual_addr->next = remaining_free_space;
-            virtual_addr->size = bytes;
-
-//            *buf=(void*)virtual_addr->start_address;
-//            if (block)
-//                *block = virtual_addr;
-
-            if (!slab_has_freecount(&st->slabs, 5))
-                st->slabs.refill_func(&st->slabs);
-            return SYS_ERR_OK;
-        }else{
-            //This is not block that is of interest
-            continue;
-        }
+        virtual_addr->next=previous_block->next;
+        previous_block->next=virtual_addr;
+        virtual_addr->type=VirtualBlock_Free;
+        virtual_addr->start_address=start_address;
+        virtual_addr->size=prev_size-previous_block->size;
+        virtual_addr->prev=previous_block;
+        if(virtual_addr->next != NULL)
+            virtual_addr->next->prev=virtual_addr;
     }
-    return PAGE_ERR_OUT_OF_VMEM;
+
+    virtual_addr->type = VirtualBlock_Allocated;
+    if (virtual_addr->size==bytes){
+        debug_printf("we have super alligned block, returning\n");
+        return SYS_ERR_OK;
+    }
+
+    assert(virtual_addr->size > bytes);
+    debug_printf("doing the old fashion way\n");
+    struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+    // Create block for remaining free size
+    remaining_free_space->type = VirtualBlock_Free;
+    remaining_free_space->next = virtual_addr->next;
+    remaining_free_space->prev = virtual_addr->prev;
+    if (remaining_free_space->next != NULL)
+        remaining_free_space->next->prev = remaining_free_space;
+    remaining_free_space->start_address = virtual_addr->start_address + bytes;
+    remaining_free_space->size = virtual_addr->size - bytes;
+    // Mark returned block as allocated
+    virtual_addr->next = remaining_free_space;
+    virtual_addr->size = bytes;
+
+    if (!slab_has_freecount(&st->slabs, 5))
+        st->slabs.refill_func(&st->slabs);
+    return SYS_ERR_OK;
 }
 
 /**
@@ -420,35 +382,30 @@ inline void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
     lvaddr_t address_to_free=(lvaddr_t)region;
-    struct vm_block* virtual_addr=st->head;
-    for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
-        if(virtual_addr->start_address==address_to_free){
-            if (virtual_addr->type == VirtualBlock_Free)
-                return PAGE_ERR_NOT_MAPPED;
-            // TODO: Need to store several mappings in that case.
-            // -> Linked list ie another slab etc...
-            assert(ARM_L1_OFFSET(address_to_free) == ARM_L1_OFFSET(address_to_free + virtual_addr->size - 1) &&
-                "Unmap for mappings spawning over different L2 VNodes not implemented yet.");
-            ERROR_RET1(vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
-                virtual_addr->mapping));
-            // Merge with previous <- me
-            if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
-            {
-                virtual_addr->prev->size += virtual_addr->size;
-                virtual_addr->mapping = virtual_addr->mapping;
-                virtual_addr = virtual_addr->prev;
-                vm_block_merge_next_into_me(st, virtual_addr);
-            }
-            // Merge with me <- next
-            if (virtual_addr->next && virtual_addr->next->type == VirtualBlock_Free)
-            {
-                virtual_addr->size += virtual_addr->next->size;
-                vm_block_merge_next_into_me(st, virtual_addr);
-            }
-            virtual_addr->type = VirtualBlock_Free;
-            return SYS_ERR_OK;
-        }
-    }
+    struct vm_block* virtual_addr = find_block_before(st, address_to_free);
+    if (!virtual_addr || virtual_addr->start_address != address_to_free)
+        return PAGE_ERR_NOT_MAPPED;
 
-    return PAGE_ERR_NOT_MAPPED;
+    // TODO: Need to store several mappings in that case.
+    // -> Linked list ie another slab etc...
+    assert(ARM_L1_OFFSET(address_to_free) == ARM_L1_OFFSET(address_to_free + virtual_addr->size - 1) &&
+        "Unmap for mappings spawning over different L2 VNodes not implemented yet.");
+    ERROR_RET1(vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
+        virtual_addr->mapping));
+    // Merge with previous <- me
+    if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
+    {
+        virtual_addr->prev->size += virtual_addr->size;
+        virtual_addr->mapping = virtual_addr->mapping;
+        virtual_addr = virtual_addr->prev;
+        vm_block_merge_next_into_me(st, virtual_addr);
+    }
+    // Merge with me <- next
+    if (virtual_addr->next && virtual_addr->next->type == VirtualBlock_Free)
+    {
+        virtual_addr->size += virtual_addr->next->size;
+        vm_block_merge_next_into_me(st, virtual_addr);
+    }
+    virtual_addr->type = VirtualBlock_Free;
+    return SYS_ERR_OK;
 }

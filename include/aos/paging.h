@@ -64,11 +64,15 @@ struct vm_block {
     struct capref mapping;
 };
 
+
+//#define PAGING_KEEP_GAPS 40
+#define DEBUG_PAGING(s, ...) //debug_printf("[PAGING] " s, ##__VA_ARGS__)
+
+
 typedef errval_t (*func_on_new_mapping_cap_t)(void*, struct capref);
 
 struct paging_state {
     struct slot_allocator* slot_alloc;
-    // TODO: add struct members to keep track of the page tables etc
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
     struct vm_block virtual_memory_regions[10];	//Lets give some buffer for slab to allocate
     struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
@@ -167,5 +171,11 @@ static inline errval_t paging_map_fixed(struct paging_state *st, lvaddr_t vaddr,
 static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
     return (lvaddr_t) genvaddr;
 }
+
+
+/*************************************
+ * Data structure for storing mem blocks
+ *************************************/
+struct vm_block* find_block_before(struct paging_state *st, lvaddr_t before_address);
 
 #endif // LIBBARRELFISH_PAGING_H
