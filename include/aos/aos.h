@@ -58,8 +58,8 @@
 //#define FULL_TRACE
 
 #ifdef FULL_TRACE
-    #define ERROR_RET1(func) { printf("%s:%u %s\n", __FILE__, __LINE__, #func); errval_t __err = (func); if (err_is_fail(__err)) return __err; }
-    #define ERROR_RET2(func, push_err) { printf("%s:%u %s\n", __FILE__, __LINE__, #func); errval_t __err = (func); if (err_is_fail(__err)) return err_push(__err, push_err); }
+    #define ERROR_RET1(func) { printf("%s:%u %s\n", __FILE__, __LINE__, #func); errval_t __err = (func); if (err_is_fail(__err)) { DEBUG_ERR(__err, #func); return __err;} }
+    #define ERROR_RET2(func, push_err) { printf("%s:%u %s\n", __FILE__, __LINE__, #func); errval_t __err = (func); if (err_is_fail(__err)) { DEBUG_ERR(__err, #func); return err_push(__err, push_err); } }
 #else
     #define ERROR_RET1(func) { errval_t __err = (func); if (err_is_fail(__err)) return __err; }
     #define ERROR_RET2(func, push_err) { errval_t __err = (func); if (err_is_fail(__err)) return err_push(__err, push_err); }
