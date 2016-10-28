@@ -85,11 +85,6 @@ struct aos_rpc_session {
     struct capref shared_buffer_cap;
     void* shared_buffer;
     size_t shared_buffer_size;
-
-    // Obsolete
-    size_t buffer_capacity;
-    char* buffer;
-    size_t current_buff_position;
 };
 
 struct number_handler_closure {

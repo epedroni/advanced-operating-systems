@@ -3,18 +3,12 @@
 
 #define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
-static const int SESSION_BUFF_SIZE=100;
-
 static
 errval_t handle_handshake(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
         struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags)
 {
     DEBUG_LRPC("Recv RPC_HANDSHAKE", 0);
     sess->lc.remote_cap=received_capref;
-
-    sess->buffer=malloc(SESSION_BUFF_SIZE*sizeof(char));
-    sess->buffer_capacity=SESSION_BUFF_SIZE;
-
     return SYS_ERR_OK;
 }
 
