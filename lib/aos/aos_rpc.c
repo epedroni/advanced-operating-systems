@@ -207,39 +207,18 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t val)
 errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
     assert(rpc->server_sess);
-    // we can only send strings of up to 8 characters, need to do the stub
-    size_t length=strlen(string);
-    length++;
-    size_t curr_position=0;
-        intptr_t buffer[8];
+    size_t size = strlen(string);
+    if (size > rpc->server_sess->shared_buffer_size)
+        return RPC_ERR_BUF_TOO_SMALL;
 
-    uint32_t flags = RPG_FLAG_NONE;
-    do{
-        memcpy(buffer, string+curr_position, (length>LMP_MAX_BUFF_SIZE)?LMP_MAX_BUFF_SIZE:length);
+    memcpy(rpc->server_sess->shared_buffer, string, size);
 
-        if (length>LMP_MAX_BUFF_SIZE){
-            curr_position+=LMP_MAX_BUFF_SIZE;
-            length-=LMP_MAX_BUFF_SIZE;
-            flags = RPC_FLAG_INCOMPLETE;
-        }else{
-            flags = RPG_FLAG_NONE;
-            curr_position+=length;
-        }
-
-        ERROR_RET1(wait_for_send(rpc->server_sess));
-
-        ERROR_RET1(lmp_ep_send(rpc->server_sess->lc.remote_cap,
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
-            9,
-            MAKE_RPC_MSG_HEADER(RPC_STRING, flags),
-                buffer[0], buffer[1], buffer[2], buffer[3],
-                buffer[4], buffer[5], buffer[6], buffer[7]));
-
-        ERROR_RET1(wait_for_ack(rpc->server_sess));
-
-    } while (flags);
-
+            RPC_STRING,
+            size));
     return SYS_ERR_OK;
 }
 

@@ -1243,4 +1243,6 @@ errors rpc RPC_ERR_ {
     failure SERVICE_NOT_FOUND       "Server didn't register message handler.",
     failure INVALID_ARGUMENTS       "Invalid arguments",
     failure WAIT_SEND               "Failure waiting for send",
+    failure SHARED_BUF_EMPTY        "RPC shared buffer is empty",
+    failure BUF_TOO_SMALL           "RPC shared buffer is too small",
 };

@@ -64,24 +64,17 @@ errval_t handle_number(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, s
 
 static
 errval_t handle_string(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
-        struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags){
+        struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags)
+{
+    if (!sess->shared_buffer_size)
+        return RPC_ERR_SHARED_BUF_EMPTY;
 
-    if(get_message_flags(msg) & RPC_FLAG_INCOMPLETE){
+    size_t string_size = msg->words[1];
+    ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-        if(sess->current_buff_position+LMP_MAX_BUFF_SIZE<sess->buffer_capacity){
-            memcpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
-            sess->current_buff_position+=LMP_MAX_BUFF_SIZE;
-        }else{
-            return LIB_ERR_LMP_RECV_BUF_OVERFLOW;
-        }
-
-    }else{
-        strncpy(sess->buffer+sess->current_buff_position, ((char*)msg->words)+sizeof(uintptr_t), LMP_MAX_BUFF_SIZE);
-        sess->current_buff_position=0;
-
-        sys_print(sess->buffer, strlen(sess->buffer)+1);
-    }
-
+    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
+    sys_print(sess->shared_buffer, string_size);
+    sys_print("\n", 1);
     return SYS_ERR_OK;
 }
 
