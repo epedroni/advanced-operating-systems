@@ -26,7 +26,7 @@ struct vm_block* find_block_before(struct paging_state *st, lvaddr_t before_addr
     if (!va)
         return NULL;
 
-    for(;va->next && va->next->start_address < before_address; va = va->next);
+    for(;va->next && va->next->start_address <= before_address; va = va->next);
     assert(is_block_valid(va));
     return va;
 }
