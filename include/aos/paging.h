@@ -178,5 +178,9 @@ static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
  * Data structure for storing mem blocks
  *************************************/
 struct vm_block* find_block_before(struct paging_state *st, lvaddr_t before_address);
+struct vm_block* add_block_after(struct paging_state *st, struct vm_block* original);
+struct vm_block* create_root(struct paging_state* st);
+void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr);
+bool is_block_valid(struct vm_block* block);
 
 #endif // LIBBARRELFISH_PAGING_H

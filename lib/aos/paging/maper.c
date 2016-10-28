@@ -57,14 +57,11 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
     slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
 
-    struct vm_block* initial_free_space=slab_alloc(&st->slabs);
+    struct vm_block* initial_free_space=create_root(st);
     initial_free_space->type=VirtualBlock_Free;
-    initial_free_space->prev=NULL;
-    initial_free_space->next=NULL;
     initial_free_space->start_address=start_vaddr;
     initial_free_space->size=VADDR_OFFSET;    //TODO: Figure out how to limit size of virtual memory
 
-    st->head=initial_free_space;
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
     return SYS_ERR_OK;
@@ -174,26 +171,23 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
             *buf=(void*)virtual_addr->start_address;
+            assert(is_block_valid(virtual_addr));
             return SYS_ERR_OK;
         }
         assert(virtual_addr->size > bytes);
 
-        struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+        struct vm_block* remaining_free_space = add_block_after(st, virtual_addr);
         assert(remaining_free_space);
         // Create block for remaining free size
         remaining_free_space->type = VirtualBlock_Free;
-        remaining_free_space->next = virtual_addr->next;
-        remaining_free_space->prev = virtual_addr->prev;
-        if (remaining_free_space->next != NULL)
-            remaining_free_space->next->prev = remaining_free_space;
         remaining_free_space->start_address = virtual_addr->start_address + bytes;
         remaining_free_space->size = virtual_addr->size - bytes;
-
-        // Mark returned block as allocated
-        virtual_addr->next = remaining_free_space;
         virtual_addr->size = bytes;
-
         *buf=(void*)virtual_addr->start_address;
+
+        assert(is_block_valid(virtual_addr));
+        assert(is_block_valid(remaining_free_space));
+
         if (block)
             *block = virtual_addr;
 
@@ -221,16 +215,10 @@ errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_ad
         size_t prev_size=previous_block->size;
         previous_block->size=start_address-previous_block->size;
 
-        virtual_addr=slab_alloc(&st->slabs);
-
-        virtual_addr->next=previous_block->next;
-        previous_block->next=virtual_addr;
+        virtual_addr = add_block_after(st, previous_block);
         virtual_addr->type=VirtualBlock_Free;
         virtual_addr->start_address=start_address;
         virtual_addr->size=prev_size-previous_block->size;
-        virtual_addr->prev=previous_block;
-        if(virtual_addr->next != NULL)
-            virtual_addr->next->prev=virtual_addr;
     }
 
     virtual_addr->type = VirtualBlock_Allocated;
@@ -240,18 +228,11 @@ errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_ad
     }
 
     assert(virtual_addr->size > bytes);
-    debug_printf("doing the old fashion way\n");
-    struct vm_block* remaining_free_space = slab_alloc(&st->slabs);
+    struct vm_block* remaining_free_space = add_block_after(st, virtual_addr);
     // Create block for remaining free size
     remaining_free_space->type = VirtualBlock_Free;
-    remaining_free_space->next = virtual_addr->next;
-    remaining_free_space->prev = virtual_addr->prev;
-    if (remaining_free_space->next != NULL)
-        remaining_free_space->next->prev = remaining_free_space;
     remaining_free_space->start_address = virtual_addr->start_address + bytes;
     remaining_free_space->size = virtual_addr->size - bytes;
-    // Mark returned block as allocated
-    virtual_addr->next = remaining_free_space;
     virtual_addr->size = bytes;
 
     if (!slab_has_freecount(&st->slabs, 5))
@@ -371,22 +352,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (block)
         block->mapping = mapping_ref;
     return SYS_ERR_OK;
-}
-
-/**
- * \brief Merges next node to current node, and update list links accordingly.
- *          The next node is deleted with the slab allocator.
- */
-inline void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr)
-{
-    assert(virtual_addr->next);
-    struct vm_block* node_to_free = virtual_addr->next;
-    // Linked list
-    virtual_addr->next = virtual_addr->next->next;
-    if (virtual_addr->next)
-        virtual_addr->next->prev = virtual_addr;
-    // Free
-    slab_free(&st->slabs, node_to_free);
 }
 
 /**
