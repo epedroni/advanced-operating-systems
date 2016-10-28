@@ -222,15 +222,6 @@ void test_paging(void)
     test.mm = mm_get_default();
     int* number;
 
-    PRINT_TEST("Unmap test. Should cause a crash.");
-    number = (int*)test_alloc_and_map(BASE_PAGE_SIZE);
-    *number = 42;
-    errval_t err = paging_unmap(get_current_paging_state(), (void*)number);
-    MM_ASSERT(err, "unmap");
-    // Un-comment the 2 following lines to test.
-    // But kind of destructive test :p
-    //debug_printf("Should crash now\n");
-    //*number = 1;
 
     PRINT_TEST("Allocate and map one page");
 	void* page = test_alloc_and_map(BASE_PAGE_SIZE);
@@ -263,6 +254,16 @@ void test_paging(void)
         number[i] = 42+i;
 
     for (i = 0; i < 5*LARGE_PAGE_SIZE / sizeof(int); i+=BASE_PAGE_SIZE)
-		debug_printf("Reading byte from page: %d it should be %d and it is: %d, seems: %s\n", i+1, i+42, number[i],(i+42==number[i])?"ok":"not ok");
+        if (i+42 != number[i])
+		      debug_printf("Reading byte from page: %d it should be %d and it is: %d\n", i+1, i+42, number[i]);
 
+    PRINT_TEST("Unmap test.");
+    number = (int*)test_alloc_and_map(BASE_PAGE_SIZE);
+    *number = 42;
+    errval_t err = paging_unmap(get_current_paging_state(), (void*)number);
+    MM_ASSERT(err, "unmap");
+    // Un-comment the 2 following lines to test.
+    // But kind of destructive test :p
+    //debug_printf("Should crash now\n");
+    //*number = 1;
 }
