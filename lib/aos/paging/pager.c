@@ -12,37 +12,37 @@
 static void paging_thread_exception_handler(enum exception_type type, int val1, void* data, union registers_arm* registers, void ** whatever);
 
 
-static errval_t handle_pagefault(void *addr)
+static errval_t handle_pagefault(void *_addr)
 {
-    debug_printf("Pagefault at 0x%08x\n", addr);
-    /*
-    errval_t result = SYS_ERR_OK;
-    errval_t err;
-    genvaddr_t vaddr = vspace_lvaddr_to_genvaddr((lvaddr_t)addr);
-    if (vaddr > VSPACE_BEGIN) {
-        if (is_in_pmap(vaddr)) {
-            printf("handle_pagefault: returning -- mapping exists already in pmap?\n");
-        } else {
-            printf("handle_pagefault: no mapping for address, allocating frame\n");
-            struct capref frame;
-            err = alloc_4k(&frame);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "alloc_4k");
-            }
-            struct pmap *pmap = get_current_pmap();
-            err = pmap->f.map(pmap, vaddr, frame, 0, 4096,
-                              VREGION_FLAGS_READ_WRITE, NULL, NULL);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "pmap->f.map");
-            }
-            printf("handle_pagefault: returning -- did install page\n");
-            return SYS_ERR_OK;
-        }
-    } else {
-        printf("handle_pagefault: invalid access to %p (< 0x%x)\n", addr, VSPACE_BEGIN);
-        // TODO: good error code
-        return LIB_ERR_PMAP_ADDR_NOT_FREE;
-    }*/
+    // TODO: MT environment: handle 2 pagefault at same addr, same time, diff threads
+    // TODO: Handle unmap
+
+    lvaddr_t addr = ROUND_DOWN((lvaddr_t)_addr, BASE_PAGE_SIZE);
+    debug_printf("[Pagefault@0x%08x] Entering callback\n", addr);
+    struct paging_state* st = get_current_paging_state();
+
+    // 1. Ensure we are on an allocated vmem block
+    // ie block_base <= addr < block_base + block_size
+    struct vm_block* block = find_block_before(st, addr);
+    assert(block->start_address <= addr);
+    if (!block || block->start_address + block->size <= addr ||
+        block->start_address > addr ||
+        block->type != VirtualBlock_Allocated)
+        return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
+
+    debug_printf("[Pagefault@0x%08x] Block found\n", addr);
+    // 2. It is the case: map a new frame here then
+    struct capref frame;
+    size_t actualsize;
+    ERROR_RET2(frame_alloc(&frame, BASE_PAGE_SIZE, &actualsize),
+        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
+    debug_printf("[Pagefault@0x%08x] Frame allocated\n", addr);
+    ERROR_RET2(paging_map_fixed_attr(st, addr,
+        frame, BASE_PAGE_SIZE, 0,
+        block->map_flags, NULL),
+        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
+
+    debug_printf("[Pagefault@0x%08x] Finished\n", addr);
     return SYS_ERR_OK;
 }
 
@@ -54,8 +54,12 @@ static void paging_thread_exception_handler(enum exception_type type,
     switch (type)
     {
         case EXCEPT_PAGEFAULT:
-            handle_pagefault(addr);
+        {
+            errval_t err = handle_pagefault(addr);
+            if (err_is_fail(err))
+                DEBUG_ERR(err, "handle_pagefault");
             break;
+        }
         default:
             debug_printf("[EXCN] Catched unknown exception type 0x%02x\n", type);
             break;
@@ -63,15 +67,29 @@ static void paging_thread_exception_handler(enum exception_type type,
 }
 
 
+#define INTERNAL_STACK_SIZE (1<<14)
+static char internal_ex_stack[INTERNAL_STACK_SIZE];
+
+
 /**
  * \brief Initialize per-thread paging state
  */
 void paging_init_onthread(struct thread *t)
 {
-    thread_set_exception_handler(paging_thread_exception_handler,
-          NULL,
-          NULL, NULL,
-          NULL, NULL);
+    exception_handler_fn old_handler;
+    void *old_stack_base, *old_stack_top;
+    char* ex_stack = internal_ex_stack;
+    char* ex_stack_top = ex_stack + INTERNAL_STACK_SIZE;
+
+    errval_t err = thread_set_exception_handler(paging_thread_exception_handler,
+          &old_handler,
+          ex_stack, ex_stack_top,
+          &old_stack_base, &old_stack_top);
+    if (err_is_fail(err))
+    {
+        DEBUG_ERR(err, "thread_set_exception_handler");
+        USER_PANIC("Cannot setup paging");
+    }
 }
 
 /**

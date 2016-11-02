@@ -61,6 +61,7 @@ struct vm_block {
 	struct vm_block* prev;
 	lvaddr_t start_address;
 	size_t size;
+    int map_flags;  // Only needed when lazy-allocated
     struct capref mapping;
 };
 

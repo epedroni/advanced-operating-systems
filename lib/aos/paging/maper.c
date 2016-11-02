@@ -81,6 +81,7 @@ errval_t paging_init(void)
     };
     paging_init_state(&current, VADDR_OFFSET, l1_pagetable, get_default_slot_allocator());
     set_current_paging_state(&current);
+    paging_init_onthread(NULL); // Sets exception handler
 
     // TODO: maybe add paging regions to paging state?
     return SYS_ERR_OK;
@@ -167,6 +168,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         // Mark this one as used - for calls to alloc from refill functions
         // indirectly called here.
         virtual_addr->type = VirtualBlock_Allocated;
+        virtual_addr->map_flags = 0;
 
         //if it is exact same size, just retype it
         if (virtual_addr->size==bytes){
@@ -222,6 +224,7 @@ errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_ad
     }
 
     virtual_addr->type = VirtualBlock_Allocated;
+    virtual_addr->map_flags = 0;
     if (virtual_addr->size==bytes){
         debug_printf("we have super alligned block, returning\n");
         return SYS_ERR_OK;
