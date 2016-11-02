@@ -274,10 +274,30 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 }
 
 errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
-                               coreid_t core, domainid_t *newpid)
+		coreid_t core, domainid_t *newpid)
 {
-    // TODO (milestone 5): implement spawn new process rpc
-    return SYS_ERR_OK;
+	assert(rpc->server_sess);
+	size_t size = strlen(name);
+	if (size > rpc->server_sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(rpc->server_sess->shared_buffer, name, size);
+
+	ERROR_RET1(wait_for_send(rpc->server_sess));
+	ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			RPC_SPAWN,
+			size));
+
+	struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+	struct capref tmp_cap;
+	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
+	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_SPAWN);
+
+	*newpid = message.words[1];
+
+	return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
@@ -304,7 +324,6 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
 	size_t string_size = message.words[1];
 	ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
 
-	debug_printf("Recv RPC_GET_NAME [string size %d]\n", string_size);
 	memcpy(*name, rpc->server_sess->shared_buffer, string_size);
 
 	return SYS_ERR_OK;
@@ -331,7 +350,6 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc,
 	*pid_count = message.words[1];
 	ASSERT_PROTOCOL(*pid_count <= rpc->server_sess->shared_buffer_size);
 
-	debug_printf("Recv RPC_GET_PID [array size %d]\n", *pid_count);
 	memcpy(*pids, rpc->server_sess->shared_buffer, *pid_count * sizeof(domainid_t));
 
 	return SYS_ERR_OK;

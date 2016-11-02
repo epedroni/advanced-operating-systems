@@ -37,30 +37,144 @@ struct paging_test
 
 static struct paging_test test;
 
+static struct spawninfo *running_procs = NULL;
+static uint32_t running_count = 0;
+static struct aos_rpc rpc;
+
 void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame);
 void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
 static
-errval_t spawn_process(char* process_name, struct aos_rpc* rpc){
+errval_t spawn_process(char* process_name){
     errval_t err;
+	struct aos_rpc_session* sess = NULL;
+	aos_server_add_client(&rpc, &sess);
 
-    struct aos_rpc_session* sess = NULL;
-    aos_server_add_client(rpc, &sess);
+	struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
+	process_info->core_id=my_core_id;   //Run it on same core
+	err = spawn_load_by_name(process_name,
+		process_info,
+		&sess->lc);
+	if(err_is_fail(err))
+		DEBUG_ERR(err, "spawn_load_by_name");
 
-    struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
-    process_info->core_id=my_core_id;   //Run it on same core
-    err = spawn_load_by_name(process_name,
-        process_info,
-        &sess->lc);
-    if(err_is_fail(err))
-        DEBUG_ERR(err, "spawn_load_by_name");
+	aos_server_register_client(&rpc, sess);
+//	free(process_info); TODO we'll need to free this when the process exits
 
-    aos_server_register_client(rpc, sess);
-    free(process_info);
+	// add to running processes list
+	process_info->prev = NULL;
+	process_info->next = running_procs;
+	process_info->pid = ++running_count;
+	running_procs = process_info;
+
+	return SYS_ERR_OK;
+}
+
+// TODO these handlers need to go somewhere else
+static
+errval_t handle_get_name(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+	char* name = NULL;
+	struct spawninfo *si = running_procs;
+	domainid_t requested_pid = msg->words[1];
+	debug_printf("Looking for pid %d\n", requested_pid);
+	while (si) {
+		if (si->pid == requested_pid) {
+			name = si->binary_name;
+			break;
+		}
+		si = si->next;
+	}
+
+	if (!name) {
+		// not good, return some error here
+		return SYS_ERR_OK;
+	}
+
+	assert(sess);
+	size_t size = strlen(name);
+	if (size > sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(sess->shared_buffer, name, size);
+
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+	        LMP_FLAG_SYNC,
+	        NULL_CAP,
+	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, RPC_FLAG_ACK),
+			size));
 
     return SYS_ERR_OK;
+}
+
+static
+errval_t handle_get_pid(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+	// should the running processes be kept in an array instead of a linked list?
+	domainid_t pids[running_count];
+	struct spawninfo *si = running_procs;
+	for (int i = 0; i < running_count && si; i++) {
+		pids[i] = si->pid;
+		si = si->next;
+	}
+	domainid_t *pidptr = &pids[0];
+
+	assert(sess);
+	if (running_count > sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(sess->shared_buffer, pidptr, running_count * sizeof(domainid_t));
+
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			MAKE_RPC_MSG_HEADER(RPC_GET_PID, RPC_FLAG_ACK),
+			running_count));
+
+	return SYS_ERR_OK;
+}
+
+static
+errval_t handle_spawn(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+	if (!sess->shared_buffer_size)
+		return RPC_ERR_SHARED_BUF_EMPTY;
+
+	size_t string_size = msg->words[1];
+	ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
+
+	char *name = malloc(string_size);
+	memcpy(name, sess->shared_buffer, string_size);
+
+	spawn_process(name);
+
+	free(name);
+
+	debug_printf("Sending back PID %d\n", running_procs->pid);
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+		        LMP_FLAG_SYNC,
+		        NULL_CAP,
+		        MAKE_RPC_MSG_HEADER(RPC_SPAWN, RPC_FLAG_ACK),
+				running_procs->pid)); // kind of a hack, but should work for now
+
+	return SYS_ERR_OK;
 }
 
 int main(int argc, char *argv[])
@@ -99,13 +213,12 @@ int main(int argc, char *argv[])
     test_paging();
 
     // Init server
-    struct aos_rpc rpc;
     aos_rpc_init(&rpc, NULL_CAP, false);
 
 //    for (int i = 0; i < 20; ++i) {
-		spawn_process("/armv7/sbin/hello", &rpc);
+		spawn_process("/armv7/sbin/hello");
 //    }
-//    spawn_process("/armv7/sbin/memeater", &rpc);
+//    spawn_process("/armv7/sbin/memeater");
 
     debug_printf("Message handler loop\n");
 
@@ -130,6 +243,9 @@ int main(int argc, char *argv[])
 
 
     lmp_server_init(&rpc);
+    aos_rpc_register_handler(&rpc, RPC_GET_NAME, handle_get_name, false);
+    aos_rpc_register_handler(&rpc, RPC_GET_PID, handle_get_pid, false);
+    aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
     aos_rpc_accept(&rpc);
 
     return EXIT_SUCCESS;
