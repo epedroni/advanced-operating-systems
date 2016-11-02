@@ -57,9 +57,7 @@ int main(int argc, char *argv[])
 
     aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 
-    // here we spawn memeater, check that its PID is returned and check that it is actually memeater
-    // FIXME these local buffers are terrible
-    // 100 = magic
+    // get all pids, there should only be one (us)
     domainid_t *pidptr = malloc(sizeof(domainid_t) * 10);
     uint32_t pidcount;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
@@ -67,15 +65,18 @@ int main(int argc, char *argv[])
 		debug_printf("Received PID: %d\n", pidptr[i]);
 	}
 
+	// spawn memeater
     debug_printf("Spawning memeater via RPC from hello\n");
     domainid_t new_pid;
     aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
 
+    // get all pids again, there should be two now
     aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	for (int i = 0; i < pidcount; i++) {
 		debug_printf("New received PID: %d\n", pidptr[i]);
 	}
 
+	// should be able to get memeater using its PID
 	char *nameptr = malloc(sizeof(char) * 30);
 	debug_printf("Trying to get the name of the process associated with PID %d\n", new_pid);
 	aos_rpc_process_get_name(get_init_rpc(), new_pid, &nameptr);

@@ -17,32 +17,32 @@ static errval_t handle_pagefault(void *_addr)
     // TODO: MT environment: handle 2 pagefault at same addr, same time, diff threads
     // TODO: Handle unmap
 
-    lvaddr_t addr = ROUND_DOWN((lvaddr_t)_addr, BASE_PAGE_SIZE);
-    debug_printf("[Pagefault@0x%08x] Entering callback\n", addr);
-    struct paging_state* st = get_current_paging_state();
-
-    // 1. Ensure we are on an allocated vmem block
-    // ie block_base <= addr < block_base + block_size
-    struct vm_block* block = find_block_before(st, addr);
-    assert(block->start_address <= addr);
-    if (!block || block->start_address + block->size <= addr ||
-        block->start_address > addr ||
-        block->type != VirtualBlock_Allocated)
-        return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
-
-    debug_printf("[Pagefault@0x%08x] Block found\n", addr);
-    // 2. It is the case: map a new frame here then
-    struct capref frame;
-    size_t actualsize;
-    ERROR_RET2(frame_alloc(&frame, BASE_PAGE_SIZE, &actualsize),
-        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
-    debug_printf("[Pagefault@0x%08x] Frame allocated\n", addr);
-    ERROR_RET2(paging_map_fixed_attr(st, addr,
-        frame, BASE_PAGE_SIZE, 0,
-        block->map_flags, NULL),
-        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
-
-    debug_printf("[Pagefault@0x%08x] Finished\n", addr);
+//    lvaddr_t addr = ROUND_DOWN((lvaddr_t)_addr, BASE_PAGE_SIZE);
+//    debug_printf("[Pagefault@0x%08x] Entering callback\n", addr);
+//    struct paging_state* st = get_current_paging_state();
+//
+//    // 1. Ensure we are on an allocated vmem block
+//    // ie block_base <= addr < block_base + block_size
+//    struct vm_block* block = find_block_before(st, addr);
+//    assert(block->start_address <= addr);
+//    if (!block || block->start_address + block->size <= addr ||
+//        block->start_address > addr ||
+//        block->type != VirtualBlock_Allocated)
+//        return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
+//
+//    debug_printf("[Pagefault@0x%08x] Block found\n", addr);
+//    // 2. It is the case: map a new frame here then
+//    struct capref frame;
+//    size_t actualsize;
+//    ERROR_RET2(frame_alloc(&frame, BASE_PAGE_SIZE, &actualsize),
+//        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
+//    debug_printf("[Pagefault@0x%08x] Frame allocated\n", addr);
+//    ERROR_RET2(paging_map_fixed_attr(st, addr,
+//        frame, BASE_PAGE_SIZE, 0,
+//        block->map_flags, NULL),
+//        LIB_ERR_VSPACE_PAGEFAULT_HANDER);
+//
+//    debug_printf("[Pagefault@0x%08x] Finished\n", addr);
     return SYS_ERR_OK;
 }
 

@@ -277,7 +277,9 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
 		coreid_t core, domainid_t *newpid)
 {
 	assert(rpc->server_sess);
-	size_t size = strlen(name);
+	// don't forget to copy the null terminator
+	size_t size = strlen(name) + 1;
+
 	if (size > rpc->server_sess->shared_buffer_size)
 		return RPC_ERR_BUF_TOO_SMALL;
 

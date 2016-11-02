@@ -37,7 +37,14 @@ struct paging_test
 
 static struct paging_test test;
 
-static struct spawninfo *running_procs = NULL;
+struct running_process
+{
+	struct running_process *next, *prev;
+	domainid_t pid;
+	char *name;
+};
+
+static struct running_process *running_procs = NULL;
 static uint32_t running_count = 0;
 static struct aos_rpc rpc;
 
@@ -47,7 +54,7 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static
-errval_t spawn_process(char* process_name){
+errval_t spawn_process(char* process_name, size_t size){
     errval_t err;
 	struct aos_rpc_session* sess = NULL;
 	aos_server_add_client(&rpc, &sess);
@@ -61,13 +68,15 @@ errval_t spawn_process(char* process_name){
 		DEBUG_ERR(err, "spawn_load_by_name");
 
 	aos_server_register_client(&rpc, sess);
-//	free(process_info); TODO we'll need to free this when the process exits
+	free(process_info);
 
 	// add to running processes list
-	process_info->prev = NULL;
-	process_info->next = running_procs;
-	process_info->pid = ++running_count;
-	running_procs = process_info;
+	struct running_process *rp = malloc(sizeof(struct running_process));
+	rp->prev = NULL;
+	rp->next = running_procs;
+	rp->pid = ++running_count;
+	rp->name = process_name;
+	running_procs = rp;
 
 	return SYS_ERR_OK;
 }
@@ -82,15 +91,15 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
 	char* name = NULL;
-	struct spawninfo *si = running_procs;
+	struct running_process *rp = running_procs;
 	domainid_t requested_pid = msg->words[1];
 	debug_printf("Looking for pid %d\n", requested_pid);
-	while (si) {
-		if (si->pid == requested_pid) {
-			name = si->binary_name;
+	while (rp) {
+		if (rp->pid == requested_pid) {
+			name = rp->name;
 			break;
 		}
-		si = si->next;
+		rp = rp->next;
 	}
 
 	if (!name) {
@@ -124,10 +133,10 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
 {
 	// should the running processes be kept in an array instead of a linked list?
 	domainid_t pids[running_count];
-	struct spawninfo *si = running_procs;
-	for (int i = 0; i < running_count && si; i++) {
-		pids[i] = si->pid;
-		si = si->next;
+	struct running_process *rp = running_procs;
+	for (int i = 0; i < running_count && rp; i++) {
+		pids[i] = rp->pid;
+		rp = rp->next;
 	}
 	domainid_t *pidptr = &pids[0];
 
@@ -163,7 +172,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 	char *name = malloc(string_size);
 	memcpy(name, sess->shared_buffer, string_size);
 
-	spawn_process(name);
+	spawn_process(name, string_size);
 
 	free(name);
 
@@ -216,9 +225,9 @@ int main(int argc, char *argv[])
     aos_rpc_init(&rpc, NULL_CAP, false);
 
 //    for (int i = 0; i < 20; ++i) {
-		spawn_process("/armv7/sbin/hello");
+		spawn_process("/armv7/sbin/hello", 17);
 //    }
-//    spawn_process("/armv7/sbin/memeater");
+//    spawn_process("/armv7/sbin/memeater", 20);
 
     debug_printf("Message handler loop\n");
 

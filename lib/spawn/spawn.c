@@ -34,7 +34,7 @@ errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain
 
 // TODO(M4): Build and pass a messaging channel to your child process
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lmp_chan* lc) {
-    printf("spawn start_child: starting: %s\n", binary_name);
+    debug_printf("spawn start_child: starting: %s\n", binary_name);
 
     // 1- Get the binary from multiboot image
     struct mem_region* process_mem_reg;
