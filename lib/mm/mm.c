@@ -136,7 +136,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
 
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
-    if (!slab_has_freecount(&mm->slabs, 5))
+    if (!slab_has_freecount(&mm->slabs, 10))
     	mm->slabs.refill_func(&mm->slabs);
 
     // Find cap with enough space
@@ -156,8 +156,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                     assert(node);
                 }
                 // 2. split the mem we need
-                if (node->size > size)
+                if (node->size > size){
                     mm_split_mem_node(mm, node, aligned_size);
+                }
+
                 // 3. Create cap for current node, and put it in retcap
                 errval_t err = mm_alloc_cap(mm, retcap);
                 if (err_is_fail(err))
