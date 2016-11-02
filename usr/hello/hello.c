@@ -60,12 +60,11 @@ int main(int argc, char *argv[])
     // here we spawn memeater, check that its PID is returned and check that it is actually memeater
     // FIXME these local buffers are terrible
     // 100 = magic
-    domainid_t pids[100];
-    domainid_t *pidptr = &pids[0];
+    domainid_t *pidptr = malloc(sizeof(domainid_t) * 10);
     uint32_t pidcount;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	for (int i = 0; i < pidcount; i++) {
-		debug_printf("Received PID: %d\n", pids[i]);
+		debug_printf("Received PID: %d\n", pidptr[i]);
 	}
 
     debug_printf("Spawning memeater via RPC from hello\n");
@@ -74,14 +73,16 @@ int main(int argc, char *argv[])
 
     aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	for (int i = 0; i < pidcount; i++) {
-		debug_printf("New received PID: %d\n", pids[i]);
+		debug_printf("New received PID: %d\n", pidptr[i]);
 	}
 
-    char name[100];
-	char *nameptr = &name[0];
+	char *nameptr = malloc(sizeof(char) * 30);
 	debug_printf("Trying to get the name of the process associated with PID %d\n", new_pid);
 	aos_rpc_process_get_name(get_init_rpc(), new_pid, &nameptr);
-	debug_printf("The name of process %d is %s\n", new_pid, name);
+	debug_printf("The name of process %d is %s\n", new_pid, nameptr);
+
+	free(nameptr);
+	free(pidptr);
 
     while(true){
         char ret_char;
