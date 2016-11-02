@@ -134,7 +134,6 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
-	debug_printf("Handling get name...\n");
 	// this should be taken from some sort of data structure that keeps track of running processes by PID
 	char* name = "DOG";
 
@@ -162,8 +161,24 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
-    debug_printf("Handling get pid...\n");
-    return SYS_ERR_OK;
+	// this should be taken from some sort of data structure that keeps track of running processes by PID
+	domainid_t pids[6] = {4, 8, 15, 16, 23, 42};
+	domainid_t *pidptr = &pids[0];
+	uint32_t size = 6;
+
+	assert(sess);
+	if (size > sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(sess->shared_buffer, pidptr, size * sizeof(domainid_t));
+
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			MAKE_RPC_MSG_HEADER(RPC_GET_PID, RPC_FLAG_ACK),
+			size));
+
+	return SYS_ERR_OK;
 }
 
 static

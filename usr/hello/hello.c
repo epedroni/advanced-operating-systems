@@ -57,11 +57,23 @@ int main(int argc, char *argv[])
 
     aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 
+    // FIXME these local buffers are terrible
     // 100 bytes = magic
     char name[100];
     char *nameptr = &name[0];
     aos_rpc_process_get_name(get_init_rpc(), 100, &nameptr);
     debug_printf("My name is %s\n", name);
+
+    domainid_t pids[100];
+    domainid_t *pidptr = &pids[0];
+    uint32_t pidcount;
+    aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
+
+    for (int i = 0; i < pidcount; i++) {
+    	debug_printf("Received PID: %d\n", pids[i]);
+    }
+
+
 
     while(true){
         char ret_char;
