@@ -21,7 +21,7 @@ errval_t handle_shared_buffer_request(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     size_t request_size = msg->words[1];
-        struct paging_state* ps = get_current_paging_state();
+	struct paging_state* ps = get_current_paging_state();
     DEBUG_LRPC("Recv RPC_SHARED_BUFFER_REQUEST [size 0x%x]", request_size);
 
     // 1. Free current buffer
@@ -126,6 +126,58 @@ errval_t handle_put_char_handle(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+static
+errval_t handle_get_name(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+	debug_printf("Handling get name...\n");
+	// this should be taken from some sort of data structure that keeps track of running processes by PID
+	char* name = "DOG";
+
+	assert(sess);
+	size_t size = strlen(name);
+	if (size > sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(sess->shared_buffer, name, size);
+
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+	        LMP_FLAG_SYNC,
+	        NULL_CAP,
+	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, RPC_FLAG_ACK),
+			size));
+
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_get_pid(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    debug_printf("Handling get pid...\n");
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_spawn(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+	debug_printf("Handling spawn...\n");
+    return SYS_ERR_OK;
+}
+
 errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
@@ -135,6 +187,9 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_RAM_CAP_QUERY, handle_ram_cap_opcode, false);
     aos_rpc_register_handler(rpc, RPC_GET_CHAR, handle_get_char_handle, false);
     aos_rpc_register_handler(rpc, RPC_PUT_CHAR, handle_put_char_handle, true);
+    aos_rpc_register_handler(rpc, RPC_GET_NAME, handle_get_name, false);
+    aos_rpc_register_handler(rpc, RPC_GET_PID, handle_get_pid, false);
+    aos_rpc_register_handler(rpc, RPC_SPAWN, handle_spawn, false);
 
     return SYS_ERR_OK;
 }

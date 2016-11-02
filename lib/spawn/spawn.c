@@ -149,13 +149,17 @@ errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap)
 
 errval_t spawn_setup_cspace(struct spawninfo* si)
 {
+	debug_printf("Setting up cspace for %s\n", si->binary_name);
     struct cnoderef cnoderef;
     ERROR_RET2(cnode_create_l1(&si->l1_cnode_cap, &cnoderef), SPAWN_ERR_SETUP_CSPACE);
 
+    // FIXME we have a problem here
+    debug_printf("L1 cnode: 0x%x, croot: 0x%x, slot: %d\n", si->l1_cnode_cap.cnode.cnode, &si->l1_cnode_cap.cnode.croot, &si->l1_cnode_cap.slot);
     for (int i = 0; i < ROOTCN_SLOTS_USER; ++i)
     {
         ERROR_RET2(cnode_create_foreign_l2(si->l1_cnode_cap,
                 i, &si->l2_cnodes[i]), SPAWN_ERR_SETUP_CSPACE);
+        debug_printf("L2 %d cnode: 0x%x, croot: 0x%x\n", i, si->l2_cnodes[i].cnode, si->l2_cnodes[i].croot);
     }
 
     // Fill capabilities
