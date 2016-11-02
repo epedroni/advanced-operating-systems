@@ -274,29 +274,89 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 }
 
 errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
-                               coreid_t core, domainid_t *newpid)
+		coreid_t core, domainid_t *newpid)
 {
-    // TODO (milestone 5): implement spawn new process rpc
-    return SYS_ERR_OK;
+	assert(rpc->server_sess);
+	size_t size = strlen(name);
+	if (size > rpc->server_sess->shared_buffer_size)
+		return RPC_ERR_BUF_TOO_SMALL;
+
+	memcpy(rpc->server_sess->shared_buffer, name, size);
+
+	ERROR_RET1(wait_for_send(rpc->server_sess));
+	ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			RPC_SPAWN,
+			size));
+
+	struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+	struct capref tmp_cap;
+	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
+	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_SPAWN);
+
+	*newpid = message.words[1];
+
+	return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
                                   char **name)
 {
-    // TODO (milestone 5): implement name lookup for process given a process
-    // id
-    return SYS_ERR_OK;
+	// send RPC_GET_NAME message to server containing PID
+	ERROR_RET1(wait_for_send(rpc->server_sess));
+	ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			RPC_GET_NAME,
+			pid));
+
+	// expect a response with header RPC_GET_NAME
+	struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    struct capref tmp_cap;
+	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
+	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_GET_NAME);
+
+	// read the name from the shared buffer into the return argument
+	if (!rpc->server_sess->shared_buffer_size)
+		return RPC_ERR_SHARED_BUF_EMPTY;
+
+	size_t string_size = message.words[1];
+	ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
+
+	memcpy(*name, rpc->server_sess->shared_buffer, string_size);
+
+	return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc,
-                                      domainid_t **pids, size_t *pid_count)
+		domainid_t **pids, size_t *pid_count)
 {
-    // TODO (milestone 5): implement process id discovery
-    return SYS_ERR_OK;
+	ERROR_RET1(wait_for_send(rpc->server_sess));
+	ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
+			LMP_FLAG_SYNC,
+			NULL_CAP,
+			RPC_GET_PID));
+
+	struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+	struct capref tmp_cap;
+	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
+	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_GET_PID);
+
+	// read the array of pids from the shared buffer into the return argument
+	if (!rpc->server_sess->shared_buffer_size)
+		return RPC_ERR_SHARED_BUF_EMPTY;
+
+	*pid_count = message.words[1];
+	ASSERT_PROTOCOL(*pid_count <= rpc->server_sess->shared_buffer_size);
+
+	memcpy(*pids, rpc->server_sess->shared_buffer, *pid_count * sizeof(domainid_t));
+
+	return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
-        aos_rpc_handler message_handler, bool send_ack){
+		aos_rpc_handler message_handler, bool send_ack){
 
     rpc->aos_rpc_message_handler_closure[opcode].send_ack=send_ack;
     rpc->aos_rpc_message_handler_closure[opcode].message_handler=message_handler;

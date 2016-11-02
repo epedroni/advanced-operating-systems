@@ -58,6 +58,9 @@ struct spawninfo {
     arch_registers_state_t* enabled_area;
 
     coreid_t core_id;
+
+    domainid_t pid;
+    struct spawninfo *next, *prev;
 };
 
 // Start a child process by binary name. Fills in si

@@ -21,7 +21,7 @@ errval_t handle_shared_buffer_request(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     size_t request_size = msg->words[1];
-        struct paging_state* ps = get_current_paging_state();
+	struct paging_state* ps = get_current_paging_state();
     DEBUG_LRPC("Recv RPC_SHARED_BUFFER_REQUEST [size 0x%x]", request_size);
 
     // 1. Free current buffer
