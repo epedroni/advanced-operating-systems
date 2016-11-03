@@ -167,11 +167,11 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
     char* process_name = malloc(string_size + 1);
-    memcpy(process_name, sess->shared_buffer_size, string_size);
+    memcpy(process_name, sess->shared_buffer, string_size);
     process_name[string_size] = 0;
 
     domainid_t ret_pid;
-    errval_t err = spawn_process(sess->shared_buffer, &ret_pid);
+    errval_t err = spawn_process(process_name, &ret_pid);
     if (err_is_fail(err))
     {
         free(process_name);
