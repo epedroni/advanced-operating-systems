@@ -23,10 +23,11 @@ static errval_t handle_pagefault(void *_addr)
 
     // 1. Ensure we are on an allocated vmem block
     // ie block_base <= addr < block_base + block_size
-    struct vm_block* block = find_block_before(st, addr);
-    assert(block->start_address <= addr);
-    if (!block || block->start_address + block->size <= addr ||
-        block->start_address > addr ||
+    vm_block_key_t key;
+    struct vm_block* block = find_block_before(st, addr, &key);
+    assert(address_from_vm_block_key(key) <= addr);
+    if (!block || address_from_vm_block_key(key) + block->size <= addr ||
+        address_from_vm_block_key(key) > addr ||
         block->type != VirtualBlock_Allocated)
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
 

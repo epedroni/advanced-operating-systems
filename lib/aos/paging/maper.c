@@ -57,9 +57,8 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
     slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
 
-    struct vm_block* initial_free_space=create_root(st);
+    struct vm_block* initial_free_space = create_root(st, start_vaddr);
     initial_free_space->type=VirtualBlock_Free;
-    initial_free_space->start_address=start_vaddr;
     initial_free_space->size=VADDR_OFFSET;    //TODO: Figure out how to limit size of virtual memory
 
     // TODO (M4): Implement page fault handler that installs frames when a page fault
@@ -167,69 +166,66 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         st->slabs.refill_func(&st->slabs);
 
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-    struct vm_block* virtual_addr=st->head;
-    for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){
-        // If it is used or too small, skip it
-        if (virtual_addr->type == VirtualBlock_Allocated ||
-            virtual_addr->size < bytes){
-            continue;
-        }
 
-        // Mark this one as used - for calls to alloc from refill functions
-        // indirectly called here.
-        virtual_addr->type = VirtualBlock_Allocated;
-        virtual_addr->map_flags = 0;
+    vm_block_key_t key;
+    struct vm_block* virtual_addr = find_free_block_with_size(st, bytes, &key);
+    if (!virtual_addr)
+        return PAGE_ERR_OUT_OF_VMEM;
 
-        //if it is exact same size, just retype it
-        if (virtual_addr->size==bytes){
-            *buf=(void*)virtual_addr->start_address;
-            assert(is_block_valid(virtual_addr));
-            return SYS_ERR_OK;
-        }
-        assert(virtual_addr->size > bytes);
+    // Mark this one as used - for calls to alloc from refill functions
+    // indirectly called here.
+    virtual_addr->type = VirtualBlock_Allocated;
+    virtual_addr->map_flags = 0;
 
-        struct vm_block* remaining_free_space = add_block_after(st, virtual_addr);
-        assert(remaining_free_space);
-        // Create block for remaining free size
-        remaining_free_space->type = VirtualBlock_Free;
-        remaining_free_space->start_address = virtual_addr->start_address + bytes;
-        remaining_free_space->size = virtual_addr->size - bytes;
-        virtual_addr->size = bytes;
-        *buf=(void*)virtual_addr->start_address;
-
+    //if it is exact same size, just retype it
+    if (virtual_addr->size==bytes){
+        *buf=(void*)address_from_vm_block_key(key);
         assert(is_block_valid(virtual_addr));
-        assert(is_block_valid(remaining_free_space));
-
-        if (block)
-            *block = virtual_addr;
-
-        if (!slab_has_freecount(&st->slabs, 5))
-            paging_refill_own_allocator(st);
         return SYS_ERR_OK;
     }
-    return PAGE_ERR_OUT_OF_VMEM;
+    assert(virtual_addr->size > bytes);
+
+    vm_block_key_t new_key;
+    struct vm_block* remaining_free_space = add_block_after(st,
+        key, address_from_vm_block_key(key) + bytes, &new_key);
+    assert(remaining_free_space);
+    // Create block for remaining free size
+    remaining_free_space->type = VirtualBlock_Free;
+    remaining_free_space->size = virtual_addr->size - bytes;
+    virtual_addr->size = bytes;
+    *buf=(void*)address_from_vm_block_key(key);
+
+    assert(is_block_valid(virtual_addr));
+    assert(is_block_valid(remaining_free_space));
+
+    if (block)
+        *block = virtual_addr;
+
+    if (!slab_has_freecount(&st->slabs, 5))
+        paging_refill_own_allocator(st);
+    return SYS_ERR_OK;
 }
 
 errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
 {
     lvaddr_t start_address = ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
 
-    struct vm_block* virtual_addr = find_block_before(st, start_address);
+    vm_block_key_t key;
+    struct vm_block* virtual_addr = find_block_before(st, start_address, &key);
     if (!virtual_addr ||
-        virtual_addr->start_address + virtual_addr->size < desired_address + bytes ||
+        address_from_vm_block_key(key) + virtual_addr->size < desired_address + bytes ||
         virtual_addr->type != VirtualBlock_Free)
         return PAGE_ERR_OUT_OF_VMEM;
 
     //if we have some space in the beginning, split it
-    if(virtual_addr->start_address<start_address){
+    if(address_from_vm_block_key(key)<start_address){
         debug_printf("Splitting front part\n");
         struct vm_block* previous_block=virtual_addr;
         size_t prev_size=previous_block->size;
         previous_block->size=start_address-previous_block->size;
 
-        virtual_addr = add_block_after(st, previous_block);
+        virtual_addr = add_block_after(st, key, start_address, &key);
         virtual_addr->type=VirtualBlock_Free;
-        virtual_addr->start_address=start_address;
         virtual_addr->size=prev_size-previous_block->size;
     }
 
@@ -241,10 +237,11 @@ errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_ad
     }
 
     assert(virtual_addr->size > bytes);
-    struct vm_block* remaining_free_space = add_block_after(st, virtual_addr);
+    vm_block_key_t remaining_free_space_key;
+    struct vm_block* remaining_free_space = add_block_after(st, key,
+        address_from_vm_block_key(key) + bytes, &remaining_free_space_key);
     // Create block for remaining free size
     remaining_free_space->type = VirtualBlock_Free;
-    remaining_free_space->start_address = virtual_addr->start_address + bytes;
     remaining_free_space->size = virtual_addr->size - bytes;
     virtual_addr->size = bytes;
 
@@ -374,8 +371,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
     lvaddr_t address_to_free=(lvaddr_t)region;
-    struct vm_block* virtual_addr = find_block_before(st, address_to_free);
-    if (!virtual_addr || virtual_addr->start_address != address_to_free)
+    vm_block_key_t key;
+    struct vm_block* virtual_addr = find_block_before(st, address_to_free, &key);
+    if (!virtual_addr || address_from_vm_block_key(key) != address_to_free)
         return PAGE_ERR_NOT_MAPPED;
 
     // TODO: Need to store several mappings in that case.

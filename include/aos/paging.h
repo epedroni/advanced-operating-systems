@@ -55,29 +55,57 @@ enum virtual_block_type {
     VirtualBlock_Allocated
 };
 
-struct vm_block {
-    enum virtual_block_type type;
-    struct vm_block* next;
-    struct vm_block* prev;
-    lvaddr_t start_address;
-    size_t size;
-    int map_flags;  // Only needed when lazy-allocated
-    struct capref mapping;
-};
-
-
 //#define PAGING_KEEP_GAPS 40
 #define DEBUG_PAGING(s, ...) //debug_printf("[PAGING] " s, ##__VA_ARGS__)
 
 
-typedef errval_t (*func_on_new_mapping_cap_t)(void*, struct capref);
+/*************************************
+ * Data structure for storing mem blocks
+ *************************************/
+#define PAGING_STORE_AS_LIST
+
+struct vm_block {
+    enum virtual_block_type type;
+    size_t size;
+    int map_flags;  // Only needed when lazy-allocated
+    struct capref mapping;
+#ifdef PAGING_STORE_AS_LIST
+    struct vm_block* next;
+    struct vm_block* prev;
+    lvaddr_t start_address;
+#endif
+};
+
+#ifdef PAGING_STORE_AS_LIST
+
+typedef struct vm_block* vm_block_key_t;
+typedef struct vm_block* vm_block_struct_t;
+
+inline lvaddr_t address_from_vm_block_key(vm_block_key_t key)
+{
+    return key->start_address;
+}
+
+#endif
+
+struct paging_state;
+struct vm_block* find_free_block_with_size(struct paging_state *st, size_t min_size, vm_block_key_t* key);
+
+struct vm_block* find_block_before(struct paging_state *st,
+    lvaddr_t before_address, vm_block_key_t* key);
+struct vm_block* add_block_after(struct paging_state *st, vm_block_key_t original,
+    lvaddr_t ad_address, vm_block_key_t* new_key);
+struct vm_block* create_root(struct paging_state* st, size_t start_address);
+void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr);
+bool is_block_valid(struct vm_block* block);
+
 
 struct paging_state {
     struct slot_allocator* slot_alloc;
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
     struct vm_block virtual_memory_regions[10];    //Lets give some buffer for slab to allocate
     struct slab_allocator slabs;    //slab allocator used for allocating vm_blocks
-    struct vm_block* head;
+    vm_block_struct_t head;
     struct capref l1_pagetable;
 
     struct capref cap_slot_in_own_space;
@@ -174,14 +202,5 @@ static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
     return (lvaddr_t) genvaddr;
 }
 
-
-/*************************************
- * Data structure for storing mem blocks
- *************************************/
-struct vm_block* find_block_before(struct paging_state *st, lvaddr_t before_address);
-struct vm_block* add_block_after(struct paging_state *st, struct vm_block* original);
-struct vm_block* create_root(struct paging_state* st);
-void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr);
-bool is_block_valid(struct vm_block* block);
 
 #endif // LIBBARRELFISH_PAGING_H
