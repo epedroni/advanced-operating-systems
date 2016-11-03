@@ -324,7 +324,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
 
 	// if we get an error, it's because the pid was not found
 	if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ERROR) {
-		debug_printf("Received error flag\n");
+	    **name = 0;
 		return SPAWN_ERR_DOMAIN_NOTFOUND;
 	}
 
@@ -336,7 +336,8 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
 	size_t string_size = message.words[1];
 	ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
 
-	strcpy(*name, rpc->server_sess->shared_buffer);
+	memcpy(*name, rpc->server_sess->shared_buffer, string_size);
+	(*name)[string_size] = 0;
 
 	return SYS_ERR_OK;
 }

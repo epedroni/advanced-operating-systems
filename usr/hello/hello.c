@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
 	// spawn memeater
 	debug_printf("Spawning memeater via RPC from hello\n");
 	domainid_t new_pid;
-	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
-	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not spawn memeater");
-	}
+//	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
+//	if(err_is_fail(err)){
+//		DEBUG_ERR(err, "Could not spawn memeater");
+//	}
 
 	// get all pids again, there should be three now
 	debug_printf("Getting the name of each running process\n");

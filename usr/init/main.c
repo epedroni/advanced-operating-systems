@@ -107,8 +107,9 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
         size = strlen(rp->name);
         if (size+1 > sess->shared_buffer_size)
             return RPC_ERR_BUF_TOO_SMALL;
-        strcpy(sess->shared_buffer, rp->name);
+        memcpy(sess->shared_buffer, rp->name, size + 1);
     }
+
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
             LMP_FLAG_SYNC,
@@ -174,8 +175,9 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     errval_t err = spawn_process(process_name, &ret_pid);
     if (err_is_fail(err))
     {
+        // don't need to free otherwise because it is assigned to running_proc
         free(process_name);
-        return err;
+        ret_pid = 0;
     }
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
