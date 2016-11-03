@@ -76,7 +76,7 @@ errval_t spawn_process(char* process_name, domainid_t *ret_pid){
 	struct running_process *rp = malloc(sizeof(struct running_process));
 	rp->prev = NULL;
 	rp->next = running_procs;
-	rp->pid = ++running_count;
+	rp->pid = running_count++;
 
 	rp->name = malloc(sizeof(process_name));
 	strcpy(rp->name, process_name);
@@ -98,32 +98,24 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 {
 	assert(sess);
 
-	char* name = NULL;
 	struct running_process *rp = running_procs;
 	domainid_t requested_pid = msg->words[1];
-	debug_printf("Looking for pid %d\n", requested_pid);
-	while (rp) {
-		if (rp->pid == requested_pid) {
-			name = rp->name;
-			break;
-		}
+	while (rp && rp->pid != requested_pid) {
 		rp = rp->next;
 	}
 
 	size_t size = 0;
-	if (name) {
-		size = strlen(name);
+	if (rp) {
+		size = strlen(rp->name);
 		if (size > sess->shared_buffer_size)
 			return RPC_ERR_BUF_TOO_SMALL;
-
-		memcpy(sess->shared_buffer, name, size);
-		debug_printf("Copied %s to buffer\n", name);
+		strcpy(sess->shared_buffer, rp->name);
 	}
 
 	ERROR_RET1(lmp_chan_send2(&sess->lc,
 	        LMP_FLAG_SYNC,
 	        NULL_CAP,
-	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, name ? RPC_FLAG_ACK : RPC_FLAG_ERROR),
+	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, rp ? RPC_FLAG_ACK : RPC_FLAG_ERROR),
 			size));
 
     return SYS_ERR_OK;
@@ -137,6 +129,8 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+	assert(sess);
+
 	// should the running processes be kept in an array instead of a linked list?
 	domainid_t pids[running_count];
 	struct running_process *rp = running_procs;
@@ -146,8 +140,7 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
 	}
 	domainid_t *pidptr = &pids[0];
 
-	assert(sess);
-	if (running_count > sess->shared_buffer_size)
+	if (running_count * sizeof(domainid_t) > sess->shared_buffer_size)
 		return RPC_ERR_BUF_TOO_SMALL;
 
 	memcpy(sess->shared_buffer, pidptr, running_count * sizeof(domainid_t));
@@ -181,7 +174,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 	ERROR_RET1(lmp_chan_send2(&sess->lc,
 		        LMP_FLAG_SYNC,
 		        NULL_CAP,
-		        MAKE_RPC_MSG_HEADER(RPC_SPAWN, err_is_fail(err) ? RPC_FLAG_ERROR : RPC_FLAG_ACK),
+		        MAKE_RPC_MSG_HEADER(RPC_SPAWN, (err_is_fail(err) ? RPC_FLAG_ERROR : RPC_FLAG_ACK)),
 				ret_pid));
 
 	return SYS_ERR_OK;
@@ -224,6 +217,14 @@ int main(int argc, char *argv[])
 
     // Init server
     aos_rpc_init(&rpc, NULL_CAP, false);
+
+    // we are PID 0, add ourselves to the list
+    struct running_process *init_rp = malloc(sizeof(struct running_process));
+    init_rp->prev = NULL;
+    init_rp->next = NULL;
+    init_rp->pid = running_count++;
+    init_rp->name = argv[0];
+	running_procs = init_rp;
 
 //    for (int i = 0; i < 20; ++i) {
     domainid_t pid;
