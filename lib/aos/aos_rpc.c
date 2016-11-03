@@ -282,7 +282,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
 	if (size > rpc->server_sess->shared_buffer_size)
 		return RPC_ERR_BUF_TOO_SMALL;
 
-	strcpy(rpc->server_sess->shared_buffer, name);
+	memcpy(rpc->server_sess->shared_buffer, name, size);
 
 	ERROR_RET1(wait_for_send(rpc->server_sess));
 	ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
