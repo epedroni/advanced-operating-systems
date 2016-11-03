@@ -326,7 +326,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
 	size_t string_size = message.words[1];
 	ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
 
-	memcpy(*name, rpc->server_sess->shared_buffer, string_size);
+	strcpy(*name, rpc->server_sess->shared_buffer);
 
 	return SYS_ERR_OK;
 }

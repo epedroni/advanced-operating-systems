@@ -54,7 +54,7 @@ void runtests_mem_alloc(void);
 void test_paging(void);
 
 static
-errval_t spawn_process(char* process_name, size_t size){
+errval_t spawn_process(char* process_name, domainid_t *ret_pid){
     errval_t err;
 	struct aos_rpc_session* sess = NULL;
 	aos_server_add_client(&rpc, &sess);
@@ -64,20 +64,26 @@ errval_t spawn_process(char* process_name, size_t size){
 	err = spawn_load_by_name(process_name,
 		process_info,
 		&sess->lc);
-	if(err_is_fail(err))
-		DEBUG_ERR(err, "spawn_load_by_name");
+	free(process_info);
+	if(err_is_fail(err)) {
+		*ret_pid = 0;
+		return err;
+	}
 
 	aos_server_register_client(&rpc, sess);
-	free(process_info);
 
 	// add to running processes list
 	struct running_process *rp = malloc(sizeof(struct running_process));
 	rp->prev = NULL;
 	rp->next = running_procs;
 	rp->pid = ++running_count;
-	rp->name = process_name;
+
+	rp->name = malloc(sizeof(process_name));
+	strcpy(rp->name, process_name);
+
 	running_procs = rp;
 
+	*ret_pid = rp->pid;
 	return SYS_ERR_OK;
 }
 
@@ -90,6 +96,8 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+	assert(sess);
+
 	char* name = NULL;
 	struct running_process *rp = running_procs;
 	domainid_t requested_pid = msg->words[1];
@@ -102,22 +110,20 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 		rp = rp->next;
 	}
 
-	if (!name) {
-		// not good, return some error here
-		return SYS_ERR_OK;
+	size_t size = 0;
+	if (name) {
+		size = strlen(name);
+		if (size > sess->shared_buffer_size)
+			return RPC_ERR_BUF_TOO_SMALL;
+
+		memcpy(sess->shared_buffer, name, size);
+		debug_printf("Copied %s to buffer\n", name);
 	}
-
-	assert(sess);
-	size_t size = strlen(name);
-	if (size > sess->shared_buffer_size)
-		return RPC_ERR_BUF_TOO_SMALL;
-
-	memcpy(sess->shared_buffer, name, size);
 
 	ERROR_RET1(lmp_chan_send2(&sess->lc,
 	        LMP_FLAG_SYNC,
 	        NULL_CAP,
-	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, RPC_FLAG_ACK),
+	        MAKE_RPC_MSG_HEADER(RPC_GET_NAME, name ? RPC_FLAG_ACK : RPC_FLAG_ERROR),
 			size));
 
     return SYS_ERR_OK;
@@ -169,19 +175,14 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 	size_t string_size = msg->words[1];
 	ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-	char *name = malloc(string_size);
-	memcpy(name, sess->shared_buffer, string_size);
+	domainid_t ret_pid;
+	errval_t err = spawn_process(sess->shared_buffer, &ret_pid);
 
-	spawn_process(name, string_size);
-
-	free(name);
-
-	debug_printf("Sending back PID %d\n", running_procs->pid);
 	ERROR_RET1(lmp_chan_send2(&sess->lc,
 		        LMP_FLAG_SYNC,
 		        NULL_CAP,
-		        MAKE_RPC_MSG_HEADER(RPC_SPAWN, RPC_FLAG_ACK),
-				running_procs->pid)); // kind of a hack, but should work for now
+		        MAKE_RPC_MSG_HEADER(RPC_SPAWN, err_is_fail(err) ? RPC_FLAG_ERROR : RPC_FLAG_ACK),
+				ret_pid));
 
 	return SYS_ERR_OK;
 }
@@ -225,7 +226,8 @@ int main(int argc, char *argv[])
     aos_rpc_init(&rpc, NULL_CAP, false);
 
 //    for (int i = 0; i < 20; ++i) {
-		spawn_process("/armv7/sbin/hello", 17);
+    domainid_t pid;
+	spawn_process("/armv7/sbin/hello", &pid);
 //    }
 //    spawn_process("/armv7/sbin/memeater", 20);
 
