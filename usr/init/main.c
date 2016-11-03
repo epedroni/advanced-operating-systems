@@ -105,7 +105,7 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
     size_t size = 0;
     if (rp) {
         size = strlen(rp->name);
-        if (size > sess->shared_buffer_size)
+        if (size+1 > sess->shared_buffer_size)
             return RPC_ERR_BUF_TOO_SMALL;
         strcpy(sess->shared_buffer, rp->name);
     }
