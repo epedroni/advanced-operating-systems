@@ -172,6 +172,11 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 
     domainid_t ret_pid;
     errval_t err = spawn_process(sess->shared_buffer, &ret_pid);
+    if (err_is_fail(err))
+    {
+        free(process_name);
+        return err;
+    }
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
                 LMP_FLAG_SYNC,
