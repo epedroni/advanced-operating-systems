@@ -46,21 +46,21 @@ typedef int paging_flags_t;
 
 // struct to store the paging status of a process
 struct l2_vnode_ref {
-	bool used;
-	struct capref vnode_ref;
+    bool used;
+    struct capref vnode_ref;
 };
 
 enum virtual_block_type {
     VirtualBlock_Free,
-	VirtualBlock_Allocated
+    VirtualBlock_Allocated
 };
 
 struct vm_block {
-	enum virtual_block_type type;
-	struct vm_block* next;
-	struct vm_block* prev;
-	lvaddr_t start_address;
-	size_t size;
+    enum virtual_block_type type;
+    struct vm_block* next;
+    struct vm_block* prev;
+    lvaddr_t start_address;
+    size_t size;
     int map_flags;  // Only needed when lazy-allocated
     struct capref mapping;
 };
@@ -75,8 +75,8 @@ typedef errval_t (*func_on_new_mapping_cap_t)(void*, struct capref);
 struct paging_state {
     struct slot_allocator* slot_alloc;
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
-    struct vm_block virtual_memory_regions[10];	//Lets give some buffer for slab to allocate
-    struct slab_allocator slabs;	//slab allocator used for allocating vm_blocks
+    struct vm_block virtual_memory_regions[10];    //Lets give some buffer for slab to allocate
+    struct slab_allocator slabs;    //slab allocator used for allocating vm_blocks
     struct vm_block* head;
     struct capref l1_pagetable;
 
