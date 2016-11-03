@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
 	// spawn memeater
 	debug_printf("Spawning memeater via RPC from hello\n");
 	domainid_t new_pid;
-//	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
-//	if(err_is_fail(err)){
-//		DEBUG_ERR(err, "Could not spawn memeater");
-//	}
+	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
+	if(err_is_fail(err)){
+		DEBUG_ERR(err, "Could not spawn memeater");
+	}
 
 	// get all pids again, there should be three now
 	debug_printf("Getting the name of each running process\n");
@@ -117,6 +117,22 @@ int main(int argc, char *argv[])
 	}
 	debug_printf("Returned PID: %d\n", new_pid);
 
+	debug_printf("Waiting for memeater to return\n");
+	while (!err_is_fail(aos_rpc_process_get_name(get_init_rpc(), 2, &nameptr)));
+
+	debug_printf("Memeater appears to have returned, check all pids\n");
+	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not get PIDs");
+    }
+    for (int i = 0; i < pidcount; i++) {
+        err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &nameptr);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "Could not get domain name");
+        }
+        debug_printf("PID: %d, name: \"%s\"\n", pidptr[i], nameptr);
+    }
+
 	free(nameptr);
 	free(pidptr);
 
@@ -128,8 +144,6 @@ int main(int argc, char *argv[])
 		if(ret_char!=0)
 			aos_rpc_serial_putchar(get_init_rpc(),ret_char);
 	}
-
-
 
 	return 0;
 }
