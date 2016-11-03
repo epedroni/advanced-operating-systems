@@ -305,6 +305,20 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_process_exit(struct aos_rpc *rpc) {
+    assert(rpc->server_sess);
+
+    debug_printf("Sending exit message\n");
+
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_EXIT));
+
+    return SYS_ERR_OK;
+}
+
 errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
                                   char **name)
 {

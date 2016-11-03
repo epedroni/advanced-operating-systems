@@ -167,6 +167,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
                                       domainid_t **pids, size_t *pid_count);
 
+errval_t aos_rpc_process_exit(struct aos_rpc *chan);
 
 /**
  * \brief Gets a capability to device registers

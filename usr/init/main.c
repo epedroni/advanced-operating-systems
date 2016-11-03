@@ -42,10 +42,12 @@ struct running_process
     struct running_process *next, *prev;
     domainid_t pid;
     char *name;
+    struct lmp_endpoint *endpoint;
 };
 
 static struct running_process *running_procs = NULL;
 static uint32_t running_count = 0;
+static domainid_t next_pid = 0;
 static struct aos_rpc rpc;
 
 void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame);
@@ -76,8 +78,16 @@ errval_t spawn_process(char* process_name, domainid_t *ret_pid){
     struct running_process *rp = malloc(sizeof(struct running_process));
     rp->prev = NULL;
     rp->next = running_procs;
-    rp->pid = running_count++;
+    if (rp->next) {
+        rp->next->prev = rp;
+    }
+    rp->pid = next_pid++;
     rp->name = process_name;
+    rp->endpoint = sess->lc.endpoint;
+
+    running_count++;
+
+    debug_printf("Spawned process with endpoint 0x%x\n", rp->endpoint);
 
     running_procs = rp;
 
@@ -109,7 +119,6 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
             return RPC_ERR_BUF_TOO_SMALL;
         memcpy(sess->shared_buffer, rp->name, size + 1);
     }
-
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
             LMP_FLAG_SYNC,
@@ -189,6 +198,37 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+static
+errval_t handle_exit(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    debug_printf("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
+    struct running_process *rp = running_procs;
+
+    while (rp && rp->endpoint != sess->lc.endpoint) {
+        rp = rp->next;
+    }
+
+    if (rp) {
+        if (rp->next) {
+            rp->next->prev = rp->prev;
+        }
+        if (rp->prev) {
+            rp->prev->next = rp->next;
+        }
+        if (rp == running_procs) {
+            running_procs = rp->next;
+        }
+        running_count--;
+    }
+
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
     debug_printf("MAIN IS BEING INVOKED\n");
@@ -231,8 +271,10 @@ int main(int argc, char *argv[])
     struct running_process *init_rp = malloc(sizeof(struct running_process));
     init_rp->prev = NULL;
     init_rp->next = NULL;
-    init_rp->pid = running_count++;
+    init_rp->pid = next_pid++;
     init_rp->name = argv[0];
+    init_rp->endpoint = NULL;
+    running_count = 1;
     running_procs = init_rp;
 
 //    for (int i = 0; i < 20; ++i) {
@@ -267,7 +309,10 @@ int main(int argc, char *argv[])
     aos_rpc_register_handler(&rpc, RPC_GET_NAME, handle_get_name, false);
     aos_rpc_register_handler(&rpc, RPC_GET_PID, handle_get_pid, false);
     aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
+    aos_rpc_register_handler(&rpc, RPC_EXIT, handle_exit, false);
     aos_rpc_accept(&rpc);
+
+    free(init_rp);
 
     return EXIT_SUCCESS;
 }

@@ -39,6 +39,9 @@ void libc_exit(int);
 
 void libc_exit(int status)
 {
+    // TODO maybe prevent this from happening when init exits?
+    aos_rpc_process_exit(get_init_rpc());
+
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
         errval_t err = cap_revoke(cap_dispatcher);
