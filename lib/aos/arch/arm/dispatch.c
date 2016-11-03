@@ -85,7 +85,7 @@ disp_save_context(uint32_t *regs)
         "    str     r2, [r0, # (" XTR(PC_REG) "  * 4)]                 \n\t"
         "disp_save_context_resume:                                      \n\t"
         "    bx      lr                                                 \n\t"
-	);
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -692,6 +692,7 @@ errors libmm MM_ERR_ {
     failure SLOT_ALLOC_REFILL   "Failed to refill slot alloc",
     failure OUT_OF_MEMORY       "Allocator ran out of memory",
     failure NOT_ALLOCATED       "This address is not allocated",
+    failure MALLOC_PAGES        "Failure in malloc_pages()",
 };
 
 errors paging PAGE_ERR_ {
