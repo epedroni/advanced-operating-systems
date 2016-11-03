@@ -460,18 +460,18 @@ handle_fpu_unavailable(dispatcher_handle_t handle,
 
         /* uint16_t fpu_status; */
         /* __asm volatile("fnstsw %0" : "=a" (fpu_status)); */
-	/* debug_printf("FPU status: %x\n", fpu_status); */
+    /* debug_printf("FPU status: %x\n", fpu_status); */
         /* uint16_t fpu_ctrl; */
         /* __asm volatile("fnstcw %0" : "=m" (fpu_ctrl)); */
-	/* debug_printf("FPU control: %x\n", fpu_ctrl); */
+    /* debug_printf("FPU control: %x\n", fpu_ctrl); */
 
     } else {                // If not, restore from thread/dispatcher area
         arch_registers_fpu_state_t *fpustate;
 
-	/* debug_printf("restore FPU\n"); */
+    /* debug_printf("restore FPU\n"); */
 
         if(disp_gen->fpu_thread == t) {
-	  /* debug_printf("from dispatcher\n"); */
+      /* debug_printf("from dispatcher\n"); */
             fpustate = disp_fpu;
 
             /* XXX: Potential optimization: If we switched between
@@ -485,27 +485,27 @@ handle_fpu_unavailable(dispatcher_handle_t handle,
              * the trap.
              */
         } else {
-	  /* debug_printf("from thread\n"); */
+      /* debug_printf("from thread\n"); */
             fpustate = &t->fpu_state;
         }
 
         fpu_restore(fpustate);
 
-	/* debug_printf("restoring from %p of dispatcher %p (handle %x):\n", fpustate, disp_gen, handle); */
+    /* debug_printf("restoring from %p of dispatcher %p (handle %x):\n", fpustate, disp_gen, handle); */
 
-	/* for(int i = 0; i <512 + 16; i++) { */
-	/*   char str[128]; */
-	/*   snprintf(str, 128, "%x ", fpustate->registers[i]); */
-	/*   assert_print(str); */
-	/* } */
-	/* assert_print("\n"); */
+    /* for(int i = 0; i <512 + 16; i++) { */
+    /*   char str[128]; */
+    /*   snprintf(str, 128, "%x ", fpustate->registers[i]); */
+    /*   assert_print(str); */
+    /* } */
+    /* assert_print("\n"); */
 
         /* uint16_t fpu_status; */
         /* __asm volatile("fnstsw %0" : "=a" (fpu_status)); */
-	/* debug_printf("FPU status: %x\n", fpu_status); */
+    /* debug_printf("FPU status: %x\n", fpu_status); */
         /* uint16_t fpu_ctrl; */
         /* __asm volatile("fnstcw %0" : "=m" (fpu_ctrl)); */
-	/* debug_printf("FPU control: %x\n", fpu_ctrl); */
+    /* debug_printf("FPU control: %x\n", fpu_ctrl); */
     }
 
     // Remember FPU-using thread
