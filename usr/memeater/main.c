@@ -127,7 +127,7 @@ static errval_t test_basic_rpc(void)
     debug_printf("RPC: sending number...\n");
     err =  aos_rpc_send_number(rpc, 42);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not send a string\n");
+        DEBUG_ERR(err, "could not send a number\n");
         return err;
     }
 

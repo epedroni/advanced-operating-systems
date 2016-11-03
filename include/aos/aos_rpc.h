@@ -29,6 +29,7 @@ enum message_opcodes {
     RPC_PUT_CHAR,
     RPC_GET_CHAR,
     RPC_SPAWN,
+	RPC_EXIT,
     RPC_GET_NAME,
     RPC_GET_PID,
     RPC_NUM_OPCODES,

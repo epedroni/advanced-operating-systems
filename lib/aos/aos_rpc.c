@@ -277,13 +277,12 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
 		coreid_t core, domainid_t *newpid)
 {
 	assert(rpc->server_sess);
-	// don't forget to copy the null terminator
-	size_t size = strlen(name) + 1;
+	size_t size = strlen(name);
 
 	if (size > rpc->server_sess->shared_buffer_size)
 		return RPC_ERR_BUF_TOO_SMALL;
 
-	memcpy(rpc->server_sess->shared_buffer, name, size);
+	strcpy(rpc->server_sess->shared_buffer, name);
 
 	ERROR_RET1(wait_for_send(rpc->server_sess));
 	ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
@@ -297,8 +296,12 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
 	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
 	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_SPAWN);
 
-	*newpid = message.words[1];
+	if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ERROR) {
+		*newpid = 0;
+		return SPAWN_ERR_DOMAIN_NOTFOUND;
+	}
 
+	*newpid = message.words[1];
 	return SYS_ERR_OK;
 }
 
@@ -319,14 +322,21 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
 	ERROR_RET1(recv_block(rpc->server_sess, &message, &tmp_cap));
 	ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_GET_NAME);
 
+	// if we get an error, it's because the pid was not found
+	if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ERROR) {
+		debug_printf("Received error flag\n");
+		return SPAWN_ERR_DOMAIN_NOTFOUND;
+	}
+
 	// read the name from the shared buffer into the return argument
-	if (!rpc->server_sess->shared_buffer_size)
+	if (!rpc->server_sess->shared_buffer_size) {
 		return RPC_ERR_SHARED_BUF_EMPTY;
+	}
 
 	size_t string_size = message.words[1];
 	ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
 
-	memcpy(*name, rpc->server_sess->shared_buffer, string_size);
+	strcpy(*name, rpc->server_sess->shared_buffer);
 
 	return SYS_ERR_OK;
 }
