@@ -224,6 +224,9 @@ errval_t handle_exit(struct aos_rpc_session* sess,
             running_procs = rp->next;
         }
         running_count--;
+
+        free(rp->name);
+        free(rp);
     }
 
     return SYS_ERR_OK;
