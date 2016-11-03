@@ -35,6 +35,8 @@ void ram_set_affinity(uint64_t minbase, uint64_t maxlimit);
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit);
 void ram_alloc_init(void);
 
+errval_t malloc_pages(void** memory, size_t num_pages);
+
 __END_DECLS
 
 #endif // BARRELFISH_RAM_ALLOC_H

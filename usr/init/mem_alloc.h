@@ -24,6 +24,5 @@ extern struct bootinfo *bi;
 errval_t initialize_ram_alloc(void);
 errval_t aos_init_mm(void);
 errval_t aos_ram_free(struct capref cap, size_t bytes);
-void* get_mapped_page(size_t* alloc_size);
 
 #endif /* _INIT_MEM_ALLOC_H_ */

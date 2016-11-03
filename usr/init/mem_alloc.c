@@ -15,10 +15,15 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 	refill = true;
 	// TODO: To be changed once we have a correct malloc.
-	size_t allocated_size;
-	void* memory = get_mapped_page(&allocated_size);
+	void* memory;
+	errval_t err = malloc_pages(&memory, 1);
+	if (err_is_fail(err))
+	{
+		refill = false;
+		return err;
+	}
 
-	slab_grow(slabs, memory, allocated_size);
+	slab_grow(slabs, memory, BASE_PAGE_SIZE);
 	refill = false;
 
 	return SYS_ERR_OK;
@@ -60,18 +65,6 @@ errval_t initialize_ram_alloc(void)
 	printf("OK\n");
 	return err;
 }
-
-//void test_alloc(size_t size, size_t alignment, struct capref* ref)
-//{
-//	struct mm* mm = mm_get_default();
-//	errval_t err;
-//	if (alignment)
-//		err = mm_alloc_aligned(mm, size, alignment, ref);
-//	else
-//		err = mm_alloc(mm, size, ref);
-//	MM_ASSERT(err, "Alloc failed");
-//	debug_printf("\tAllocated cap [0x%x] at slot %u.\n", get_cap_addr(*ref), ref->slot);
-//}
 
 /**
  * \brief Setups a local memory allocator for init to use till the memory server
@@ -137,27 +130,4 @@ errval_t aos_init_mm(void)
     debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
 
     return SYS_ERR_OK;
-}
-
-void* get_mapped_page(size_t* alloc_size) {
-	*alloc_size=BASE_PAGE_SIZE;
-
-	struct paging_state* paging_state =get_current_paging_state();
-
-    struct capref cap_ram;
-    errval_t err = mm_alloc(&aos_mm, *alloc_size, &cap_ram);
-    MM_ASSERT(err, "test_paging: ram_alloc_fixed");
-
-    struct capref cap_as_frame;
-	err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, &cap_as_frame);
-	err = cap_retype(cap_as_frame, cap_ram, 0,
-            ObjType_Frame, *alloc_size, 1);
-    MM_ASSERT(err, "test_paging: cap_retype");
-
-    void* address=NULL;
-    err=paging_map_frame_attr(paging_state, &address, *alloc_size,
-    		cap_as_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    MM_ASSERT(err, "get_page: paging_map_fixed_attr");
-
-	return address;
 }

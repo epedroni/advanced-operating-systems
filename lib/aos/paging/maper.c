@@ -156,6 +156,16 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
     #endif
 
+    /* Upon refilling slab, we need to paging_alloc and mm_alloc.
+     mm_alloc may trigger paging_alloc and vice-versa.
+     So we need to be able to handle at least 2 calls to paging_alloc
+     And one call may need up to 2 slab_alloc -> We need at least 4.
+        However, at the end of this func call, we may have used 2xslab_alloc.
+    So we need 4+2 at the beginning of this function
+    */
+    if (!slab_has_freecount(&st->slabs, 6))
+        st->slabs.refill_func(&st->slabs);
+
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     struct vm_block* virtual_addr=st->head;
     for(;virtual_addr!=NULL;virtual_addr=virtual_addr->next){

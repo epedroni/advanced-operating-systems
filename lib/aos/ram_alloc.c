@@ -76,10 +76,10 @@ errval_t ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
       DEBUG_ERR(err, "failed to allocate 2^%" PRIu32 " Bytes of RAM",
                 size_bits);
       printf("callstack: %p %p %p %p\n",
-	     __builtin_return_address(0),
-	     __builtin_return_address(1),
-	     __builtin_return_address(2),
-	     __builtin_return_address(3));
+         __builtin_return_address(0),
+         __builtin_return_address(1),
+         __builtin_return_address(2),
+         __builtin_return_address(3));
     }
 #endif
     return err;
@@ -136,5 +136,32 @@ errval_t ram_alloc_set(ram_alloc_func_t local_allocator)
     }
 
     ram_alloc_state->ram_alloc_func = ram_alloc_remote;
+    return SYS_ERR_OK;
+}
+
+/**
+ * Allocates and maps a fixed number of pages into memory.
+ * No lazy allocation, this will not produce pagefault :)
+ */
+errval_t malloc_pages(void** memory, size_t num_pages)
+{
+    struct paging_state* paging_state = get_current_paging_state();
+    num_pages *= BASE_PAGE_SIZE;
+
+    struct capref cap_ram;
+    ERROR_RET2(ram_alloc(&cap_ram, num_pages),
+        MM_ERR_MALLOC_PAGES);
+
+    struct capref cap_as_frame;
+    ERROR_RET2(paging_state->slot_alloc->alloc(paging_state->slot_alloc, &cap_as_frame),
+        MM_ERR_MALLOC_PAGES);
+    ERROR_RET2(cap_retype(cap_as_frame, cap_ram, 0,
+            ObjType_Frame, num_pages, 1),
+            MM_ERR_MALLOC_PAGES);
+
+    ERROR_RET2(paging_map_frame_attr(paging_state, memory, num_pages,
+            cap_as_frame, VREGION_FLAGS_READ_WRITE, NULL, NULL),
+            MM_ERR_MALLOC_PAGES);
+
     return SYS_ERR_OK;
 }
