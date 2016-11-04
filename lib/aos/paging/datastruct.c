@@ -24,7 +24,7 @@ struct vm_block* find_free_block_with_size(struct paging_state *st, size_t min_s
 {
     for (struct vm_block* va = st->head;va; va = va->next)
     {
-        if (va->type == VirtualBlock_Allocated ||
+        if (va->type != VirtualBlock_Free||
             va->size < min_size)
             continue;
         *key = va;

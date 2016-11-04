@@ -11,7 +11,6 @@
 
 static void paging_thread_exception_handler(enum exception_type type, int val1, void* data, union registers_arm* registers, void ** whatever);
 
-
 static errval_t handle_pagefault(void *_addr)
 {
     // TODO: MT environment: handle 2 pagefault at same addr, same time, diff threads
@@ -21,17 +20,36 @@ static errval_t handle_pagefault(void *_addr)
     debug_printf("[Pagefault@0x%08x] Entering callback\n", addr);
     struct paging_state* st = get_current_paging_state();
 
+    thread_mutex_lock(&st->page_fault_lock);
+
     // 1. Ensure we are on an allocated vmem block
     // ie block_base <= addr < block_base + block_size
     vm_block_key_t key;
     struct vm_block* block = find_block_before(st, addr, &key);
-    assert(address_from_vm_block_key(key) <= addr);
-    if (!block || address_from_vm_block_key(key) + block->size <= addr ||
-        address_from_vm_block_key(key) > addr ||
-        block->type != VirtualBlock_Allocated)
+    if (!block || address_from_vm_block_key(key) + block->size < addr){
+        thread_mutex_unlock(&st->page_fault_lock);
+        // This is a segfault.
+        *((int*)NULL) = 0;
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
+    }
+    assert(address_from_vm_block_key(key) <= addr);
+    debug_printf("Found block type: %d\n", block->type);
 
-    debug_printf("[Pagefault@0x%08x] Block found\n", addr);
+    if (block->type == VirtualBlock_Free){
+        debug_printf("Address not allocated! This is SEGFAULT!\n");
+        while(true);
+        thread_mutex_unlock(&st->page_fault_lock);
+        return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
+    }
+
+    if (block->type == VirtualBlock_Paged){
+        debug_printf("Address already paged, returning!\n");
+        thread_mutex_unlock(&st->page_fault_lock);
+        return SYS_ERR_OK;
+    }
+
+    debug_printf("[Pagefault@0x%08x] Block found @ 0x%08x [size 0x%08x]\n",
+        addr, (int)address_from_vm_block_key(key), block->size);
     // 2. It is the case: map a new frame here then
     struct capref frame;
     size_t actualsize;
@@ -40,10 +58,13 @@ static errval_t handle_pagefault(void *_addr)
     debug_printf("[Pagefault@0x%08x] Frame allocated\n", addr);
     ERROR_RET2(paging_map_fixed_attr(st, addr,
         frame, BASE_PAGE_SIZE, 0,
-        block->map_flags, NULL),
+        VREGION_FLAGS_READ_WRITE, NULL),
         LIB_ERR_VSPACE_PAGEFAULT_HANDER);
 
+    paging_mark_as_paged_address(st, addr, BASE_PAGE_SIZE);
+
     debug_printf("[Pagefault@0x%08x] Finished\n", addr);
+    thread_mutex_unlock(&st->page_fault_lock);
     return SYS_ERR_OK;
 }
 

@@ -80,6 +80,7 @@ errval_t paging_init(void)
     };
     paging_init_state(&current, VADDR_OFFSET, l1_pagetable, get_default_slot_allocator());
     set_current_paging_state(&current);
+    thread_mutex_init(&current.page_fault_lock);
     paging_init_onthread(NULL); // Sets exception handler
 
     // TODO: maybe add paging regions to paging state?
@@ -141,6 +142,55 @@ errval_t paging_region_map(struct paging_region *pr, size_t req_size,
 errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t bytes)
 {
     // TIP: you will need to keep track of possible holes in the region
+    return SYS_ERR_OK;
+}
+
+static
+errval_t paging_retype_block_at_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes,
+        enum virtual_block_type from_type, enum virtual_block_type to_type)
+{
+    lvaddr_t start_address = ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
+
+    vm_block_key_t key;
+    struct vm_block* virtual_addr = find_block_before(st, start_address, &key);
+    if (!virtual_addr ||
+        address_from_vm_block_key(key) + virtual_addr->size < desired_address + bytes ||
+        virtual_addr->type != from_type)
+        return PAGE_ERR_OUT_OF_VMEM;
+
+//    if (!slab_has_freecount(&st->slabs, 4*3))
+//        st->slabs.refill_func(&st->slabs);
+    //PAGING_SLAB_REFILL(st);
+
+    //if we have some space in the beginning, split it
+    if(address_from_vm_block_key(key)<start_address){
+        struct vm_block* previous_block = virtual_addr;
+        size_t prev_size = previous_block->size;
+        size_t prev_start_addr = address_from_vm_block_key(key);
+
+        virtual_addr = add_block_after(st, key, start_address, &key);
+        assert(virtual_addr);
+        previous_block->size = start_address - prev_start_addr;
+        virtual_addr->size = prev_size - previous_block->size;
+    }
+
+    virtual_addr->map_flags = VREGION_FLAGS_READ_WRITE;
+    if (virtual_addr->size == bytes)
+    {
+        virtual_addr->type = to_type;
+        return SYS_ERR_OK;
+    }
+
+    assert(virtual_addr->size > bytes);
+    vm_block_key_t remaining_free_space_key;
+    struct vm_block* remaining_free_space = add_block_after(st, key,
+        address_from_vm_block_key(key) + bytes, &remaining_free_space_key);
+    assert(remaining_free_space);
+    // Create block for remaining free size
+    remaining_free_space->type = from_type;
+    remaining_free_space->size = virtual_addr->size - bytes;
+    virtual_addr->size = bytes;
+    virtual_addr->type = to_type;
     return SYS_ERR_OK;
 }
 
@@ -208,46 +258,16 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
 
 errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
 {
-    lvaddr_t start_address = ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
+    debug_printf("paging_alloc_fixed_address\n");
+    return paging_retype_block_at_address(st, desired_address, bytes,
+            VirtualBlock_Free, VirtualBlock_Allocated); //from free to allocated
+}
 
-    vm_block_key_t key;
-    struct vm_block* virtual_addr = find_block_before(st, start_address, &key);
-    if (!virtual_addr ||
-        address_from_vm_block_key(key) + virtual_addr->size < desired_address + bytes ||
-        virtual_addr->type != VirtualBlock_Free)
-        return PAGE_ERR_OUT_OF_VMEM;
-
-    //if we have some space in the beginning, split it
-    if(address_from_vm_block_key(key)<start_address){
-        debug_printf("Splitting front part\n");
-        struct vm_block* previous_block=virtual_addr;
-        size_t prev_size=previous_block->size;
-        previous_block->size=start_address-previous_block->size;
-
-        virtual_addr = add_block_after(st, key, start_address, &key);
-        virtual_addr->type=VirtualBlock_Free;
-        virtual_addr->size=prev_size-previous_block->size;
-    }
-
-    virtual_addr->type = VirtualBlock_Allocated;
-    virtual_addr->map_flags = 0;
-    if (virtual_addr->size==bytes){
-        debug_printf("we have super alligned block, returning\n");
-        return SYS_ERR_OK;
-    }
-
-    assert(virtual_addr->size > bytes);
-    vm_block_key_t remaining_free_space_key;
-    struct vm_block* remaining_free_space = add_block_after(st, key,
-        address_from_vm_block_key(key) + bytes, &remaining_free_space_key);
-    // Create block for remaining free size
-    remaining_free_space->type = VirtualBlock_Free;
-    remaining_free_space->size = virtual_addr->size - bytes;
-    virtual_addr->size = bytes;
-
-    if (!slab_has_freecount(&st->slabs, 5))
-        paging_refill_own_allocator(st);
-    return SYS_ERR_OK;
+errval_t paging_mark_as_paged_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
+{
+    debug_printf("paging_mark_as_paged_address start address [0x%08x] size [0x%08x]\n", desired_address, bytes);
+    return paging_retype_block_at_address(st, desired_address, bytes,
+            VirtualBlock_Allocated, VirtualBlock_Paged); //from free to allocated
 }
 
 /**

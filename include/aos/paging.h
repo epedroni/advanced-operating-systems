@@ -52,7 +52,8 @@ struct l2_vnode_ref {
 
 enum virtual_block_type {
     VirtualBlock_Free,
-    VirtualBlock_Allocated
+    VirtualBlock_Allocated,
+    VirtualBlock_Paged
 };
 
 //#define PAGING_KEEP_GAPS 40
@@ -111,6 +112,8 @@ struct paging_state {
     struct capref cap_slot_in_own_space;
 
     bool is_refilling_slab;
+
+    struct thread_mutex page_fault_lock;
 };
 
 extern errval_t aos_slab_refill(struct slab_allocator *slabs);
@@ -155,6 +158,7 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block);
 errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes);
+errval_t paging_mark_as_paged_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes);
 
 /**
  * Functions to map a user provided frame.
