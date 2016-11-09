@@ -1124,8 +1124,6 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     }
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
 
-    // XXX: disable using real threads for m3, as paging_region needs
-    // self-paging, -SG,2016-10-25.
     if (init_domain_global) {
         // run main() on this thread, since we can't allocate
         if (tls_block_total_len > 0) {
@@ -1450,7 +1448,7 @@ void thread_debug_regs(struct thread *t);
 void thread_debug_regs(struct thread *t)
 {
   printf("%d: RIP = %lx, RSP = %lx\n", disp_get_domain_id(),
-     t->regs.rip, t->regs.rsp);
+	 t->regs.rip, t->regs.rsp);
   uint64_t *stack = (uint64_t *)t->regs.rsp;
   printf("%d: ", disp_get_domain_id());
   for(int i = 0; i < 30; i++) {

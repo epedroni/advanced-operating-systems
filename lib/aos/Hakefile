@@ -30,6 +30,7 @@
                              "aos_rpc.c",
                              "bpt.c",
                              "capabilities.c",
+                             "coreboot.c",
                              "debug.c",
                              "deferred.c",
                              "dispatch.c",
