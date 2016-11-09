@@ -158,8 +158,8 @@ errval_t paging_retype_block_at_address(struct paging_state *st, lvaddr_t desire
         virtual_addr->type != from_type)
         return PAGE_ERR_OUT_OF_VMEM;
 
-//    if (!slab_has_freecount(&st->slabs, 4*3))
-//        st->slabs.refill_func(&st->slabs);
+    if (!slab_has_freecount(&st->slabs, 4*3))
+        st->slabs.refill_func(&st->slabs);
     //PAGING_SLAB_REFILL(st);
 
     //if we have some space in the beginning, split it

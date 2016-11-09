@@ -313,6 +313,11 @@ int main(int argc, char *argv[])
     aos_rpc_register_handler(&rpc, RPC_GET_PID, handle_get_pid, false);
     aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
     aos_rpc_register_handler(&rpc, RPC_EXIT, handle_exit, false);
+
+    for(int i=0;i<1024;++i){
+        malloc(1024);
+    }
+
     aos_rpc_accept(&rpc);
 
     free(init_rp);
