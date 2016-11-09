@@ -83,7 +83,7 @@ distcap_needs_locality(enum objtype type)
     case ObjType_DevFrame_Mapping:
     case ObjType_Frame_Mapping:
     // XXX: KCB should need locality?
-    //case ObjType_KernelControlBlock:
+    case ObjType_KernelControlBlock:
         return true;
     default:
         return false;

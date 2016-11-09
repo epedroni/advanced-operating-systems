@@ -24,7 +24,9 @@
 #include <spawn/spawn.h>
 #include "mem_alloc.h"
 #include "lrpc_server.h"
+#include "coreboot.h"
 #include <aos/aos_rpc.h>
+
 
 coreid_t my_core_id;
 struct bootinfo *bi;
@@ -265,7 +267,7 @@ int main(int argc, char *argv[])
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
     runtests_mem_alloc();
-    test_paging();
+//    test_paging();
 
     // Init server
     aos_rpc_init(&rpc, NULL_CAP, false);
@@ -281,10 +283,10 @@ int main(int argc, char *argv[])
     running_procs = init_rp;
 
 //    for (int i = 0; i < 20; ++i) {
-    domainid_t pid;
-    spawn_process("/armv7/sbin/hello", &pid);
+//    domainid_t pid;
+//    spawn_process("/armv7/sbin/hello", &pid);
 //    }
-//    spawn_process("/armv7/sbin/memeater", 20);
+//    spawn_process("/armv7/sbin/memeater", &pid);
 
     debug_printf("Message handler loop\n");
 
@@ -306,17 +308,13 @@ int main(int argc, char *argv[])
     LOGO("                                        ... Well actually we are simply TeamF. But we are still awesome ;)");
     // Hang around
     debug_printf("Starting lmp server...\n");
-
-
     lmp_server_init(&rpc);
     aos_rpc_register_handler(&rpc, RPC_GET_NAME, handle_get_name, false);
     aos_rpc_register_handler(&rpc, RPC_GET_PID, handle_get_pid, false);
     aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
     aos_rpc_register_handler(&rpc, RPC_EXIT, handle_exit, false);
 
-    for(int i=0;i<1024;++i){
-        malloc(1024);
-    }
+    coreboot_init();
 
     aos_rpc_accept(&rpc);
 
@@ -334,8 +332,8 @@ void runtests_mem_alloc(void)
     #define TEST_ALLOC(size, cap) {\
         MM_ASSERT(mm_alloc(mm, size, &cap), "Alloc failed");\
         frame_identify(cap, &frame_id);\
-        debug_printf("\tRAM [capslot %u]: addr 0x%08x, size 0x%08x\n",\
-            cap.slot, (int)frame_id.base, (int)frame_id.bytes);\
+        /*debug_printf("\tRAM [capslot %u]: addr 0x%08x, size 0x%08x\n",*/\
+            /*cap.slot, (int)frame_id.base, (int)frame_id.bytes);*/\
     }
 
     struct capref ref;

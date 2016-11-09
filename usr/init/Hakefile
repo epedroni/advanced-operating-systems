@@ -14,7 +14,8 @@
                       cFiles = [
                         "main.c",
                         "mem_alloc.c",
-                        "lrpc_server.c"
+                        "lrpc_server.c",
+                        "coreboot.c"
                       ],
                       addLinkFlags = [ "-e _start_init"],
                       addLibraries = [ "mm", "getopt", "elf", "spawn" ],

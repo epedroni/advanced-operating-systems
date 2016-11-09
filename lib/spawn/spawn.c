@@ -11,7 +11,6 @@
 extern struct bootinfo *bi;
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret);
 
-errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct mem_region** process_mem_reg);
 errval_t spawn_map_multiboot(struct spawninfo* si, void** address);
 errval_t spawn_setup_cspace(struct spawninfo* si);
 errval_t spawn_setup_vspace(struct spawninfo* si);
@@ -39,6 +38,7 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lm
     // 1- Get the binary from multiboot image
     struct mem_region* process_mem_reg;
     ERROR_RET1(spawn_load_module(si, (const char*)binary_name, &process_mem_reg));
+    debug_printf("----- spawn: mem region: [0x%08x] size: [0x%08x]\n", process_mem_reg, si->module_bytes);
 
     // 2- Map multiboot module in your address space
     void* address = NULL;

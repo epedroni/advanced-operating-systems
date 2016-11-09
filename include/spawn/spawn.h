@@ -62,5 +62,6 @@ struct spawninfo {
 
 // Start a child process by binary name. Fills in si
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lmp_chan* lc);
+errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct mem_region** process_mem_reg);
 
 #endif /* _INIT_SPAWN_H_ */
