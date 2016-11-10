@@ -24,6 +24,11 @@ errval_t coreboot_init(struct bootinfo *bi){
             (void**)&core_data, OBJSIZE_KCB, data_space, NULL, NULL));
     debug_printf("Core id: %lu, build id: %lu \n", core_data->src_core_id, core_data->build_id);
 
+    struct frame_identity kcb_id;
+    frame_identify(kcb, &kcb_id);
+    core_data->kcb=kcb_id.base;
+    core_data->dst_core_id=1;
+
     //Init: 2 Load and realocate CPU driver
     // 2.1 Find cpu driver in elf
     struct mem_region* kernel_mem_reg=multiboot_find_module(bi, "cpu_omap44xx");
@@ -46,6 +51,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     char* elf = (char*)address;
     debug_printf("Kernel elf starts with 0x%x: 0x%x 0x%x 0x%x 0x%x.\n",
         (int)address, elf[0], elf[1], elf[2], elf[3]);
+
     // 2.4 Allocate new frame for reallocation
     struct capref reallocated_frame_capref;
     ERROR_RET1(frame_alloc(&reallocated_frame_capref, kernel_frame_id.bytes, &bytes));
@@ -54,8 +60,9 @@ errval_t coreboot_init(struct bootinfo *bi){
             reallocated_frame_capref, NULL, NULL));
     struct frame_identity realocation_frame_id;
     frame_identify(reallocated_frame_capref, &realocation_frame_id);
+
     ERROR_RET1(load_cpu_relocatable_segment(address, reallocated_virtual_addr, realocation_frame_id.base,
-            kernel_frame_id.base, &core_data->got_base));
+            core_data->kernel_load_base, &core_data->got_base));
 
     struct frame_identity core_data_frame_id;
     frame_identify(data_space, &core_data_frame_id);
@@ -65,6 +72,9 @@ errval_t coreboot_init(struct bootinfo *bi){
     sys_debug_flush_cache();
     sys_armv7_cache_invalidate((void*)((uint32_t)core_data_frame_id.base),
             (void*)((uint32_t)(core_data_frame_id.base+core_data_frame_id.bytes-1)));
+
+    sys_armv7_cache_invalidate((void*)((uint32_t)kcb_id.base),
+            (void*)((uint32_t)(kcb_id.base+kcb_id.bytes-1)));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
