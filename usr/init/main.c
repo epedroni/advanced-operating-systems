@@ -27,7 +27,6 @@
 #include "coreboot.h"
 #include <aos/aos_rpc.h>
 
-
 coreid_t my_core_id;
 struct bootinfo *bi;
 
@@ -236,14 +235,13 @@ errval_t handle_exit(struct aos_rpc_session* sess,
 
 int main(int argc, char *argv[])
 {
-    debug_printf("MAIN IS BEING INVOKED\n");
-
     errval_t err;
 
     /* Set the core id in the disp_priv struct */
     err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
     assert(err_is_ok(err));
     disp_set_core_id(my_core_id);
+    debug_printf("MAIN IS BEING INVOKED\n");
 
     debug_printf("init: on core %" PRIuCOREID " invoked as:", my_core_id);
     for (int i = 0; i < argc; i++) {
@@ -251,17 +249,21 @@ int main(int argc, char *argv[])
     }
     printf("\n");
 
+    debug_printf("Argument number is: %s\n",argv[1]);
+
     /* First argument contains the bootinfo location, if it's not set */
     bi = (struct bootinfo*)strtol(argv[1], NULL, 10);
     if (!bi) {
         assert(my_core_id > 0);
     }
 
-    err = initialize_ram_alloc();
+    debug_printf("initialize ram alloc\n");
+    err = initialize_ram_alloc(my_core_id);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
+    debug_printf("cap retype\n");
     // Retype dispatcher to endpoint
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));

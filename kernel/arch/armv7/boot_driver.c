@@ -359,10 +359,10 @@ switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
     /* This is important.  We need to clean and invalidate the data caches, to
      * ensure that anything we've modified since enabling them is visible
      * after we make the jump. */
-    MSG("Invalidate data caches\n");
     invalidate_data_caches_pouu(true);
     /* Long jump to the CPU driver entry point, passing the kernel-virtual
      * address of the boot_core_data structure. */
+    MSG("Long jump to cpu driver entry point address: [0x%08x]\n",cpu_driver_entry);
     __asm("mov r0, %[pointer]\n"
           "mov r1, %[bootrec]\n"
           "mov pc, %[jump_target]\n"

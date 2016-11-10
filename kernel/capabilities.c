@@ -1386,6 +1386,8 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     assert(check_caps_create_arguments(type, bytes, objsize, false));
     assert(addr == 0 || check_caps_create_arguments(type, bytes, objsize, true));
 
+    printf("size 1: [0x%08x] size 2: [0x%08x]\n", bytes, objsize);
+
     size_t numobjs = caps_max_numobjs(type, bytes, objsize);
     assert(numobjs > 0);
     // XXX: Dispatcher creation is kind of hacky right now :(

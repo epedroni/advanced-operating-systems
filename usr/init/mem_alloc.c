@@ -49,20 +49,21 @@ errval_t aos_ram_free(struct capref cap, size_t bytes)
  * \brief Setups a local memory allocator for init to use till the memory server
  * is ready to be used.
  */
-errval_t initialize_ram_alloc(void)
+errval_t initialize_ram_alloc(coreid_t core_id)
 {
 	printf("Initializing RAM allocator ...");
-    errval_t err = aos_init_mm();
+    errval_t err = aos_init_mm(core_id);
     if (err_is_fail(err)) {
         return err;
     }
 
     // Finally, we can initialize the generic RAM allocator to use our local allocator
+    debug_printf("aos ram alloc\n");
     err = ram_alloc_set(aos_ram_alloc_aligned);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
-	printf("OK\n");
+	debug_printf("Done initialize ram alloc\n");
 	return err;
 }
 
@@ -70,8 +71,9 @@ errval_t initialize_ram_alloc(void)
  * \brief Setups a local memory allocator for init to use till the memory server
  * is ready to be used.
  */
-errval_t aos_init_mm(void)
+errval_t aos_init_mm(coreid_t core_id)
 {
+    debug_printf("aos init mm\n");
     errval_t err;
 
     // Init slot allocator
@@ -84,11 +86,13 @@ errval_t aos_init_mm(void)
         },
         .slot = 0,
     };
+    debug_printf("invoking: slot_prealloc_init\n");
     err = slot_prealloc_init(&init_slot_alloc, cnode_cap, L2_CNODE_SLOTS, &aos_mm);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
     }
 
+    debug_printf("invoking mm_init\n");
     // Initialize aos_mm
     err = mm_init(&aos_mm, ObjType_RAM, aos_slab_refill,
                   slot_alloc_prealloc, slot_prealloc_refill,
@@ -98,6 +102,7 @@ errval_t aos_init_mm(void)
     }
 
     // Give aos_mm a bit of memory for the initialization
+    debug_printf("invoking slab grow\n");
     static char nodebuf[sizeof(struct mmnode)*64];
     slab_grow(&aos_mm.slabs, nodebuf, sizeof(nodebuf));
 
@@ -108,6 +113,7 @@ errval_t aos_init_mm(void)
         .slot = 0,
     };
 
+    debug_printf("Bad address is: [0x%08x]\n", bi);
     for (int i = 0; i < bi->regions_length; i++) {
         if (bi->regions[i].mr_type == RegionType_Empty) {
             err = mm_add(&aos_mm, mem_cap, bi->regions[i].mr_base, bi->regions[i].mr_bytes);

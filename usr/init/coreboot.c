@@ -111,6 +111,10 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->urpc_frame_base=urpc_frame_id.base;
     core_data->urpc_frame_size=urpc_frame_id.bytes;
 
+//    void* urpc_data;
+//    paging_map_frame(get_current_paging_state(), &urpc_data, BASE_PAGE_SIZE,
+//                urpc_frame, NULL, NULL);
+
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
     debug_printf("Finished\n");
