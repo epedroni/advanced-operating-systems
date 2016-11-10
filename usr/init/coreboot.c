@@ -46,20 +46,29 @@ errval_t coreboot_init(struct bootinfo *bi){
     char* elf = (char*)address;
     debug_printf("Kernel elf starts with 0x%x: 0x%x 0x%x 0x%x 0x%x.\n",
         (int)address, elf[0], elf[1], elf[2], elf[3]);
-    // 2.4 Reallocate
+    // 2.4 Allocate new frame for reallocation
     struct capref reallocated_frame_capref;
-    ERROR_RET1(frame_alloc(&reallocated_frame_capref, kernel_frame_id.bytes,&bytes));
+    ERROR_RET1(frame_alloc(&reallocated_frame_capref, kernel_frame_id.bytes, &bytes));
     void* reallocated_virtual_addr=NULL;
-    ERROR_RET1(paging_map_frame(get_current_paging_state(), &reallocated_virtual_addr, bytes, reallocated_frame_capref, NULL, NULL));
+    ERROR_RET1(paging_map_frame(get_current_paging_state(), &reallocated_virtual_addr, bytes,
+            reallocated_frame_capref, NULL, NULL));
     struct frame_identity realocation_frame_id;
     frame_identify(reallocated_frame_capref, &realocation_frame_id);
+    ERROR_RET1(load_cpu_relocatable_segment(address, reallocated_virtual_addr, realocation_frame_id.base,
+            kernel_frame_id.base, &core_data->got_base));
 
-    load_cpu_relocatable_segment(address, reallocated_virtual_addr, realocation_frame_id.base,
-            kernel_frame_id.base, &core_data->got_base);
+    struct frame_identity core_data_frame_id;
+    frame_identify(data_space, &core_data_frame_id);
 
-    invoke_monitor_spawn_core(1, CPU_ARM7, kernel_frame_id.base);
+    debug_printf("core data frame: 0x[%08x] kernel frame: 0x[%08x]\n", core_data_frame_id.base, kernel_frame_id.base);
 
+    sys_debug_flush_cache();
+    sys_armv7_cache_invalidate((void*)((uint32_t)core_data_frame_id.base),
+            (void*)((uint32_t)(core_data_frame_id.base+core_data_frame_id.bytes-1)));
 
+    ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
+
+    debug_printf("Finished\n");
 
 //    debug_printf("Finding init\n");
 //    struct spawninfo init_si;
