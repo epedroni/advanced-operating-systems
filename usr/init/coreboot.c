@@ -76,8 +76,6 @@ errval_t coreboot_init(struct bootinfo *bi){
     sys_armv7_cache_invalidate((void*)((uint32_t)kcb_id.base),
             (void*)((uint32_t)(kcb_id.base+kcb_id.bytes-1)));
 
-    ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
-
     core_data->cmdline=offsetof(struct arm_core_data, cmdline_buf)+core_data_frame_id.base;
 
     //Load init
@@ -85,7 +83,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     struct mem_region* init_mem_region=multiboot_find_module(bi, "init");
     if (!init_mem_region)
         return SPAWN_ERR_FIND_MODULE;
-    const lvaddr_t init_memory=ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE*16;
+    const lvaddr_t init_memory=ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE*8;
 
     //Load memory for init
     struct capref init_frame;
@@ -100,9 +98,20 @@ errval_t coreboot_init(struct bootinfo *bi){
         .reserved=0
     };
 
+    strcpy(core_data->init_name, "init");
     core_data->monitor_module=modinfo;
     core_data->memory_base_start=init_frame_id.base;
     core_data->memory_bytes=init_frame_id.bytes;
+
+    struct capref urpc_frame;
+    frame_alloc(&urpc_frame, BASE_PAGE_SIZE, &bytes);
+    struct frame_identity urpc_frame_id;
+    frame_identify(urpc_frame, &urpc_frame_id);
+
+    core_data->urpc_frame_base=urpc_frame_id.base;
+    core_data->urpc_frame_size=urpc_frame_id.bytes;
+
+    ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
     debug_printf("Finished\n");
 
