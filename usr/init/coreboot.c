@@ -36,6 +36,10 @@ errval_t coreboot_init(void){
     init_memory=malloc(ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE);
     assert(init_memory);
 
+    debug_printf("Creating URPC frame\n");
+    size_t urpc_frame_size = BASE_PAGE_SIZE;
+    void *urpc_frame = malloc(urpc_frame_size);
+
     debug_printf("Filling core data\n");
     core_data->monitor_module.mod_start=(uint32_t)init_mem_region;
     core_data->monitor_module.mod_end=(uint32_t)init_mem_region+init_si.module_bytes;
@@ -44,6 +48,8 @@ errval_t coreboot_init(void){
     core_data->memory_base_start=(uint32_t)init_memory;
     core_data->memory_bytes=(uint32_t)ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE;
     core_data->cmdline=(lvaddr_t)core_data->cmdline_buf;
+    core_data->urpc_frame_base = (uint32_t)urpc_frame;
+    core_data->urpc_frame_size = urpc_frame_size;
 
     debug_printf("Loading cpu driver\n");
     struct spawninfo cpu_driver_si;
@@ -65,6 +71,14 @@ errval_t coreboot_init(void){
 
     load_cpu_relocatable_segment(cpu_driver_mem_reg, reallocated_virtual_addr, reallocated_id.base+KERNEL_WINDOW,
              core_data->kernel_load_base, &core_data->got_base);
+
+    debug_printf("Flushing caches and stuff\n");
+    debug_printf("Alleged entry point: 0x%x\n", core_data->entry_point);
+
+    sys_debug_flush_cache();
+//    sys_armv7_cache_invalidate();
+
+    invoke_monitor_spawn_core(1, CPU_ARM7, core_data->entry_point);
 
     return SYS_ERR_OK;
 

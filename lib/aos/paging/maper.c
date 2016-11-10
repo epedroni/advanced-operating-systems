@@ -205,6 +205,8 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
     #endif
 
+        debug_printf("PAGING ALLOC\n");
+
     /* Upon refilling slab, we need to paging_alloc and mm_alloc.
      mm_alloc may trigger paging_alloc and vice-versa.
      So we need to be able to handle at least 2 calls to paging_alloc
