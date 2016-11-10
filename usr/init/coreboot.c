@@ -78,6 +78,15 @@ errval_t coreboot_init(struct bootinfo *bi){
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
+    core_data->cmdline=offsetof(struct arm_core_data, cmdline_buf)+core_data_frame_id.base;
+
+    //Load init
+    struct mem_region* init_mem_region=multiboot_find_module(bi, "init");
+    if (!init_mem_region)
+        return SPAWN_ERR_FIND_MODULE;
+
+
+
     debug_printf("Finished\n");
 
 //    debug_printf("Finding init\n");
