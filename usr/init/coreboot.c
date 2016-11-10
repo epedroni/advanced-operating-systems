@@ -81,11 +81,28 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->cmdline=offsetof(struct arm_core_data, cmdline_buf)+core_data_frame_id.base;
 
     //Load init
+    //Load elf
     struct mem_region* init_mem_region=multiboot_find_module(bi, "init");
     if (!init_mem_region)
         return SPAWN_ERR_FIND_MODULE;
+    const lvaddr_t init_memory=ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE*16;
 
+    //Load memory for init
+    struct capref init_frame;
+    frame_alloc(&init_frame, init_memory, &bytes);
+    struct frame_identity init_frame_id;
+    frame_identify(init_frame, &init_frame_id);
 
+    struct multiboot_modinfo modinfo={
+        .mod_start=init_mem_region->mr_base,
+        .mod_end=init_mem_region->mr_base+init_mem_region->mrmod_size,
+        .string=init_mem_region->mrmod_data,
+        .reserved=0
+    };
+
+    core_data->monitor_module=modinfo;
+    core_data->memory_base_start=init_frame_id.base;
+    core_data->memory_bytes=init_frame_id.bytes;
 
     debug_printf("Finished\n");
 
