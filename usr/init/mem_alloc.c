@@ -73,7 +73,7 @@ errval_t initialize_ram_alloc(coreid_t core_id)
  */
 errval_t aos_init_mm(coreid_t core_id)
 {
-    debug_printf("aos init mm\n");
+    debug_printf("aos init mm, core id: %lu\n", core_id);
     errval_t err;
 
     // Init slot allocator
@@ -113,27 +113,55 @@ errval_t aos_init_mm(coreid_t core_id)
         .slot = 0,
     };
 
+    size_t ram_cap_index=0;
     debug_printf("Bad address is: [0x%08x]\n", bi);
-    for (int i = 0; i < bi->regions_length; i++) {
-        if (bi->regions[i].mr_type == RegionType_Empty) {
-            err = mm_add(&aos_mm, mem_cap, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
-            if (err_is_ok(err)) {
-                mem_avail += bi->regions[i].mr_bytes;
-            } else {
-                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED", i, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
-            }
+    if(core_id==0){
+        for (int i = 0; i < bi->regions_length; i++) {
+            if (bi->regions[i].mr_type == RegionType_Empty) {
+                if(ram_cap_index++!=core_id){
+                    continue;
+                }
 
-            err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
-            if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
-                DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
-                        " memory allocator");
-                abort();
-            }
+                debug_printf("Adding region of ram %lu\n",i);
+                err = mm_add(&aos_mm, mem_cap, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
+                if (err_is_ok(err)) {
+                    mem_avail += bi->regions[i].mr_bytes;
+                } else {
+                    DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED", i, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
+                }
 
-            mem_cap.slot++;
+                err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
+                if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
+                    DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
+                            " memory allocator");
+                    abort();
+                }
+
+                mem_cap.slot++;
+            }
+        }
+        debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
+    }else{
+        debug_printf("Forging a capability!\n");
+        genpaddr_t base_address=0xa0000000;
+        genpaddr_t ram_size=0x20000000;
+
+        struct capref forged_ram;
+        slot_alloc(&forged_ram);
+        ram_forge(forged_ram, base_address,ram_size,core_id);
+        err=mm_add(&aos_mm,forged_ram,base_address,ram_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "while invoking mm_add");
+            abort();
+        }
+
+        err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
+        if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
+            DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
+                    " memory allocator");
+            abort();
         }
     }
-    debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
 
     return SYS_ERR_OK;
 }

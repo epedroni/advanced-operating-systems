@@ -255,6 +255,10 @@ int main(int argc, char *argv[])
     bi = (struct bootinfo*)strtol(argv[1], NULL, 10);
     if (!bi) {
         assert(my_core_id > 0);
+        bi=malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+
+        //TODO: Read this from arguments
     }
 
     debug_printf("initialize ram alloc\n");
@@ -285,8 +289,12 @@ int main(int argc, char *argv[])
     running_procs = init_rp;
 
 //    for (int i = 0; i < 20; ++i) {
-//    domainid_t pid;
-//    spawn_process("/armv7/sbin/hello", &pid);
+    if(my_core_id==1){
+        debug_printf("We are gonna spawn a new process\n");
+        domainid_t pid;
+        spawn_process("/armv7/sbin/hello", &pid);
+    }
+
 //    }
 //    spawn_process("/armv7/sbin/memeater", &pid);
 
@@ -316,7 +324,10 @@ int main(int argc, char *argv[])
     aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
     aos_rpc_register_handler(&rpc, RPC_EXIT, handle_exit, false);
 
-    coreboot_init(bi);
+    if(my_core_id==0){
+        debug_printf("--- Starting new core!\n");
+        coreboot_init(bi);
+    }
 
     aos_rpc_accept(&rpc);
 
