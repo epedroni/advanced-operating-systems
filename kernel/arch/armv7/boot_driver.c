@@ -206,6 +206,10 @@ void boot_app_core(struct armv7_boot_record *bootrec) {
             app_core_data->kernel_l1_high);
 
     MSG("Switching page tables and jumping - see you in arch_init().\n");
+
+    MSG("Kernel l1 high: 0x[%08x] l1 low: 0x[%08x]\n",
+            app_core_data->kernel_l1_high, app_core_data->kernel_l1_low);
+
     switch_and_jump((void *)app_core_data->entry_point,
                     bootrec->core_data,
                     app_core_data->kernel_l1_low,
@@ -340,6 +344,7 @@ void
 switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
                 lpaddr_t ttbr1, lvaddr_t bootrec) {
     /* Switch the MMU on. */
+    MSG("We are in switch and jump\n");
     enable_mmu(ttbr0, ttbr1);
 
     /* We're now executing with the kernel window mapped.  If we're on a
@@ -354,8 +359,8 @@ switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
     /* This is important.  We need to clean and invalidate the data caches, to
      * ensure that anything we've modified since enabling them is visible
      * after we make the jump. */
+    MSG("Invalidate data caches\n");
     invalidate_data_caches_pouu(true);
-
     /* Long jump to the CPU driver entry point, passing the kernel-virtual
      * address of the boot_core_data structure. */
     __asm("mov r0, %[pointer]\n"

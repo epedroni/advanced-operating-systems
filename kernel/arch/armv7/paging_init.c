@@ -217,7 +217,6 @@ void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1)
 
     /* Force all outstanding operations to complete. */
     dsb(); isb();
-
     /* Ensure that the local caches and TLBs have no stale data. */
     invalidate_data_caches_pouu(false);
     invalidate_instruction_cache();
@@ -254,15 +253,18 @@ void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1)
        position-independent code.
      */
     sctlr= cp15_read_sctlr();
+
     sctlr|= BIT(12); /* I-Cache enabled. */
     sctlr|= BIT(11); /* Branch prediction enabled. */
     sctlr|= BIT(2);  /* D-Cache and unified caches enabled. */
     sctlr&= ~BIT(1); /* Alignment faults disabled. */
     sctlr|= BIT(0);  /* Level 1 MMU enabled. */
+    MSG("write sctlr \n");
     cp15_write_sctlr(sctlr);
-
+    MSG("write sctlr finished\n");
     /* Synchronise control register changes. */
     isb();
+
 
     /* We're now executing either through the new, cached kernel window
      * mappings, or through the uncached device mappings.  In either case, no

@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
     aos_rpc_register_handler(&rpc, RPC_SPAWN, handle_spawn, false);
     aos_rpc_register_handler(&rpc, RPC_EXIT, handle_exit, false);
 
-    coreboot_init();
+    coreboot_init(bi);
 
     aos_rpc_accept(&rpc);
 
