@@ -160,8 +160,6 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct 
         bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
     #endif
 
-        debug_printf("PAGING ALLOC\n");
-
     /* Upon refilling slab, we need to paging_alloc and mm_alloc.
     One alloc + paging:
      mm_alloc: 2 slabs alloc
@@ -293,7 +291,14 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
     struct vm_block* block;
     ERROR_RET1(paging_alloc(st, buf, bytes, &block));
     assert(block);
-    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
+    errval_t err = paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
+    if (err_is_fail(err))
+    {
+        block->type = VirtualBlock_Free;
+        return err;
+    }
+    block->type = VirtualBlock_Paged;
+    return SYS_ERR_OK;
 }
 
 errval_t
