@@ -1123,6 +1123,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
         USER_PANIC_ERR(err, "paging_region_init for thread region failed\n");
     }
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
+    SLAB_SET_NAME(&thread_slabs, "threads");
 
     if (init_domain_global) {
         // run main() on this thread, since we can't allocate

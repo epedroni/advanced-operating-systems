@@ -26,7 +26,7 @@ extern morecore_free_func_t sys_morecore_free;
 
 // this define makes morecore use an implementation that just has a static
 // 16MB heap.
-#define USE_STATIC_HEAP
+//#define USE_STATIC_HEAP
 
 
 #ifdef USE_STATIC_HEAP

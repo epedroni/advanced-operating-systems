@@ -55,12 +55,13 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
 
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
     slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
-    slab_grow(&st->slabs, st->virtual_memory_regions, sizeof(st->virtual_memory_regions));
+    SLAB_SET_NAME(&st->slabs, "Paging");
+    slab_grow(&st->slabs, st->slab_init_buffer, sizeof(st->slab_init_buffer));
 
     struct vm_block* initial_free_space = create_root(st, start_vaddr);
-    initial_free_space->type=VirtualBlock_Free;
-    initial_free_space->size=VADDR_OFFSET;    //TODO: Figure out how to limit size of virtual memory
-
+    initial_free_space->type = VirtualBlock_Free;
+    initial_free_space->size = VADDR_OFFSET;
+    // TODO: Figure out how to limit size of virtual memory
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
     return SYS_ERR_OK;
@@ -145,28 +146,99 @@ errval_t paging_region_unmap(struct paging_region *pr, lvaddr_t base, size_t byt
     return SYS_ERR_OK;
 }
 
+/**
+ *
+ * \brief Find a bit of free virtual address space that is large enough to
+ *        accomodate a buffer of size `bytes`.
+ */
+errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
+{
+    DEBUG_PAGING("paging_alloc: Alloc block for size 0x%x\n",
+        bytes);
+    CHECK_DATA_CORRECTNESS(st, false);
+    #ifdef PAGING_KEEP_GAPS
+        bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
+    #endif
+
+    /* Upon refilling slab, we need to paging_alloc and mm_alloc.
+    One alloc + paging:
+     mm_alloc: 2 slabs alloc
+     paging_alloc: 2 slabs refill
+     paging datastruct: 2 slabs refill
+        => 6 slab refills
+    We need to be able to refill all these slabs (3),
+    so we should never go below 3*6 free slots.
+
+    This function may use 2 slab allocs => we need 3*6+2 right now
+    */
+    if (!slab_has_freecount(&st->slabs, 3*6+2))
+        st->slabs.refill_func(&st->slabs);
+    PAGING_SLAB_REFILL(st);
+
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
+
+    vm_block_key_t key;
+    struct vm_block* virtual_addr = find_free_block_with_size(st, bytes, &key);
+    if (!virtual_addr)
+        return PAGE_ERR_OUT_OF_VMEM;
+
+    // Mark this one as used - for calls to alloc from refill functions
+    // indirectly called here.
+    virtual_addr->type = VirtualBlock_Allocated;
+    virtual_addr->map_flags = 0;
+
+    //if it is exact same size, just retype it
+    if (virtual_addr->size==bytes){
+        *buf=(void*)ADDRESS_FROM_VM_BLOCK_KEY(key);
+        if (block)
+            *block = virtual_addr;
+        return SYS_ERR_OK;
+    }
+    assert(virtual_addr->size > bytes);
+
+    vm_block_key_t new_key;
+    struct vm_block* remaining_free_space = add_block_after(st,
+        key, ADDRESS_FROM_VM_BLOCK_KEY(key) + bytes, &new_key);
+    assert(remaining_free_space);
+
+    // Create block for remaining free size
+    remaining_free_space->type = VirtualBlock_Free;
+    remaining_free_space->size = virtual_addr->size - bytes;
+    virtual_addr->size = bytes;
+    remaining_free_space->type = VirtualBlock_Free;
+    *buf=(void*)ADDRESS_FROM_VM_BLOCK_KEY(key);
+
+    if (block)
+        *block = virtual_addr;
+
+    if (!slab_has_freecount(&st->slabs, 5))
+        paging_refill_own_allocator(st);
+    return SYS_ERR_OK;
+}
+
 static
 errval_t paging_retype_block_at_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes,
         enum virtual_block_type from_type, enum virtual_block_type to_type)
 {
+    CHECK_DATA_CORRECTNESS(st, false);
     lvaddr_t start_address = ROUND_DOWN((lvaddr_t) desired_address, BASE_PAGE_SIZE);
 
     vm_block_key_t key;
     struct vm_block* virtual_addr = find_block_before(st, start_address, &key);
     if (!virtual_addr ||
-        address_from_vm_block_key(key) + virtual_addr->size < desired_address + bytes ||
+        ADDRESS_FROM_VM_BLOCK_KEY(key) + virtual_addr->size < desired_address + bytes ||
         virtual_addr->type != from_type)
         return PAGE_ERR_OUT_OF_VMEM;
 
-    if (!slab_has_freecount(&st->slabs, 4*3))
+    if (!slab_has_freecount(&st->slabs, 6*3+2))
         st->slabs.refill_func(&st->slabs);
-    //PAGING_SLAB_REFILL(st);
+    PAGING_SLAB_REFILL(st);
 
     //if we have some space in the beginning, split it
-    if(address_from_vm_block_key(key)<start_address){
+    if(ADDRESS_FROM_VM_BLOCK_KEY(key)<start_address){
         struct vm_block* previous_block = virtual_addr;
         size_t prev_size = previous_block->size;
-        size_t prev_start_addr = address_from_vm_block_key(key);
+        size_t prev_start_addr = ADDRESS_FROM_VM_BLOCK_KEY(key);
 
         virtual_addr = add_block_after(st, key, start_address, &key);
         assert(virtual_addr);
@@ -184,77 +256,13 @@ errval_t paging_retype_block_at_address(struct paging_state *st, lvaddr_t desire
     assert(virtual_addr->size > bytes);
     vm_block_key_t remaining_free_space_key;
     struct vm_block* remaining_free_space = add_block_after(st, key,
-        address_from_vm_block_key(key) + bytes, &remaining_free_space_key);
+        ADDRESS_FROM_VM_BLOCK_KEY(key) + bytes, &remaining_free_space_key);
     assert(remaining_free_space);
     // Create block for remaining free size
     remaining_free_space->type = from_type;
     remaining_free_space->size = virtual_addr->size - bytes;
     virtual_addr->size = bytes;
     virtual_addr->type = to_type;
-    return SYS_ERR_OK;
-}
-
-/**
- *
- * \brief Find a bit of free virtual address space that is large enough to
- *        accomodate a buffer of size `bytes`.
- */
-errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, struct vm_block** block)
-{
-    #ifdef PAGING_KEEP_GAPS
-        bytes += PAGING_KEEP_GAPS * BASE_PAGE_SIZE;
-    #endif
-
-        debug_printf("PAGING ALLOC\n");
-
-    /* Upon refilling slab, we need to paging_alloc and mm_alloc.
-     mm_alloc may trigger paging_alloc and vice-versa.
-     So we need to be able to handle at least 2 calls to paging_alloc
-     And one call may need up to 2 slab_alloc -> We need at least 4.
-        However, at the end of this func call, we may have used 2xslab_alloc.
-    So we need 4+2 at the beginning of this function
-    */
-    if (!slab_has_freecount(&st->slabs, 6))
-        st->slabs.refill_func(&st->slabs);
-
-    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-    vm_block_key_t key;
-    struct vm_block* virtual_addr = find_free_block_with_size(st, bytes, &key);
-    if (!virtual_addr)
-        return PAGE_ERR_OUT_OF_VMEM;
-
-    // Mark this one as used - for calls to alloc from refill functions
-    // indirectly called here.
-    virtual_addr->type = VirtualBlock_Allocated;
-    virtual_addr->map_flags = 0;
-
-    //if it is exact same size, just retype it
-    if (virtual_addr->size==bytes){
-        *buf=(void*)address_from_vm_block_key(key);
-        assert(is_block_valid(virtual_addr));
-        return SYS_ERR_OK;
-    }
-    assert(virtual_addr->size > bytes);
-
-    vm_block_key_t new_key;
-    struct vm_block* remaining_free_space = add_block_after(st,
-        key, address_from_vm_block_key(key) + bytes, &new_key);
-    assert(remaining_free_space);
-    // Create block for remaining free size
-    remaining_free_space->type = VirtualBlock_Free;
-    remaining_free_space->size = virtual_addr->size - bytes;
-    virtual_addr->size = bytes;
-    *buf=(void*)address_from_vm_block_key(key);
-
-    assert(is_block_valid(virtual_addr));
-    assert(is_block_valid(remaining_free_space));
-
-    if (block)
-        *block = virtual_addr;
-
-    if (!slab_has_freecount(&st->slabs, 5))
-        paging_refill_own_allocator(st);
     return SYS_ERR_OK;
 }
 
@@ -283,7 +291,14 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
     struct vm_block* block;
     ERROR_RET1(paging_alloc(st, buf, bytes, &block));
     assert(block);
-    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
+    errval_t err = paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, 0, flags, block);
+    if (err_is_fail(err))
+    {
+        block->type = VirtualBlock_Free;
+        return err;
+    }
+    block->type = VirtualBlock_Paged;
+    return SYS_ERR_OK;
 }
 
 errval_t
@@ -369,9 +384,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     if (remote)
     {
         struct capref l2_cap_remote = l2_cap;
-        ERROR_RET1(get_default_slot_allocator()->alloc(
-            get_default_slot_allocator(),
-            &l2_cap));
+        ERROR_RET1(slot_alloc(&l2_cap));
         ERROR_RET1(cap_copy(l2_cap, l2_cap_remote));
     }
     ERROR_RET2(vnode_map(l2_cap, frame,
@@ -395,7 +408,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     lvaddr_t address_to_free=(lvaddr_t)region;
     vm_block_key_t key;
     struct vm_block* virtual_addr = find_block_before(st, address_to_free, &key);
-    if (!virtual_addr || address_from_vm_block_key(key) != address_to_free)
+    if (!virtual_addr || ADDRESS_FROM_VM_BLOCK_KEY(key) != address_to_free)
         return PAGE_ERR_NOT_MAPPED;
 
     // TODO: Need to store several mappings in that case.
@@ -404,20 +417,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         "Unmap for mappings spawning over different L2 VNodes not implemented yet.");
     ERROR_RET1(vnode_unmap(st->l2nodes[ARM_L1_OFFSET(address_to_free)].vnode_ref,
         virtual_addr->mapping));
-    // Merge with previous <- me
-    if (virtual_addr->prev && virtual_addr->prev->type == VirtualBlock_Free)
-    {
-        virtual_addr->prev->size += virtual_addr->size;
-        virtual_addr->mapping = virtual_addr->mapping;
-        virtual_addr = virtual_addr->prev;
-        vm_block_merge_next_into_me(st, virtual_addr);
-    }
-    // Merge with me <- next
-    if (virtual_addr->next && virtual_addr->next->type == VirtualBlock_Free)
-    {
-        virtual_addr->size += virtual_addr->next->size;
-        vm_block_merge_next_into_me(st, virtual_addr);
-    }
     virtual_addr->type = VirtualBlock_Free;
+    vm_block_merge_free_neighbors(st, key);
     return SYS_ERR_OK;
 }

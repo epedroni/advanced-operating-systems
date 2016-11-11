@@ -220,6 +220,8 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
     ret->cnode = cnode;
 
     slab_init(&ret->slab, sizeof(struct cnode_meta), NULL);
+    SLAB_SET_NAME(&ret->slab, "single_slot_alloc");
+
     if (buflen > 0) {
         // check for callers that do not provide enough buffer space
         #if !defined(NDEBUG)

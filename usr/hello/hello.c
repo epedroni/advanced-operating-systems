@@ -106,14 +106,14 @@ int main(int argc, char *argv[])
 	debug_printf("Trying to get the name of a PID that does not exist\n");
 	err = aos_rpc_process_get_name(get_init_rpc(), 1000, &nameptr);
 	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not get domain name");
+		debug_printf("Could not get domain name, that is expected\n");
 	}
 	debug_printf("PID: %d, name: \"%s\"\n", 1000, nameptr);
 
 	debug_printf("Trying to spawn a domain that does not exist\n");
 	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/fail", 0, &new_pid);
 	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not spawn domain");
+		debug_printf("Could not spawn domain, that is expected\n");
 	}
 	debug_printf("Returned PID: %d\n", new_pid);
 

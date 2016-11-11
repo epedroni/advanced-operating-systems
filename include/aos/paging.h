@@ -19,6 +19,7 @@
 #include <errors/errno.h>
 #include <aos/capabilities.h>
 #include <aos/slab.h>
+#include <aos/paging_datastruct.h>
 #include <barrelfish_kpi/paging_arm_v7.h>
 
 typedef int paging_flags_t;
@@ -50,63 +51,16 @@ struct l2_vnode_ref {
     struct capref vnode_ref;
 };
 
-enum virtual_block_type {
-    VirtualBlock_Free,
-    VirtualBlock_Allocated,
-    VirtualBlock_Paged
-};
-
 //#define PAGING_KEEP_GAPS 40
 #define DEBUG_PAGING(s, ...) //debug_printf("[PAGING] " s, ##__VA_ARGS__)
-
-
-/*************************************
- * Data structure for storing mem blocks
- *************************************/
-#define PAGING_STORE_AS_LIST
-
-struct vm_block {
-    enum virtual_block_type type;
-    size_t size;
-    int map_flags;  // Only needed when lazy-allocated
-    struct capref mapping;
-#ifdef PAGING_STORE_AS_LIST
-    struct vm_block* next;
-    struct vm_block* prev;
-    lvaddr_t start_address;
-#endif
-};
-
-#ifdef PAGING_STORE_AS_LIST
-
-typedef struct vm_block* vm_block_key_t;
-typedef struct vm_block* vm_block_struct_t;
-
-inline lvaddr_t address_from_vm_block_key(vm_block_key_t key)
-{
-    return key->start_address;
-}
-
-#endif
-
-struct paging_state;
-struct vm_block* find_free_block_with_size(struct paging_state *st, size_t min_size, vm_block_key_t* key);
-
-struct vm_block* find_block_before(struct paging_state *st,
-    lvaddr_t before_address, vm_block_key_t* key);
-struct vm_block* add_block_after(struct paging_state *st, vm_block_key_t original,
-    lvaddr_t ad_address, vm_block_key_t* new_key);
-struct vm_block* create_root(struct paging_state* st, size_t start_address);
-void vm_block_merge_next_into_me(struct paging_state *st, struct vm_block* virtual_addr);
-bool is_block_valid(struct vm_block* block);
 
 
 struct paging_state {
     struct slot_allocator* slot_alloc;
     struct l2_vnode_ref l2nodes[ARM_L1_MAX_ENTRIES];
-    struct vm_block virtual_memory_regions[10];    //Lets give some buffer for slab to allocate
+    struct vm_block slab_init_buffer[15];    //Lets give some buffer for slab to allocate
     struct slab_allocator slabs;    //slab allocator used for allocating vm_blocks
-    vm_block_struct_t head;
+    vm_block_struct_t blocks;
     struct capref l1_pagetable;
 
     struct capref cap_slot_in_own_space;

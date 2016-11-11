@@ -257,6 +257,7 @@ errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
     }
 
     slab_init(&ret->slab, sizeof(struct cnode_meta), NULL);
+    SLAB_SET_NAME(&ret->slab, "range_slot_alloc");
     slab_grow(&ret->slab, buf, sizeof(struct cnode_meta) * nslots / 2);
     thread_mutex_init(&ret->mutex);
 

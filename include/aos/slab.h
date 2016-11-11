@@ -17,6 +17,16 @@
 
 #include <sys/cdefs.h>
 
+//#define SLAB_DEBUG
+
+#ifdef SLAB_DEBUG
+    #define SLAB_DEBUG_OUT(msg, ...) { printf("[SLAB]" msg, ##__VA_ARGS__); printf("\n"); }
+    #define SLAB_SET_NAME(slab, sname) { (slab)->name = sname; }
+#else
+    #define SLAB_DEBUG_OUT(msg, ...)
+    #define SLAB_SET_NAME(slab, name)
+#endif
+
 __BEGIN_DECLS
 
 // forward declarations
@@ -37,6 +47,9 @@ struct slab_allocator {
     struct slab_head *slabs;    ///< Pointer to list of slabs
     size_t blocksize;           ///< Size of blocks managed by this allocator
     slab_refill_func_t refill_func;  ///< Refill function
+#ifdef SLAB_DEBUG
+    const char* name;
+#endif
 };
 
 void slab_init(struct slab_allocator *slabs, size_t blocksize,

@@ -9,6 +9,8 @@
 errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 	static bool refill = false;
+    SLAB_DEBUG_OUT("[0x%08x:%s] aos_slab_refill",
+        (int)slabs, slabs->name);
 	if (refill){
 		return SYS_ERR_OK;
 	}
@@ -31,7 +33,7 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 static errval_t aos_ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
 {
-	return mm_alloc_aligned(mm_get_default(), size, alignment, ret);
+	return mm_alloc_aligned(&aos_mm, size, alignment, ret);
 }
 
 errval_t aos_ram_free(struct capref cap, size_t bytes)
@@ -148,7 +150,7 @@ errval_t aos_init_mm(coreid_t core_id)
 
         struct capref forged_ram;
         slot_alloc(&forged_ram);
-        ram_forge(forged_ram, base_address,ram_size,core_id);
+        ram_forge(forged_ram, base_address,ram_size, core_id);
         err=mm_add(&aos_mm,forged_ram,base_address,ram_size);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "while invoking mm_add");

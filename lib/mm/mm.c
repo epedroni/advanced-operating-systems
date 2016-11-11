@@ -37,6 +37,7 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     mm->head = NULL;
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
+    SLAB_SET_NAME(&mm->slabs, "mm");
     return SYS_ERR_OK;
 }
 
@@ -69,6 +70,8 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
     newnode->base = base;
     newnode->size = size;
     mm->head = newnode;
+
+    debug_printf("mm_add received %lu MB\n", size / 1024 / 1024);
 
     return SYS_ERR_OK;
 }
@@ -138,7 +141,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
     // See comment on maper.c for explanation about the magic 6.
-    if (!slab_has_freecount(&mm->slabs, 6))
+    if (!slab_has_freecount(&mm->slabs, 6*3+2))
     	mm->slabs.refill_func(&mm->slabs);
 
     // Find cap with enough space
@@ -268,7 +271,3 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     return cap_destroy(cap);
 }
 
-struct mm* mm_get_default(void)
-{
-    return &aos_mm;
-}

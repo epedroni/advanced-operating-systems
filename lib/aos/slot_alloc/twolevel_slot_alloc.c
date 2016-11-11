@@ -212,6 +212,7 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
     size_t allocation_unit = sizeof(struct slot_allocator_list) +
                              SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS);
     slab_init(&ret->slab, allocation_unit, NULL);
+    SLAB_SET_NAME(&ret->slab, "twolevel_slot_alloc");
 
     return SYS_ERR_OK;
 }

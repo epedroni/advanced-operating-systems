@@ -32,7 +32,6 @@ struct bootinfo *bi;
 
 struct paging_test
 {
-    struct mm* mm;
     uint32_t num;
 };
 
@@ -267,12 +266,17 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
+    if(my_core_id==0){
+        domainid_t pid;
+        spawn_process("/armv7/sbin/hello", &pid);
+    }
+
     debug_printf("cap retype\n");
     // Retype dispatcher to endpoint
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
-    runtests_mem_alloc();
+//    runtests_mem_alloc();
 //    test_paging();
 
     // Init server
@@ -329,6 +333,7 @@ int main(int argc, char *argv[])
         coreboot_init(bi);
     }
 
+    debug_printf("Entering accept loop forever\n");
     aos_rpc_accept(&rpc);
 
     free(init_rp);
@@ -340,10 +345,9 @@ void runtests_mem_alloc(void)
 {
     debug_printf("Running mem_alloc tests set\n");
     struct frame_identity frame_id;
-    struct mm* mm = mm_get_default();
 
     #define TEST_ALLOC(size, cap) {\
-        MM_ASSERT(mm_alloc(mm, size, &cap), "Alloc failed");\
+        MM_ASSERT(ram_alloc(&cap, size), "Alloc failed");\
         frame_identify(cap, &frame_id);\
         /*debug_printf("\tRAM [capslot %u]: addr 0x%08x, size 0x%08x\n",*/\
             /*cap.slot, (int)frame_id.base, (int)frame_id.bytes);*/\
@@ -396,7 +400,7 @@ void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame) {
 
     struct capref cap_ram;
     debug_printf("test_allocate_frame: Allocating RAM...\n");
-    errval_t err = mm_alloc(test.mm, alloc_size, &cap_ram);
+    errval_t err = ram_alloc(&cap_ram, alloc_size);
     MM_ASSERT(err, "test_allocate_frame: ram_alloc_fixed");
 
     err = paging_state->slot_alloc->alloc(paging_state->slot_alloc, cap_as_frame);
@@ -422,7 +426,6 @@ void test_paging(void)
 {
     #define PRINT_TEST(title) debug_printf("###########################\n"); debug_printf("#TEST%02u: %s\n", ++test.num, title);
 
-    test.mm = mm_get_default();
     int* number;
 
 

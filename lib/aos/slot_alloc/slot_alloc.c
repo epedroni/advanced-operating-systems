@@ -198,6 +198,7 @@ errval_t slot_alloc_init(void)
     size_t allocation_unit = sizeof(struct slot_allocator_list) +
                              SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS);
     slab_init(&def->slab, allocation_unit, NULL);
+    SLAB_SET_NAME(&def->slab, "slot_alloc");
 
     // Vspace mgmt
     // Warning: necessary to do this in the end as during initialization,
