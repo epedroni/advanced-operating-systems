@@ -26,17 +26,20 @@ static errval_t handle_pagefault(void *_addr)
     // ie block_base <= addr < block_base + block_size
     vm_block_key_t key;
     struct vm_block* block = find_block_before(st, addr, &key);
-    if (!block || address_from_vm_block_key(key) + block->size < addr){
+    if (!block || ADDRESS_FROM_VM_BLOCK_KEY(key) + block->size < addr){
+        debug_printf("Address not in any block! This is SEGFAULT!\n");
+        //print_backtrace();
+        while(true);
         thread_mutex_unlock(&st->page_fault_lock);
-        // This is a segfault.
-        *((int*)NULL) = 0;
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
     }
-    assert(address_from_vm_block_key(key) <= addr);
+    assert(ADDRESS_FROM_VM_BLOCK_KEY(key) <= addr);
+
     debug_printf("Found block type: %d\n", block->type);
 
     if (block->type == VirtualBlock_Free){
         debug_printf("Address not allocated! This is SEGFAULT!\n");
+        //print_backtrace();
         while(true);
         thread_mutex_unlock(&st->page_fault_lock);
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
@@ -49,7 +52,8 @@ static errval_t handle_pagefault(void *_addr)
     }
 
     debug_printf("[Pagefault@0x%08x] Block found @ 0x%08x [size 0x%08x]\n",
-        addr, (int)address_from_vm_block_key(key), block->size);
+        addr, (int)ADDRESS_FROM_VM_BLOCK_KEY(key), block->size);
+
     // 2. It is the case: map a new frame here then
     struct capref frame;
     size_t actualsize;
@@ -122,6 +126,8 @@ void paging_init_onthread(struct thread *t)
  */
 errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame, size_t minbytes)
 {
+    SLAB_DEBUG_OUT("[0x%08x:%s] Paging: slab_refill_no_pagefault",
+        (int)slabs, slabs->name);
     minbytes = ROUND_UP(minbytes, BASE_PAGE_SIZE);
     struct capref ram_ref;
     void* data;

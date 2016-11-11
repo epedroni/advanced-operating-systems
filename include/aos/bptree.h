@@ -27,7 +27,8 @@
  * to change the type and content
  * of the value field.
  */
-typedef void* bpt_record;
+typedef void* bpt_record_t;
+typedef size_t bpt_key_t;
 
 /* Type representing a node in the B+ tree.
  * This type is general enough to serve for both
@@ -57,52 +58,66 @@ typedef void* bpt_record;
  * to data is always num_keys.  The
  * last leaf pointer points to the next leaf.
  */
-typedef struct bpt_node {
+
+struct bpt_node {
     void* pointers[BPTREE_ORDER];
-    int keys[BPTREE_ORDER-1];
-    struct bpt_node * parent;
+    bpt_key_t keys[BPTREE_ORDER-1];
+    struct bpt_node* parent;
     bool is_leaf;
     int num_keys;
-    struct bpt_node * next; // Used for queue.
-} bpt_node;
+    struct bpt_node* next; // Used for queue.
+};
 
+
+typedef void (*fun_free_bpt_node_t)(void*, struct bpt_node*);
+typedef void (*fun_free_record_t)(void*, bpt_record_t);
+typedef struct bpt_node* (*fun_alloc_bpt_node_t)(void*);
+
+struct bpt_mem
+{
+    fun_free_bpt_node_t free_node;
+    fun_alloc_bpt_node_t alloc_node;
+    fun_free_record_t free_record;
+    void* data;
+};
 
 // FUNCTION PROTOTYPES.
 
 // Output and utility.
-bpt_node * bpt_find_leaf( bpt_node * root, int key, bool verbose );
-bpt_record * bpt_find( bpt_node * root, int key, bool verbose );
+struct bpt_node* bpt_find_leaf(struct bpt_node* root, bpt_key_t key );
+bpt_record_t bpt_find(struct bpt_node* root, bpt_key_t key );
 
 // Insertion.
-bpt_node * bpt_make_node( void );
-bpt_node * bpt_make_leaf( void );
-int bpt_get_left_index(bpt_node * parent, bpt_node * left);
-bpt_node * bpt_insert_into_leaf( bpt_node * leaf, int key, bpt_record * pointer );
-bpt_node * bpt_insert_into_leaf_after_splitting(bpt_node * root, bpt_node * leaf, int key,
-                                        bpt_record * pointer);
-bpt_node * bpt_insert_into_node(bpt_node * root, bpt_node * parent,
-        int left_index, int key, bpt_node * right);
-bpt_node * bpt_insert_into_node_after_splitting(bpt_node * root, bpt_node * parent,
+struct bpt_node* bpt_make_node(struct bpt_mem* mem );
+struct bpt_node* bpt_make_leaf(struct bpt_mem* mem );
+void bpt_init_node(struct bpt_node* new_node);
+int bpt_get_left_index(struct bpt_node* parent, struct bpt_node* left);
+struct bpt_node* bpt_insert_into_leaf(struct bpt_node* leaf, bpt_key_t key, bpt_record_t pointer );
+struct bpt_node* bpt_insert_into_leaf_after_splitting(struct bpt_mem* mem, struct bpt_node* root, struct bpt_node* leaf, bpt_key_t key,
+                                        bpt_record_t pointer);
+struct bpt_node* bpt_insert_into_node(struct bpt_node* root, struct bpt_node* parent,
+        int left_index, bpt_key_t key, struct bpt_node* right);
+struct bpt_node* bpt_insert_into_node_after_splitting(struct bpt_mem* mem, struct bpt_node* root, struct bpt_node* parent,
                                         int left_index,
-        int key, bpt_node * right);
-bpt_node * bpt_insert_into_parent(bpt_node * root, bpt_node * left, int key, bpt_node * right);
-bpt_node * bpt_insert_into_new_root(bpt_node * left, int key, bpt_node * right);
-bpt_node * bpt_start_new_tree(int key, bpt_record * pointer);
-bpt_node * bpt_insert( bpt_node * root, int key, bpt_record* value );
+        bpt_key_t key, struct bpt_node* right);
+struct bpt_node* bpt_insert_into_parent(struct bpt_mem* mem, struct bpt_node* root, struct bpt_node* left, bpt_key_t key, struct bpt_node* right);
+struct bpt_node* bpt_insert_into_new_root(struct bpt_mem* mem, struct bpt_node* left, bpt_key_t key, struct bpt_node* right);
+struct bpt_node* bpt_start_new_tree(struct bpt_mem* mem, bpt_key_t key, bpt_record_t pointer);
+struct bpt_node* bpt_insert(struct bpt_mem* mem, struct bpt_node* root, bpt_key_t key, bpt_record_t value );
 
 // Deletion.
 
-int bpt_get_neighbor_index( bpt_node * n );
-bpt_node * bpt_adjust_root(bpt_node * root);
-bpt_node * bpt_coalesce_nodes(bpt_node * root, bpt_node * n, bpt_node * neighbor,
-                      int neighbor_index, int k_prime);
-bpt_node * bpt_redistribute_nodes(bpt_node * root, bpt_node * n, bpt_node * neighbor,
+int bpt_get_neighbor_index(struct bpt_node* n );
+struct bpt_node* bpt_adjust_root(struct bpt_mem* mem, struct bpt_node* root);
+struct bpt_node* bpt_coalesce_nodes(struct bpt_mem* mem, struct bpt_node* root, struct bpt_node* n, struct bpt_node* neighbor,
+                      int neighbor_index, bpt_key_t k_prime);
+struct bpt_node* bpt_redistribute_nodes(struct bpt_node* root, struct bpt_node* n, struct bpt_node* neighbor,
                           int neighbor_index,
-        int k_prime_index, int k_prime);
-bpt_node * bpt_delete_entry( bpt_node * root, bpt_node * n, int key, void * pointer );
-bpt_node * bpt_delete( bpt_node * root, int key );
-bpt_node * bpt_remove_entry_from_node(bpt_node * n, int key, bpt_node * pointer);
-void bpt_destroy_tree_nodes(bpt_node * root);
-bpt_node * bpt_destroy_tree(bpt_node * root);
+        bpt_key_t k_prime_index, bpt_key_t k_prime);
+struct bpt_node* bpt_delete_entry(struct bpt_mem* mem, struct bpt_node* root, struct bpt_node* n, bpt_key_t key, void * pointer );
+struct bpt_node* bpt_delete(struct bpt_mem* mem, struct bpt_node* root, bpt_key_t key );
+struct bpt_node* bpt_remove_entry_from_node(struct bpt_node* n, bpt_key_t key, struct bpt_node* pointer);
+void bpt_destroy_tree_nodes(struct bpt_mem* mem, struct bpt_node* root);
+struct bpt_node* bpt_destroy_tree(struct bpt_mem* mem, struct bpt_node* root);
 
 #endif
