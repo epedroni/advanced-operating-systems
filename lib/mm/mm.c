@@ -139,7 +139,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
     // See comment on maper.c for explanation about the magic 6.
-    if (!slab_has_freecount(&mm->slabs, 6))
+    if (!slab_has_freecount(&mm->slabs, 6*3+2))
     	mm->slabs.refill_func(&mm->slabs);
 
     // Find cap with enough space
