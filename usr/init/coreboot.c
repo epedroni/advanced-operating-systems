@@ -1,13 +1,9 @@
 #include "coreboot.h"
 
-extern struct capref cap_urpc;
-
 errval_t write_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
         struct bootinfo* bi, coreid_t my_core_id)
 {
-    if (my_core_id != 0) {
-        return;
-    }
+    assert (my_core_id == 0);
 
     *((struct bootinfo*) urpc_buf) = *bi;
 
@@ -54,6 +50,7 @@ errval_t write_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
             urpc_buf += sizeof(gensize_t);
         }
     }
+    return SYS_ERR_OK;
 }
 
 errval_t read_from_urpc(void* urpc_buf, struct bootinfo** bi,

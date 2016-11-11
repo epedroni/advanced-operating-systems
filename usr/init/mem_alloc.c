@@ -53,7 +53,7 @@ errval_t aos_ram_free(struct capref cap, size_t bytes)
  */
 errval_t initialize_ram_alloc(coreid_t core_id)
 {
-	printf("Initializing RAM allocator ...");
+	printf("Initializing RAM allocator ...\n");
     errval_t err = aos_init_mm(core_id);
     if (err_is_fail(err)) {
         return err;

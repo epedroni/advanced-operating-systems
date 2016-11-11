@@ -77,20 +77,15 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lm
 
 errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct mem_region** process_mem_reg)
 {
-    debug_printf("find module\n");
     *process_mem_reg=multiboot_find_module(bi, binary_name);
 
     if (!*process_mem_reg)
-        debug_printf("Fail\n");
         return SPAWN_ERR_FIND_MODULE;
 
     memset(si, 0, sizeof(*si));
-    debug_printf("before malloc\n");
     si->binary_name = malloc(strlen(binary_name) + 1);
-    debug_printf("after malloc\n");
     strcpy(si->binary_name, binary_name);
 
-    debug_printf("Found address of mem_region: 0x%X\n", *process_mem_reg);
 
     // Binary frame
     si->module_frame.cnode = cnode_module;
