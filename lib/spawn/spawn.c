@@ -33,10 +33,11 @@ errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain
 
 // TODO(M4): Build and pass a messaging channel to your child process
 errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lmp_chan* lc) {
-    debug_printf("spawn start_child: starting: %s\n", binary_name);
+    debug_printf("spawn start_child: starting: %s, trying to load module\n", binary_name);
 
     // 1- Get the binary from multiboot image
     struct mem_region* process_mem_reg;
+    debug_printf("calling spawn_load_module with si [0x%08x], name %s, mem reg [0x%08x] \n", si, binary_name, &process_mem_reg);
     ERROR_RET1(spawn_load_module(si, (const char*)binary_name, &process_mem_reg));
     debug_printf("----- spawn: mem region: [0x%08x] size: [0x%08x]\n", process_mem_reg, si->module_bytes);
 
@@ -76,16 +77,20 @@ errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lm
 
 errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct mem_region** process_mem_reg)
 {
+    debug_printf("find module\n");
     *process_mem_reg=multiboot_find_module(bi, binary_name);
 
     if (!*process_mem_reg)
+        debug_printf("Fail\n");
         return SPAWN_ERR_FIND_MODULE;
 
     memset(si, 0, sizeof(*si));
+    debug_printf("before malloc\n");
     si->binary_name = malloc(strlen(binary_name) + 1);
+    debug_printf("after malloc\n");
     strcpy(si->binary_name, binary_name);
 
-    debug_printf("Received address of mem_region: 0x%X\n", *process_mem_reg);
+    debug_printf("Found address of mem_region: 0x%X\n", *process_mem_reg);
 
     // Binary frame
     si->module_frame.cnode = cnode_module;

@@ -1,5 +1,7 @@
 #include "coreboot.h"
 
+extern struct capref cap_urpc;
+
 errval_t coreboot_init(struct bootinfo *bi){
     debug_printf("---- starting coreboot init ----\n");
 
@@ -102,9 +104,9 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->memory_bytes=init_frame_id.bytes;
 
     struct capref urpc_frame;
-    ERROR_RET1(frame_alloc(&urpc_frame, BASE_PAGE_SIZE, &bytes));
+    ERROR_RET1(frame_alloc(&cap_urpc, BASE_PAGE_SIZE, &bytes));
     struct frame_identity urpc_frame_id;
-    ERROR_RET1(frame_identify(urpc_frame, &urpc_frame_id));
+    ERROR_RET1(frame_identify(cap_urpc, &urpc_frame_id));
 
     core_data->urpc_frame_base=urpc_frame_id.base;
     core_data->urpc_frame_size=urpc_frame_id.bytes;
@@ -112,6 +114,11 @@ errval_t coreboot_init(struct bootinfo *bi){
 //    void* urpc_data;
 //    paging_map_frame(get_current_paging_state(), &urpc_data, BASE_PAGE_SIZE,
 //                urpc_frame, NULL, NULL);
+
+    // give other cores a way to access the bootinfo by writing it to the URPC buffer
+    void* urpc_buffer;
+    paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, urpc_frame,
+                NULL, NULL);
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 

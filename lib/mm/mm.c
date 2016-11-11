@@ -71,6 +71,8 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
     newnode->size = size;
     mm->head = newnode;
 
+    debug_printf("mm_add received %lu MB\n", size / 1024 / 1024);
+
     return SYS_ERR_OK;
 }
 

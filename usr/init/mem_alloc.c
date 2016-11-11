@@ -150,7 +150,7 @@ errval_t aos_init_mm(coreid_t core_id)
 
         struct capref forged_ram;
         slot_alloc(&forged_ram);
-        ram_forge(forged_ram, base_address,ram_size,core_id);
+        ram_forge(forged_ram, base_address,ram_size, core_id);
         err=mm_add(&aos_mm,forged_ram,base_address,ram_size);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "while invoking mm_add");
