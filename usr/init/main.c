@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
     runtests_mem_alloc();
-//    test_paging();
+    test_paging();
 
     // Init server
     aos_rpc_init(&rpc, NULL_CAP, false);

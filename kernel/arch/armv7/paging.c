@@ -606,7 +606,9 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     size_t unmapped_pages = 0;
     union arm_l2_entry *ptentry = (union arm_l2_entry *)pt + slot;
     for (int i = 0; i < num_pages; i++) {
-        ptentry++->raw = 0;
+        ptentry->raw = 0;
+        clean_to_pou(ptentry); // Added: need to clean the cache?
+        ++ptentry;
         unmapped_pages++;
     }
     return unmapped_pages;
