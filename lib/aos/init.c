@@ -197,8 +197,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }
 
-    /* TODO MILESTONE 3: now we should have a channel with init set up and can
-     * use it for the ram allocator */
+    // Now we have a channel with init set up and can use it for the ram allocator
     ram_alloc_set(NULL);
 
     // right now we don't have the nameservice & don't need the terminal

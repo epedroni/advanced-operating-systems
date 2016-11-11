@@ -52,42 +52,49 @@ int main(int argc, char *argv[])
 
     // 2. Get boot info. Get it from args or read it from URPC
     bi = (struct bootinfo*)strtol(argv[1], NULL, 10);
+    void* urpc_read_buffer = NULL;
     if (!bi) {
         assert(my_core_id > 0);
-        bi=malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+        assert(bi);
         memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
 
         //TODO: Read this from arguments
         struct frame_identity urpc_frame_id;
         frame_identify(cap_urpc, &urpc_frame_id);
-        void* urpc_buffer;
-        err = paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
+        err = paging_map_frame(get_current_paging_state(), &urpc_read_buffer, urpc_frame_id.bytes, cap_urpc,
                     NULL, NULL);
         if (err_is_fail(err))
             DEBUG_ERR(err, "paging_map_frame");
 
-        err = read_from_urpc(urpc_buffer,&bi,1);
+        err = read_from_urpc(urpc_read_buffer, &bi, 1);
         if (err_is_fail(err))
             DEBUG_ERR(err, "read_from_urpc");
-
-        err = read_modules(urpc_buffer,bi,1);
-        if (err_is_fail(err))
-            DEBUG_ERR(err, "read_modules");
     }
 
 
-    // 3. Initialize RAM alloc. Requires a correct boot info.
+    // 3. Initialize RAM alloc. Requires a correct boot info regions
     assert(bi);
+    assert(bi->regions_length);
     err = initialize_ram_alloc(my_core_id);
     if(err_is_fail(err))
         DEBUG_ERR(err, "initialize_ram_alloc");
 
-    // 4. Init RPC server
+    // 4. Get module regions caps.
+    // Requires RAM alloc initiated, to allocate a L2 CNode.
+    if (urpc_read_buffer)
+    {
+        err = read_modules(urpc_read_buffer, bi, 1);
+        if (err_is_fail(err))
+            DEBUG_ERR(err, "read_modules");
+    }
+
+    // 5. Init RPC server
     aos_rpc_init(&rpc, NULL_CAP, false);
     lmp_server_init(&rpc);
     processmgr_init(&rpc, argv[0]);
 
-    // 5. Boot second core if needed
+    // 6. Boot second core if needed
     if (my_core_id==0){
         debug_printf("--- Starting new core!\n");
         coreboot_init(bi);

@@ -149,13 +149,9 @@ errval_t aos_init_mm(coreid_t core_id)
         genpaddr_t ram_size=0x20000000;
 
         struct capref forged_ram;
-        slot_alloc(&forged_ram);
-        ram_forge(forged_ram, base_address,ram_size, core_id);
-        err=mm_add(&aos_mm,forged_ram,base_address,ram_size);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "while invoking mm_add");
-            abort();
-        }
+        ERROR_RET1(slot_alloc(&forged_ram));
+        ERROR_RET1(ram_forge(forged_ram, base_address,ram_size, core_id));
+        ERROR_RET1(mm_add(&aos_mm,forged_ram,base_address,ram_size));
 
         err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
         if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
