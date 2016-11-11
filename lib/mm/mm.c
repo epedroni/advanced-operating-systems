@@ -269,7 +269,3 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     return cap_destroy(cap);
 }
 
-struct mm* mm_get_default(void)
-{
-    return &aos_mm;
-}

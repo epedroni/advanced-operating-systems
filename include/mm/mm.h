@@ -79,7 +79,6 @@ void mm_print_nodes(struct mm *mm);
 void mm_destroy(struct mm *mm);
 
 errval_t mm_mem_init(void);
-struct mm* mm_get_default(void);
 
 __END_DECLS
 

@@ -33,7 +33,7 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 static errval_t aos_ram_alloc_aligned(struct capref *ret, size_t size, size_t alignment)
 {
-	return mm_alloc_aligned(mm_get_default(), size, alignment, ret);
+	return mm_alloc_aligned(&aos_mm, size, alignment, ret);
 }
 
 errval_t aos_ram_free(struct capref cap, size_t bytes)
