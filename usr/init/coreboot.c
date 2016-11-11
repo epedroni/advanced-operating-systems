@@ -2,6 +2,8 @@
 
 #define KERNEL_WINDOW 0x80000000
 
+extern struct capref cap_urpc;
+
 errval_t coreboot_init(struct bootinfo *bi){
     debug_printf("---- starting coreboot init ----\n");
 
@@ -103,10 +105,10 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->memory_base_start=init_frame_id.base;
     core_data->memory_bytes=init_frame_id.bytes;
 
-    struct capref urpc_frame;
-    frame_alloc(&urpc_frame, BASE_PAGE_SIZE, &bytes);
+    //struct capref urpc_frame;
+    frame_alloc(&cap_urpc, BASE_PAGE_SIZE, &bytes);
     struct frame_identity urpc_frame_id;
-    frame_identify(urpc_frame, &urpc_frame_id);
+    frame_identify(cap_urpc, &urpc_frame_id);
 
     core_data->urpc_frame_base=urpc_frame_id.base;
     core_data->urpc_frame_size=urpc_frame_id.bytes;
