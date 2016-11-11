@@ -16,7 +16,8 @@
                         "mem_alloc.c",
                         "lrpc_server.c",
                         "coreboot.c",
-                        "processmgr.c"
+                        "processmgr.c",
+                        "tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"],
                       addLibraries = [ "mm", "getopt", "elf", "spawn" ],
