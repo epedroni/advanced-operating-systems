@@ -266,13 +266,18 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
+    if(my_core_id==0){
+        domainid_t pid;
+        spawn_process("/armv7/sbin/hello", &pid);
+    }
+
     debug_printf("cap retype\n");
     // Retype dispatcher to endpoint
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
     //Create lmp channel
-    runtests_mem_alloc();
-    test_paging();
+//    runtests_mem_alloc();
+//    test_paging();
 
     // Init server
     aos_rpc_init(&rpc, NULL_CAP, false);
@@ -288,7 +293,7 @@ int main(int argc, char *argv[])
     running_procs = init_rp;
 
 //    for (int i = 0; i < 20; ++i) {
-    if(my_core_id==0){
+    if(my_core_id==1){
         debug_printf("We are gonna spawn a new process\n");
         domainid_t pid;
         spawn_process("/armv7/sbin/hello", &pid);
@@ -328,6 +333,7 @@ int main(int argc, char *argv[])
         coreboot_init(bi);
     }
 
+    debug_printf("Entering accept loop forever\n");
     aos_rpc_accept(&rpc);
 
     free(init_rp);
