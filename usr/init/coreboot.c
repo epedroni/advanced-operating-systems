@@ -1,7 +1,5 @@
 #include "coreboot.h"
 
-#define KERNEL_WINDOW 0x80000000
-
 errval_t coreboot_init(struct bootinfo *bi){
     debug_printf("---- starting coreboot init ----\n");
 
@@ -25,7 +23,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     debug_printf("Core id: %lu, build id: %lu \n", core_data->src_core_id, core_data->build_id);
 
     struct frame_identity kcb_id;
-    frame_identify(kcb, &kcb_id);
+    ERROR_RET1(frame_identify(kcb, &kcb_id));
     core_data->kcb=kcb_id.base;
     core_data->dst_core_id=1;
 
@@ -39,7 +37,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     kernel_frame.slot = kernel_mem_reg->mrmod_slot;
     // 2.2 Idenitfy kernel frame
     struct frame_identity kernel_frame_id;
-    frame_identify(kernel_frame, &kernel_frame_id);
+    ERROR_RET1(frame_identify(kernel_frame, &kernel_frame_id));
     debug_printf("Kernel frame base address: [0x%08x] bytes: [0x%08x]\n", kernel_frame_id.base, kernel_frame_id.bytes);
     // 2.3 Map frame to memory so it can be reallocated
     void* address;
@@ -59,13 +57,13 @@ errval_t coreboot_init(struct bootinfo *bi){
     ERROR_RET1(paging_map_frame(get_current_paging_state(), &reallocated_virtual_addr, bytes,
             reallocated_frame_capref, NULL, NULL));
     struct frame_identity realocation_frame_id;
-    frame_identify(reallocated_frame_capref, &realocation_frame_id);
+    ERROR_RET1(frame_identify(reallocated_frame_capref, &realocation_frame_id));
 
     ERROR_RET1(load_cpu_relocatable_segment(address, reallocated_virtual_addr, realocation_frame_id.base,
             core_data->kernel_load_base, &core_data->got_base));
 
     struct frame_identity core_data_frame_id;
-    frame_identify(data_space, &core_data_frame_id);
+    ERROR_RET1(frame_identify(data_space, &core_data_frame_id));
 
     debug_printf("core data frame: 0x[%08x] kernel frame: 0x[%08x]\n", core_data_frame_id.base, kernel_frame_id.base);
 
@@ -87,9 +85,9 @@ errval_t coreboot_init(struct bootinfo *bi){
 
     //Load memory for init
     struct capref init_frame;
-    frame_alloc(&init_frame, init_memory, &bytes);
+    ERROR_RET1(frame_alloc(&init_frame, init_memory, &bytes));
     struct frame_identity init_frame_id;
-    frame_identify(init_frame, &init_frame_id);
+    ERROR_RET1(frame_identify(init_frame, &init_frame_id));
 
     struct multiboot_modinfo modinfo={
         .mod_start=init_mem_region->mr_base,
@@ -104,9 +102,9 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->memory_bytes=init_frame_id.bytes;
 
     struct capref urpc_frame;
-    frame_alloc(&urpc_frame, BASE_PAGE_SIZE, &bytes);
+    ERROR_RET1(frame_alloc(&urpc_frame, BASE_PAGE_SIZE, &bytes));
     struct frame_identity urpc_frame_id;
-    frame_identify(urpc_frame, &urpc_frame_id);
+    ERROR_RET1(frame_identify(urpc_frame, &urpc_frame_id));
 
     core_data->urpc_frame_base=urpc_frame_id.base;
     core_data->urpc_frame_size=urpc_frame_id.bytes;
@@ -118,61 +116,6 @@ errval_t coreboot_init(struct bootinfo *bi){
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
     debug_printf("Finished\n");
-
-//    debug_printf("Finding init\n");
-//    struct spawninfo init_si;
-//    struct mem_region* init_mem_region;
-//    ERROR_RET1(spawn_load_module(&init_si, "init", &init_mem_region));
-//    debug_printf("Allocating init space\n");
-//    void* init_memory=NULL;
-//    init_memory=malloc(ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE);
-//    assert(init_memory);
-//
-//    debug_printf("Creating URPC frame\n");
-//    size_t urpc_frame_size = BASE_PAGE_SIZE;
-//    void *urpc_frame = malloc(urpc_frame_size);
-//
-//    debug_printf("Filling core data\n");
-//    core_data->monitor_module.mod_start=(uint32_t)init_mem_region;
-//    core_data->monitor_module.mod_end=(uint32_t)init_mem_region+init_si.module_bytes;
-//    core_data->monitor_module.string=(uint32_t)init_mem_region->mrmod_data;
-//    core_data->monitor_module.reserved=(uint32_t)0;
-//    core_data->memory_base_start=(uint32_t)init_memory;
-//    core_data->memory_bytes=(uint32_t)ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE;
-//    core_data->cmdline=(lvaddr_t)core_data->cmdline_buf;
-//    core_data->urpc_frame_base = (uint32_t)urpc_frame;
-//    core_data->urpc_frame_size = urpc_frame_size;
-//
-//    debug_printf("Loading cpu driver\n");
-//    struct spawninfo cpu_driver_si;
-//    struct mem_region* cpu_driver_mem_reg;
-//    ERROR_RET1(spawn_load_module(&cpu_driver_si, "cpu_omap44xx", &cpu_driver_mem_reg));
-//    struct frame_identity cpu_driver_info;
-//    ERROR_RET1(frame_identify(cpu_driver_si.module_frame, &cpu_driver_info));
-//
-//    void* elf_address=NULL;
-//    paging_map_frame(get_current_paging_state(), &elf_address, cpu_driver_info.bytes,
-//            cpu_driver_si.module_frame, NULL, NULL);
-//
-//    struct capref reallocated_frame_capref;
-//    void* reallocated_virtual_addr=NULL;
-//    ERROR_RET1(frame_alloc(&reallocated_frame_capref, cpu_driver_info.bytes,&bytes));
-//    ERROR_RET1(paging_map_frame(get_current_paging_state(), &reallocated_virtual_addr, bytes,reallocated_frame_capref,NULL,NULL));
-//    struct frame_identity reallocated_id;
-//    ERROR_RET1(frame_identify(reallocated_frame_capref, &reallocated_id));
-//
-//    load_cpu_relocatable_segment(cpu_driver_mem_reg, reallocated_virtual_addr, reallocated_id.base+KERNEL_WINDOW,
-//             core_data->kernel_load_base, &core_data->got_base);
-//
-//    debug_printf("Flushing caches and stuff\n");
-//    debug_printf("Alleged entry point: 0x%x\n", core_data->entry_point);
-//
-//    sys_debug_flush_cache();
-//    sys_armv7_cache_invalidate();
-//
-//    debug_printf("Kernel l1 high: 0x[%08x] l1 low: 0x[%08x]\n",
-//            core_data->kernel_l1_high, core_data->kernel_l1_low);
-//    invoke_monitor_spawn_core(1, CPU_ARM7, core_data->entry_point);
 
     return SYS_ERR_OK;
 
