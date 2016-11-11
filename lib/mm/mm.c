@@ -37,6 +37,7 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
     mm->head = NULL;
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
+    SLAB_SET_NAME(&mm->slabs, "mm");
     return SYS_ERR_OK;
 }
 

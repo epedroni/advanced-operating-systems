@@ -39,6 +39,9 @@ void slab_init(struct slab_allocator *slabs, size_t blocksize,
     slabs->slabs = NULL;
     slabs->blocksize = SLAB_REAL_BLOCKSIZE(blocksize);
     slabs->refill_func = refill_func;
+#ifdef SLAB_DEBUG
+    slabs->name = "???";
+#endif
 }
 
 
@@ -59,6 +62,9 @@ void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen)
 
     /* calculate number of blocks in buffer */
     size_t blocksize = slabs->blocksize;
+    SLAB_DEBUG_OUT("[0x%08x:%s] Growing from %u to %u objects with buf @ 0x%08x",
+        (int)slabs, slabs->name, slab_freecount(slabs),
+        slab_freecount(slabs) + buflen / blocksize, (int)buf);
     assert(buflen / blocksize <= UINT32_MAX);
     head->free = head->total = buflen / blocksize;
     assert(head->total > 0);
@@ -86,23 +92,32 @@ void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen)
  */
 void *slab_alloc(struct slab_allocator *slabs)
 {
+    SLAB_DEBUG_OUT("[0x%08x:%s] slab_alloc called from 0x%08x",
+        (int)slabs, slabs->name, __builtin_return_address(0));
     errval_t err;
     /* find a slab with free blocks */
     struct slab_head *sh;
     for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next);
 
     if (sh == NULL) {
+        SLAB_DEBUG_OUT("[0x%08x:%s] Needs emerg refill",
+            (int)slabs, slabs->name);
         /* out of memory. try refill function if we have one */
         if (!slabs->refill_func) {
+            // No function for refill, so the caller expect that we can return NULL
+            SLAB_DEBUG_OUT("[0x%08x:%s] Slab out of memory and no refill function",
+                (int)slabs, slabs->name);
             return NULL;
         } else {
             err = slabs->refill_func(slabs);
             if (err_is_fail(err)) {
+                assert(false && "Slab out of memory and refill failed");
                 DEBUG_ERR(err, "slab refill_func failed");
                 return NULL;
             }
             for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next);
             if (sh == NULL) {
+                assert(false && "Slab out of memory, refilled, and still out of memory!");
                 return NULL;
             }
         }
@@ -110,7 +125,9 @@ void *slab_alloc(struct slab_allocator *slabs)
 
     /* dequeue top block from freelist */
     struct block_head *bh = sh->blocks;
-    assert(bh != NULL);
+    assert(bh && "Slab returns NULL");
+    SLAB_DEBUG_OUT("[0x%08x:%s] Allocated 0x%08x [%u free objs remaining]",
+        (int)slabs, slabs->name, (int)bh, slab_freecount(slabs)-1);
     sh->blocks = bh->next;
     sh->free--;
 
@@ -129,6 +146,8 @@ void slab_free(struct slab_allocator *slabs, void *block)
         return;
     }
 
+    SLAB_DEBUG_OUT("[0x%08x:%s] slab_free(0x%08x)",
+        (int)slabs, slabs->name, (int)block);
     struct block_head *bh = (struct block_head *)block;
 
     /* find matching slab */

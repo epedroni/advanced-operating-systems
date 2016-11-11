@@ -9,6 +9,8 @@
 errval_t aos_slab_refill(struct slab_allocator *slabs){
 
 	static bool refill = false;
+    SLAB_DEBUG_OUT("[0x%08x:%s] aos_slab_refill",
+        (int)slabs, slabs->name);
 	if (refill){
 		return SYS_ERR_OK;
 	}
