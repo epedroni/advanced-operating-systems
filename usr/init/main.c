@@ -258,6 +258,13 @@ int main(int argc, char *argv[])
         memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
 
         //TODO: Read this from arguments
+        struct frame_identity urpc_frame_id;
+        frame_identify(cap_urpc, &urpc_frame_id);
+        void* urpc_buffer;
+        paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
+                    NULL, NULL);
+        read_from_urpc(urpc_buffer,&bi,1);
+        read_modules(urpc_buffer,bi,1);
     }
 
     debug_printf("initialize ram alloc\n");
