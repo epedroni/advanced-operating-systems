@@ -102,20 +102,15 @@ static char internal_ex_stack[INTERNAL_STACK_SIZE];
  */
 void paging_init_onthread(struct thread *t)
 {
-    exception_handler_fn old_handler;
-    void *old_stack_base, *old_stack_top;
     char* ex_stack = internal_ex_stack;
     char* ex_stack_top = ex_stack + INTERNAL_STACK_SIZE;
 
-    errval_t err = thread_set_exception_handler(paging_thread_exception_handler,
-          &old_handler,
-          ex_stack, ex_stack_top,
-          &old_stack_base, &old_stack_top);
-    if (err_is_fail(err))
-    {
-        DEBUG_ERR(err, "thread_set_exception_handler");
-        USER_PANIC("Cannot setup paging");
-    }
+    if (!t)
+        t = thread_self();
+
+    t->exception_handler = paging_thread_exception_handler;
+    t->exception_stack = ex_stack;
+    t->exception_stack_top = ex_stack_top;
 }
 
 /**
