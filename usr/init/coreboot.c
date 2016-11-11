@@ -2,6 +2,134 @@
 
 extern struct capref cap_urpc;
 
+errval_t write_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
+        struct bootinfo* bi, coreid_t my_core_id)
+{
+    if (my_core_id != 0) {
+        return;
+    }
+
+    *((struct bootinfo*) urpc_buf) = *bi;
+
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
+    memcpy(urpc_buf, bi->regions, bi->regions_length * sizeof(struct mem_region));
+
+    // mmstrings cap, for reading up modules.
+    struct capref mmstrings_cap = {
+        .cnode = cnode_module,
+        .slot = 0
+    };
+    struct frame_identity mmstrings_id;
+    ERROR_RET1(frame_identify(mmstrings_cap, &mmstrings_id));
+
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
+    *((genpaddr_t*) urpc_buf) = mmstrings_id.base;
+    urpc_buf += sizeof(genpaddr_t);
+    *((gensize_t*) urpc_buf) = mmstrings_id.bytes;
+
+    size_t non_zero_slot_count = 0;
+    for (size_t i = 0; i < bi->regions_length; ++i) {
+        if (bi->regions[i].mrmod_slot != 0) {
+            ++non_zero_slot_count;
+        }
+    }
+    urpc_buf += sizeof(gensize_t);
+    *((size_t*) urpc_buf) = non_zero_slot_count;
+    urpc_buf += sizeof(size_t);
+
+    for (size_t i = 0; i < bi->regions_length; ++i) {
+        if (bi->regions[i].mrmod_slot != 0) {
+            struct capref module = {
+                .cnode = cnode_module,
+                .slot = bi->regions[i].mrmod_slot
+            };
+            struct frame_identity module_id;
+            ERROR_RET1(frame_identify(module, &module_id));
+
+            *((cslot_t*) urpc_buf) = module.slot;
+            urpc_buf += sizeof(cslot_t);
+            *((genpaddr_t*) urpc_buf) = module_id.base;
+            urpc_buf += sizeof(genpaddr_t);
+            *((gensize_t*) urpc_buf) = module_id.bytes;
+            urpc_buf += sizeof(gensize_t);
+        }
+    }
+}
+
+errval_t read_from_urpc(void* urpc_buf, struct bootinfo** bi,
+        coreid_t my_core_id)
+{
+    if (my_core_id == 0) {
+        return SYS_ERR_OK;
+    }
+
+    debug_printf("Reading from urpc\n");
+    *bi = (struct bootinfo*) urpc_buf;
+
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
+    memcpy((*bi)->regions, urpc_buf, (*bi)->regions_length * sizeof(struct mem_region));
+
+    return SYS_ERR_OK;
+}
+
+errval_t read_modules(void* urpc_buf, struct bootinfo* bi,
+        coreid_t my_core_id) {
+    if (my_core_id == 0) {
+        return SYS_ERR_OK;
+    }
+    debug_printf("read modules calculating address\n");
+    // mmstrings cap, for reading up modules.
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
+
+    genpaddr_t* mmstrings_base = (genpaddr_t*) urpc_buf;
+    urpc_buf += sizeof(genpaddr_t);
+    gensize_t* mmstrings_size = (gensize_t*) urpc_buf;
+
+    struct capref mmstrings_cap = {
+        .cnode = cnode_module,
+        .slot = 0
+    };
+
+    struct capref l1cnode = {
+        .cnode = cnode_task,
+        .slot = TASKCN_SLOT_ROOTCN
+    };
+
+    debug_printf("create foriegn l2\n");
+    ERROR_RET1(cnode_create_foreign_l2(l1cnode, ROOTCN_SLOT_MODULECN,&cnode_module));
+    debug_printf("cnode_module: root: %u, cnode: %u, level: %u\n",
+            cnode_module.croot, cnode_module.cnode >> 8, cnode_module.level);
+
+    debug_printf("frame forge\n");
+    ERROR_RET1(frame_forge(mmstrings_cap, *mmstrings_base, *mmstrings_size,
+                my_core_id));
+
+    urpc_buf += sizeof(gensize_t);
+    size_t* non_zero_slot_count = (size_t*) urpc_buf;
+    urpc_buf += sizeof(size_t);
+
+    debug_printf("for loop\n");
+    for (size_t i = 0; i < *non_zero_slot_count; ++i) {
+        // Read slot, base and size & forge cap.
+        cslot_t* module_slot = (cslot_t*) urpc_buf;
+        urpc_buf += sizeof(cslot_t);
+        genpaddr_t* module_base = (genpaddr_t*) urpc_buf;
+        urpc_buf += sizeof(genpaddr_t);
+        gensize_t* module_size = (gensize_t*) urpc_buf;
+        urpc_buf += sizeof(gensize_t);
+
+        struct capref module_cap = {
+            .cnode = cnode_module,
+            .slot = *module_slot
+        };
+        ERROR_RET1(frame_forge(module_cap, *module_base, *module_size,
+                my_core_id));
+    }
+
+    return SYS_ERR_OK;
+}
+
 errval_t coreboot_init(struct bootinfo *bi){
     debug_printf("---- starting coreboot init ----\n");
 
@@ -103,7 +231,6 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->memory_base_start=init_frame_id.base;
     core_data->memory_bytes=init_frame_id.bytes;
 
-    struct capref urpc_frame;
     ERROR_RET1(frame_alloc(&cap_urpc, BASE_PAGE_SIZE, &bytes));
     struct frame_identity urpc_frame_id;
     ERROR_RET1(frame_identify(cap_urpc, &urpc_frame_id));
@@ -111,14 +238,12 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->urpc_frame_base=urpc_frame_id.base;
     core_data->urpc_frame_size=urpc_frame_id.bytes;
 
-//    void* urpc_data;
-//    paging_map_frame(get_current_paging_state(), &urpc_data, BASE_PAGE_SIZE,
-//                urpc_frame, NULL, NULL);
-
     // give other cores a way to access the bootinfo by writing it to the URPC buffer
     void* urpc_buffer;
-    paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, urpc_frame,
-                NULL, NULL);
+    ERROR_RET1(paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
+                NULL, NULL));
+
+    ERROR_RET1(write_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
