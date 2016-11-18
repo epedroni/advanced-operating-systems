@@ -1248,3 +1248,11 @@ errors rpc RPC_ERR_ {
     failure SHARED_BUF_EMPTY        "RPC shared buffer is empty",
     failure BUF_TOO_SMALL           "RPC shared buffer is too small",
 };
+
+errors urpc URPC_ERR_ {
+    failure IS_NOT_SERVER_BUFFER    "This function can only be called with server buffer",
+    failure IS_NOT_CLIENT_BUFFER    "This function can only be called with client buffer",
+    failure WRONG_BUFFER_STATUS     "Wrong buffer status",
+    failure BUFFER_TOO_SMALL        "URPC buffer is too small",
+    failure PROTOCOL_FATAL_ERROR    "Something really wrong happened with URPC buffer...",
+};
