@@ -81,13 +81,6 @@ errval_t paging_init(void);
 /// setup paging on new thread (used for user-level threads)
 void paging_init_onthread(struct thread *t);
 
-struct paging_region {
-    lvaddr_t base_addr;
-    lvaddr_t current_addr;
-    size_t region_size;
-    // TODO: if needed add struct members for tracking state
-};
-
 errval_t paging_region_init(struct paging_state *st,
                             struct paging_region *pr, size_t size);
 

@@ -20,6 +20,7 @@
 #include <aos/threads.h>
 #include <aos/paging.h>
 #include <aos/slab.h>
+#include <aos/paging_datastruct.h>
 
 __BEGIN_DECLS
 

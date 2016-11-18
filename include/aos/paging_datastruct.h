@@ -4,6 +4,13 @@
 //#define PAGING_STORE_AS_LIST
 #define PAGING_STORE_AS_BPTREE
 
+// Unused here...
+struct paging_region {
+    lvaddr_t base_addr;
+    lvaddr_t current_addr;
+    size_t region_size;
+    // TODO: if needed add struct members for tracking state
+};
 
 enum virtual_block_type {
     VirtualBlock_Free,
