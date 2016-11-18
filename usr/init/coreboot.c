@@ -1,6 +1,6 @@
 #include "coreboot.h"
 
-errval_t write_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
+errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
         struct bootinfo* bi, coreid_t my_core_id)
 {
     assert (my_core_id == 0);
@@ -53,7 +53,7 @@ errval_t write_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
     return SYS_ERR_OK;
 }
 
-errval_t read_from_urpc(void* urpc_buf, struct bootinfo** bi,
+errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
         coreid_t my_core_id)
 {
     if (my_core_id == 0) {
@@ -69,7 +69,7 @@ errval_t read_from_urpc(void* urpc_buf, struct bootinfo** bi,
     return SYS_ERR_OK;
 }
 
-errval_t read_modules(void* urpc_buf, struct bootinfo* bi,
+errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi,
         coreid_t my_core_id) {
     if (my_core_id == 0) {
         return SYS_ERR_OK;
@@ -240,7 +240,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     ERROR_RET1(paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
                 NULL, NULL));
 
-    ERROR_RET1(write_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0));
+    ERROR_RET1(coreboot_write_bootinfo_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 

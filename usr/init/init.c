@@ -46,7 +46,7 @@ errval_t os_core_initialize(int argc, char** argv)
             return err;
         }
 
-        err = read_from_urpc(urpc_read_buffer, &bi, 1);
+        err = coreboot_read_bootinfo_from_urpc(urpc_read_buffer, &bi, 1);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_from_urpc");
@@ -69,7 +69,7 @@ errval_t os_core_initialize(int argc, char** argv)
     // Requires RAM alloc initiated, to allocate a L2 CNode.
     if (urpc_read_buffer)
     {
-        err = read_modules(urpc_read_buffer, bi, 1);
+        err = coreboot_urpc_read_bootinfo_modules(urpc_read_buffer, bi, 1);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_modules");
