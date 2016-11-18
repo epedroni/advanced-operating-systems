@@ -285,11 +285,12 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
     memcpy(rpc->server_sess->shared_buffer, name, size);
 
     ERROR_RET1(wait_for_send(rpc->server_sess));
-    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+    ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_SPAWN,
-            size));
+            size,
+            core));
 
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
     struct capref tmp_cap;

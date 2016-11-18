@@ -24,8 +24,6 @@ errval_t spawn_process(char* process_name, struct aos_rpc* rpc, coreid_t core_id
     ERROR_RET1(aos_server_add_client(rpc, &sess));
 
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
-    if (core_id >= 2)
-        ERROR_RET1(invoke_kernel_get_core_id(cap_kernel, &core_id));
     process_info->core_id=core_id;
     err = spawn_load_by_name(process_name,
         process_info,
@@ -138,6 +136,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
         return RPC_ERR_SHARED_BUF_EMPTY;
 
     size_t string_size = msg->words[1];
+    coreid_t core_id = msg->words[2];
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
     char* process_name = malloc(string_size + 1);
@@ -145,7 +144,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     process_name[string_size] = 0;
 
     domainid_t ret_pid;
-    errval_t err = spawn_process(process_name, sess->rpc, 2, &ret_pid);
+    errval_t err = spawn_process(process_name, sess->rpc, core_id, &ret_pid);
     if (err_is_fail(err))
     {
         // don't need to free otherwise because it is assigned to running_proc

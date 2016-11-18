@@ -657,6 +657,7 @@ errors spawn SPAWN_ERR_ {
 
     failure FIND_SPAWNDS       "Unable to find spawn daemons",
     failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
+    failure WRONG_CORE_ID       "Invalid specified core id",
 };
 
 // errors from ELF library
