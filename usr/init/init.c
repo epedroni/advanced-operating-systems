@@ -18,6 +18,8 @@ errval_t os_core_initialize(int argc, char** argv)
     /// /sbin/init initialization sequence.
     // Warning: order of steps MATTERS
 
+    struct coreboot_available_ram_info available_ram;
+
     // 1. Find core ID
     err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
     assert(err_is_ok(err));
@@ -46,7 +48,7 @@ errval_t os_core_initialize(int argc, char** argv)
             return err;
         }
 
-        err = coreboot_read_bootinfo_from_urpc(urpc_read_buffer, &bi, 1);
+        err = coreboot_read_bootinfo_from_urpc(urpc_read_buffer, &bi, &available_ram, 1);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_from_urpc");
@@ -54,11 +56,10 @@ errval_t os_core_initialize(int argc, char** argv)
         }
     }
 
-
     // 3. Initialize RAM alloc. Requires a correct boot info regions
     assert(bi);
     assert(bi->regions_length);
-    err = initialize_ram_alloc(my_core_id);
+    err = initialize_ram_alloc(my_core_id, available_ram.ram_base_address, available_ram.ram_size);
     if (err_is_fail(err))
     {
         DEBUG_ERR(err, "initialize_ram_alloc");

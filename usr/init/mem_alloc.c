@@ -51,10 +51,10 @@ errval_t aos_ram_free(struct capref cap, size_t bytes)
  * \brief Setups a local memory allocator for init to use till the memory server
  * is ready to be used.
  */
-errval_t initialize_ram_alloc(coreid_t core_id)
+errval_t initialize_ram_alloc(coreid_t core_id, genpaddr_t ram_base_address, genpaddr_t ram_size)
 {
 	printf("Initializing RAM allocator ...\n");
-    errval_t err = aos_init_mm(core_id);
+    errval_t err = aos_init_mm(core_id, ram_base_address, ram_size);
     if (err_is_fail(err)) {
         return err;
     }
@@ -73,7 +73,7 @@ errval_t initialize_ram_alloc(coreid_t core_id)
  * \brief Setups a local memory allocator for init to use till the memory server
  * is ready to be used.
  */
-errval_t aos_init_mm(coreid_t core_id)
+errval_t aos_init_mm(coreid_t core_id, genpaddr_t ram_base_address, genpaddr_t ram_size)
 {
     debug_printf("aos init mm, core id: %lu\n", core_id);
     errval_t err;
@@ -145,13 +145,11 @@ errval_t aos_init_mm(coreid_t core_id)
         debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
     }else{
         debug_printf("Forging a capability!\n");
-        genpaddr_t base_address=0xa0000000;
-        genpaddr_t ram_size=0x20000000;
 
         struct capref forged_ram;
         ERROR_RET1(slot_alloc(&forged_ram));
-        ERROR_RET1(ram_forge(forged_ram, base_address,ram_size, core_id));
-        ERROR_RET1(mm_add(&aos_mm,forged_ram,base_address,ram_size));
+        ERROR_RET1(ram_forge(forged_ram, ram_base_address, ram_size, core_id));
+        ERROR_RET1(mm_add(&aos_mm,forged_ram, ram_base_address, ram_size));
 
         err = slot_prealloc_refill(aos_mm.slot_alloc_inst);
         if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {

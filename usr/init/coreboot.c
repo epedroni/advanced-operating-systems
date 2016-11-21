@@ -1,9 +1,13 @@
 #include "coreboot.h"
 
 errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
-        struct bootinfo* bi, coreid_t my_core_id)
+        struct bootinfo* bi, coreid_t my_core_id, struct coreboot_available_ram_info available_ram)
 {
     assert (my_core_id == 0);
+
+    //Copy available ram info
+    *((struct coreboot_available_ram_info *) urpc_buf) = available_ram;
+    urpc_buf+=sizeof(struct coreboot_available_ram_info);
 
     *((struct bootinfo*) urpc_buf) = *bi;
 
@@ -54,13 +58,15 @@ errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensiz
 }
 
 errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
-        coreid_t my_core_id)
+        struct coreboot_available_ram_info* available_ram, coreid_t my_core_id)
 {
     if (my_core_id == 0) {
         return SYS_ERR_OK;
     }
-
     debug_printf("Reading from urpc\n");
+    *available_ram=*((struct coreboot_available_ram_info*) urpc_buf);
+    urpc_buf+=sizeof(struct coreboot_available_ram_info);
+
     *bi = (struct bootinfo*) urpc_buf;
 
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
@@ -75,6 +81,7 @@ errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi
         return SYS_ERR_OK;
     }
     debug_printf("read modules calculating address\n");
+    urpc_buf+=sizeof(struct coreboot_available_ram_info);
     // mmstrings cap, for reading up modules.
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
@@ -240,7 +247,11 @@ errval_t coreboot_init(struct bootinfo *bi){
     ERROR_RET1(paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
                 NULL, NULL));
 
-    ERROR_RET1(coreboot_write_bootinfo_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0));
+    struct coreboot_available_ram_info available_ram={
+        .ram_base_address=0xa0000000,
+        .ram_size=0x20000000
+    };
+    ERROR_RET1(coreboot_write_bootinfo_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0, available_ram));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 
