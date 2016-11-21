@@ -19,6 +19,7 @@ errval_t os_core_initialize(int argc, char** argv)
     // Warning: order of steps MATTERS
 
     struct coreboot_available_ram_info available_ram;
+    struct urpc_buffer urpc;
 
     // 1. Find core ID
     err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
@@ -33,9 +34,10 @@ errval_t os_core_initialize(int argc, char** argv)
     void* urpc_read_buffer = NULL;
     if (!bi) {
         assert(my_core_id > 0);
-        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+        //TODO: Find a way to replace hardcoded value
+        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*6));
         assert(bi);
-        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*2));
+        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*6));
 
         //TODO: Read this from arguments
         struct frame_identity urpc_frame_id;
@@ -76,6 +78,7 @@ errval_t os_core_initialize(int argc, char** argv)
             DEBUG_ERR(err, "read_modules");
             return err;
         }
+        coreboot_finished_init(urpc_read_buffer);
     }
 
     // 5. Init RPC server
@@ -86,7 +89,10 @@ errval_t os_core_initialize(int argc, char** argv)
     // 6. Boot second core if needed
     if (my_core_id==0){
         debug_printf("--- Starting new core!\n");
-        coreboot_init(bi);
+        void* urpc_buffer;
+        size_t urpc_buffer_size;
+        coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
+        urpc_server_init(&urpc, urpc_buffer, urpc_buffer_size);
     }
 
     #define LOGO(s) debug_printf("%s\n", s);

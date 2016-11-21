@@ -3,6 +3,7 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include "urpc.h"
 
 struct aos_rpc rpc;
 coreid_t my_core_id;

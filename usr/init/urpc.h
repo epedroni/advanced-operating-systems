@@ -33,4 +33,6 @@ errval_t urpc_server_read(struct urpc_buffer* urpc);
 errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void** answer, size_t* answer_len);
 errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len);
 
+errval_t urpc_server_listen(struct urpc_buffer* urpc, void* data, size_t len);
+
 #endif

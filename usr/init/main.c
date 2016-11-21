@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     }
 
     // Run tests
-    run_all_tests();
+//    run_all_tests();
 
     // Test spawn a process
     if (my_core_id == 1)

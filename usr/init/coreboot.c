@@ -1,13 +1,16 @@
 #include "coreboot.h"
+#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
-        struct bootinfo* bi, coreid_t my_core_id, struct coreboot_available_ram_info available_ram)
+        struct bootinfo* bi, coreid_t core_to_spawn_on, struct coreboot_available_ram_info available_ram)
 {
-    assert (my_core_id == 0);
+    assert (core_to_spawn_on != 0);
 
     //Copy available ram info
-    *((struct coreboot_available_ram_info *) urpc_buf) = available_ram;
-    urpc_buf+=sizeof(struct coreboot_available_ram_info);
+    struct urpc_buffer_header* urpc_header=(struct urpc_buffer_header*)urpc_buf;
+    urpc_header->ram_info=available_ram;
+    urpc_header->spawned_core_id=core_to_spawn_on;
+    urpc_buf+=sizeof(struct urpc_buffer_header);
 
     *((struct bootinfo*) urpc_buf) = *bi;
 
@@ -64,10 +67,13 @@ errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
         return SYS_ERR_OK;
     }
     debug_printf("Reading from urpc\n");
-    *available_ram=*((struct coreboot_available_ram_info*) urpc_buf);
-    urpc_buf+=sizeof(struct coreboot_available_ram_info);
+    struct urpc_buffer_header* urpc_header=(struct urpc_buffer_header*)urpc_buf;
+    *available_ram=urpc_header->ram_info;
+    urpc_buf+=sizeof(struct urpc_buffer_header);
 
-    *bi = (struct bootinfo*) urpc_buf;
+    memcpy(*bi, urpc_buf, sizeof(struct bootinfo));
+    debug_printf("Mem regions: %lu\n",(*bi)->regions_length);
+    assert((*bi)->regions_length<=6 && "Allocate more memory for mem_regions in bootinfo");
 
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
     memcpy((*bi)->regions, urpc_buf, (*bi)->regions_length * sizeof(struct mem_region));
@@ -81,7 +87,7 @@ errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi
         return SYS_ERR_OK;
     }
     debug_printf("read modules calculating address\n");
-    urpc_buf+=sizeof(struct coreboot_available_ram_info);
+    urpc_buf+=sizeof(struct urpc_buffer_header);
     // mmstrings cap, for reading up modules.
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
@@ -134,7 +140,7 @@ errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi
     return SYS_ERR_OK;
 }
 
-errval_t coreboot_init(struct bootinfo *bi){
+errval_t coreboot_init(struct bootinfo *bi, void** urpc_buffer, size_t* urpc_buffer_size){
     debug_printf("---- starting coreboot init ----\n");
 
     //KCB: 1
@@ -235,7 +241,7 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->memory_base_start=init_frame_id.base;
     core_data->memory_bytes=init_frame_id.bytes;
 
-    ERROR_RET1(frame_alloc(&cap_urpc, BASE_PAGE_SIZE, &bytes));
+    ERROR_RET1(frame_alloc(&cap_urpc, BASE_PAGE_SIZE, urpc_buffer_size));
     struct frame_identity urpc_frame_id;
     ERROR_RET1(frame_identify(cap_urpc, &urpc_frame_id));
 
@@ -243,20 +249,40 @@ errval_t coreboot_init(struct bootinfo *bi){
     core_data->urpc_frame_size=urpc_frame_id.bytes;
 
     // give other cores a way to access the bootinfo by writing it to the URPC buffer
-    void* urpc_buffer;
-    ERROR_RET1(paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
+    ERROR_RET1(paging_map_frame(get_current_paging_state(), urpc_buffer, urpc_frame_id.bytes, cap_urpc,
                 NULL, NULL));
 
     struct coreboot_available_ram_info available_ram={
         .ram_base_address=0xa0000000,
         .ram_size=0x20000000
     };
-    ERROR_RET1(coreboot_write_bootinfo_to_urpc(urpc_buffer,urpc_frame_id.base, urpc_frame_id.bytes, bi, 0, available_ram));
+    ERROR_RET1(coreboot_write_bootinfo_to_urpc(*urpc_buffer, urpc_frame_id.base, urpc_frame_id.bytes, bi, 1, available_ram));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
+
+    coreboot_wait_for_core_to_boot(*urpc_buffer);
 
     debug_printf("Finished\n");
 
     return SYS_ERR_OK;
+}
 
+errval_t coreboot_wait_for_core_to_boot(void* urpc_buf){
+    struct urpc_buffer_header* urpc_header=(struct urpc_buffer_header*)urpc_buf;
+    debug_printf("Waiting for core to boot and initialize\n");
+    while(urpc_header->spawned_core_id!=0);
+    debug_printf("Core initialized!\n");
+
+    return SYS_ERR_OK;
+}
+
+errval_t coreboot_finished_init(void* urpc_buf){
+    struct urpc_buffer_header* urpc_header=(struct urpc_buffer_header*)urpc_buf;
+    debug_printf("Core %lu finished init\n", urpc_header->spawned_core_id);
+    urpc_header->spawned_core_id=0;
+    memset(urpc_buf,0,BASE_PAGE_SIZE);
+    dmb();
+    debug_printf("Signaled parent!\n");
+
+    return SYS_ERR_OK;
 }

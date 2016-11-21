@@ -3,7 +3,6 @@
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 #include "urpc.h"
 
-
 errval_t urpc_server_init(struct urpc_buffer* urpc, void* buffer, size_t length)
 {
     urpc->is_server = true;
@@ -69,7 +68,6 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void
     urpc->buffer->status = URPC_NO_DATA;
     return SYS_ERR_OK;
 }
-
 
 errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
 {
