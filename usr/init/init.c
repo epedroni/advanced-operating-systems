@@ -31,7 +31,9 @@ errval_t os_core_initialize(int argc, char** argv)
 
     // 2. Get boot info. Get it from args or read it from URPC
     bi = argc > 1 ? (struct bootinfo*)strtol(argv[1], NULL, 10) : NULL;
-    void* urpc_read_buffer = NULL;
+    //void* urpc_read_buffer = NULL;
+    void* urpc_buffer= NULL;
+    size_t urpc_buffer_size=0;
     if (!bi) {
         assert(my_core_id > 0);
         //TODO: Find a way to replace hardcoded value
@@ -42,15 +44,16 @@ errval_t os_core_initialize(int argc, char** argv)
         //TODO: Read this from arguments
         struct frame_identity urpc_frame_id;
         frame_identify(cap_urpc, &urpc_frame_id);
-        err = paging_map_frame(get_current_paging_state(), &urpc_read_buffer, urpc_frame_id.bytes, cap_urpc,
+        err = paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_frame_id.bytes, cap_urpc,
                     NULL, NULL);
+        urpc_buffer_size=urpc_frame_id.bytes;
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "paging_map_frame");
             return err;
         }
 
-        err = coreboot_read_bootinfo_from_urpc(urpc_read_buffer, &bi, &available_ram, 1);
+        err = coreboot_read_bootinfo_from_urpc(urpc_buffer, &bi, &available_ram, 1);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_from_urpc");
@@ -70,15 +73,27 @@ errval_t os_core_initialize(int argc, char** argv)
 
     // 4. Get module regions caps.
     // Requires RAM alloc initiated, to allocate a L2 CNode.
-    if (urpc_read_buffer)
+    if (urpc_buffer)
     {
-        err = coreboot_urpc_read_bootinfo_modules(urpc_read_buffer, bi, 1);
+        err = coreboot_urpc_read_bootinfo_modules(urpc_buffer, bi, 1);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_modules");
             return err;
         }
-        coreboot_finished_init(urpc_read_buffer);
+        coreboot_finished_init(urpc_buffer);
+        urpc_client_init(&urpc, urpc_buffer, urpc_buffer_size);
+
+        void* response=NULL;
+        debug_printf("Sending request to first core\n");
+        size_t bytes;
+        err=urpc_client_send(&urpc,"milan", sizeof("milan"), &response, &bytes);
+        if (err_is_fail(err))
+        {
+            DEBUG_ERR(err, "client_send");
+            return err;
+        }
+        debug_printf("Received answer %s\n", response);
     }
 
     // 5. Init RPC server
@@ -89,10 +104,24 @@ errval_t os_core_initialize(int argc, char** argv)
     // 6. Boot second core if needed
     if (my_core_id==0){
         debug_printf("--- Starting new core!\n");
-        void* urpc_buffer;
-        size_t urpc_buffer_size;
+
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         urpc_server_init(&urpc, urpc_buffer, urpc_buffer_size);
+
+        debug_printf("Waiting for client to send data!\n");
+        err=urpc_server_read(&urpc);
+        if (err_is_fail(err))
+        {
+            DEBUG_ERR(err, "Failed reading from urpc");
+            return err;
+        }
+        char data[]="Hello world";
+        urpc_server_answer(&urpc, data, sizeof(data));
+        if (err_is_fail(err))
+        {
+            DEBUG_ERR(err, "Failed answering");
+            return err;
+        }
     }
 
     #define LOGO(s) debug_printf("%s\n", s);

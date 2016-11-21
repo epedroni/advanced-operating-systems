@@ -28,6 +28,7 @@ errval_t urpc_server_read(struct urpc_buffer* urpc)
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
     while (urpc->buffer->status != URPC_CLIENT_SENT_DATA);
+    debug_printf("urpc_server_read: got data\n");
     return SYS_ERR_OK;
 }
 
@@ -35,7 +36,7 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void
 {
     *answer_len = 0;
 
-    if (!urpc->is_server)
+    if (urpc->is_server)
         return URPC_ERR_IS_NOT_CLIENT_BUFFER;
     if (urpc->buffer->status != URPC_NO_DATA)
         return URPC_ERR_WRONG_BUFFER_STATUS;
@@ -47,13 +48,13 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void
     urpc->buffer->data_len = len;
     dmb();
     urpc->buffer->status = URPC_CLIENT_SENT_DATA;
-
+    dmb();
     // 2. Wait for answer
     while (urpc->buffer->status != URPC_SERVER_REPLIED_DATA);
-
+    debug_printf("urpc_client_send: received response\n");
     // 3. Copy answer
     // TODO: Invalidate cache? Or not needed?
-    assert(false && "TODO: Clear cache here??");
+    //assert(false && "TODO: Clear cache here??");
     size_t data_len = urpc->buffer->data_len;
     if (URPC_MAX_DATA_SIZE(urpc) < data_len)
     {
@@ -82,6 +83,8 @@ errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
     urpc->buffer->data_len = len;
 
     dmb();
-    urpc->buffer->status = URPC_CLIENT_SENT_DATA;
+    urpc->buffer->status = URPC_SERVER_REPLIED_DATA;
+
+    debug_printf("Server replied with data\n");
     return SYS_ERR_OK;
 }

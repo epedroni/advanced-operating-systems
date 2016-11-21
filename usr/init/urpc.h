@@ -12,9 +12,9 @@ enum urpc_buffer_status
 
 struct urpc_buffer_data
 {
-    size_t data_len;
     volatile uint32_t status;
-    void* data;
+    size_t data_len;
+    char data[];
 };
 
 #define URPC_BUF_HEADER_LENGTH (sizeof(size_t) + sizeof(volatile uint32_t))
