@@ -23,13 +23,36 @@ errval_t urpc_client_init(struct urpc_buffer* urpc, void* buffer, size_t length)
     return SYS_ERR_OK;
 }
 
-errval_t urpc_server_read(struct urpc_buffer* urpc)
+static errval_t read_from_buffer(struct urpc_buffer_data* data, void* cpyto, size_t destlen, size_t* datalen)
+{
+    *datalen = data->data_len;
+    if (*datalen > destlen)
+        return URPC_ERR_BUFFER_TOO_SMALL;
+    memcpy(cpyto, (void*)data->data, *datalen);
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_server_receive_try(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen, bool* has_data)
+{
+    if (!urpc->is_server)
+        return URPC_ERR_IS_NOT_SERVER_BUFFER;
+
+    if (urpc->buffer->status == URPC_CLIENT_SENT_DATA)
+    {
+        *has_data = true;
+        return read_from_buffer(urpc->buffer, buf, len, datalen);
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen)
 {
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
     while (urpc->buffer->status != URPC_CLIENT_SENT_DATA);
     debug_printf("urpc_server_read: got data\n");
-    return SYS_ERR_OK;
+    return read_from_buffer(urpc->buffer, buf, len, datalen);
 }
 
 errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void** answer, size_t* answer_len)

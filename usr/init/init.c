@@ -9,7 +9,10 @@
 #include "processmgr.h"
 #include "mem_alloc.h"
 #include "lrpc_server.h"
+#include "urpc_server.h"
 #include "init.h"
+
+static struct urpc_buffer urpc; // URPC thread holds reference to this object!
 
 errval_t os_core_initialize(int argc, char** argv)
 {
@@ -19,7 +22,6 @@ errval_t os_core_initialize(int argc, char** argv)
     // Warning: order of steps MATTERS
 
     struct coreboot_available_ram_info available_ram;
-    struct urpc_buffer urpc;
 
     // 1. Find core ID
     err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
@@ -106,22 +108,8 @@ errval_t os_core_initialize(int argc, char** argv)
         debug_printf("--- Starting new core!\n");
 
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
-        urpc_server_init(&urpc, urpc_buffer, urpc_buffer_size);
-
-        debug_printf("Waiting for client to send data!\n");
-        err=urpc_server_read(&urpc);
-        if (err_is_fail(err))
-        {
-            DEBUG_ERR(err, "Failed reading from urpc");
-            return err;
-        }
-        char data[]="Hello world";
-        urpc_server_answer(&urpc, data, sizeof(data));
-        if (err_is_fail(err))
-        {
-            DEBUG_ERR(err, "Failed answering");
-            return err;
-        }
+        ERROR_RET1(urpc_server_init(&urpc, urpc_buffer, urpc_buffer_size));
+        ERROR_RET1(urpc_server_start_listen(&urpc, true));
     }
 
     #define LOGO(s) debug_printf("%s\n", s);
@@ -152,5 +140,6 @@ errval_t os_core_events_loop(void)
 {
     debug_printf("Entering accept loop forever\n");
     aos_rpc_accept(&rpc);
+    urpc_server_stop();
     return SYS_ERR_OK;
 }

@@ -19,7 +19,8 @@
                         "processmgr.c",
                         "tests.c",
                         "init.c",
-                        "urpc.c"
+                        "urpc.c",
+                        "urpc_server.c"
                       ],
                       addLinkFlags = [ "-e _start_init"],
                       addLibraries = [ "mm", "getopt", "elf", "spawn" ],
