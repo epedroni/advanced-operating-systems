@@ -87,17 +87,6 @@ errval_t os_core_initialize(int argc, char** argv)
         }
         coreboot_finished_init(urpc_buffer);
         urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_SLAVE);
-
-        void* response=NULL;
-        debug_printf("Sending request to first core\n");
-        size_t bytes=0;
-        err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PRINT, "milan", sizeof("milan"), &response, &bytes);
-        if (err_is_fail(err))
-        {
-            DEBUG_ERR(err, "client_send");
-            return err;
-        }
-        debug_printf("Received answer %s bytes: %lu\n", response, bytes);
     }
 
     // 5. Init RPC server
@@ -111,7 +100,25 @@ errval_t os_core_initialize(int argc, char** argv)
 
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
-        ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
+    }
+
+    // 6. Urpc server stuff
+    ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
+
+    //TODO: Move test to separate function
+    char buffer[50];
+    for(int i=0;i<10;++i){
+        void* response=NULL;
+        debug_printf("Sending request for message: %lu\n",i);
+        size_t bytes=0;
+        snprintf(buffer, sizeof(buffer), "Sending message: %lu", i);
+        err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PRINT, buffer, sizeof(buffer), &response, &bytes);
+        if (err_is_fail(err))
+        {
+            DEBUG_ERR(err, "client_send");
+            return err;
+        }
+        debug_printf("Received answer for message: %lu with text %s bytes: %lu\n", i, response, bytes);
     }
 
     #define LOGO(s) debug_printf("%s\n", s);
