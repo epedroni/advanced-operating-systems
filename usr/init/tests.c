@@ -3,15 +3,17 @@
 #include "mem_alloc.h"
 #include "tests.h"
 
+//#define VERBOSE_TEST
+
 #define TEST_ASSERT(call, msg) { errval_t _err = (call); if (err_is_fail(_err)) USER_PANIC_ERR(_err, msg);}
-#define TEST_PRINTF(...) debug_printf(__VA_ARGS__)
 
-struct paging_test
-{
-    uint32_t num;
-};
+#ifdef VERBOSE_TEST
+    #define TEST_PRINTF(...) debug_printf(__VA_ARGS__)
+#else
+    #define TEST_PRINTF(...)
+#endif
 
-static struct paging_test test;
+static uint32_t test_num;
 
 void test_allocate_frame(size_t alloc_size, struct capref* cap_as_frame);
 void* test_alloc_and_map(size_t alloc_size);
@@ -20,8 +22,11 @@ void test_paging(void);
 
 void run_all_tests(void)
 {
+    debug_printf("[TEST] Running all tests...\n");
+    test_num = 0;
     runtests_mem_alloc();
     test_paging();
+    debug_printf("[TEST] Tests finished\n");
 }
 
 
@@ -104,7 +109,7 @@ void* test_alloc_and_map(size_t alloc_size) {
 
 void test_paging(void)
 {
-    #define PRINT_TEST(title) TEST_PRINTF("###########################\n"); TEST_PRINTF("#TEST%02u: %s\n", ++test.num, title);
+    #define PRINT_TEST(title) TEST_PRINTF("###########################\n"); TEST_PRINTF("#TEST%02u: %s\n", ++test_num, title);
 
     int* number;
 
