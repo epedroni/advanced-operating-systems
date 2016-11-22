@@ -9,8 +9,10 @@
 #include "processmgr.h"
 #include "mem_alloc.h"
 #include "lrpc_server.h"
-#include "urpc_server.h"
 #include "init.h"
+#include "urpc/server.h"
+#include "urpc/urpc.h"
+#include "urpc/opcodes.h"
 
 static struct urpc_buffer urpc; // URPC thread holds reference to this object!
 
@@ -89,7 +91,7 @@ errval_t os_core_initialize(int argc, char** argv)
         void* response=NULL;
         debug_printf("Sending request to first core\n");
         size_t bytes;
-        err=urpc_client_send(&urpc,"milan", sizeof("milan"), &response, &bytes);
+        err = urpc_client_send(&urpc, URPC_OP_PRINT, "milan", sizeof("milan"), &response, &bytes);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "client_send");

@@ -1255,4 +1255,5 @@ errors urpc URPC_ERR_ {
     failure WRONG_BUFFER_STATUS     "Wrong buffer status",
     failure BUFFER_TOO_SMALL        "URPC buffer is too small",
     failure PROTOCOL_FATAL_ERROR    "Something really wrong happened with URPC buffer...",
+    failure INVALID_OPCODE          "Invalid opcode",
 };

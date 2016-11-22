@@ -1,7 +1,8 @@
 #include <aos/threads.h>
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
-#include "urpc.h"
-#include "urpc_server.h"
+#include "urpc/urpc.h"
+#include "urpc/server.h"
+#include "urpc/handlers.h"
 
 static struct thread* server_thread = NULL;
 static bool server_stop_now;
@@ -38,33 +39,38 @@ int urpc_server_event_loop(void* _buf_void)
     struct urpc_buffer* buf = _buf_void;
     errval_t err;
     size_t len = 1024;
-    size_t data_len;
-    void* data = malloc(len);
+    struct urpc_message message;
+    message.data = malloc(len);
+    assert(message.data);
+
+    urpc_callback_func_t callbacks_table[URPC_OP_COUNT];
+    memset(callbacks_table, 0, sizeof(callbacks_table));
+    urpc_server_register_callbacks(callbacks_table);
     do {
         if (server_stop_now)
         {
             debug_printf("[URPC_SERVER] Server exited without errors :)\n");
+            free(message.data);
             return SYS_ERR_OK;
         }
         bool has_data = false;
-        err = urpc_server_receive_try(buf, data, len, &data_len, &has_data);
+        err = urpc_server_receive_try(buf, message.data, len, &message.length, &message.opcode, &has_data);
         if (err_is_fail(err))
             break;
         if (has_data)
         {
-            debug_printf("SERVER: Received data length %d\n", data_len);
-            char* data_as_str = data;
-            data_as_str[data_len] = 0;
-            for (int i = 0; i < data_len; ++i)
-                debug_printf("%d: 0x%02x [%c]\n", (int)i, (int)data_as_str[i], data_as_str[i]);
-            debug_printf("SERVER: Data as string: \"%s\"\n", data_as_str);
-            char answer[] = "Hello AOS World!";
-            err = urpc_server_answer(buf, answer, sizeof(answer));
-            // TODO: Process data
+            debug_printf("SERVER: Received data length %d opcode %d\n", message.length, message.opcode);
+            if (callbacks_table[message.opcode])
+                (callbacks_table[message.opcode])(buf, &message);
+            else
+                debug_printf("[URPC_SERVER] Packet without handler!\n");
+            urpc_server_dummy_answer_if_need(buf);
+            // TODO: Check if we have replied!
         }
     } while (!err_is_fail(err));
 
     debug_printf("[URPC_SERVER] Exited with error.\n");
     assert (err_is_fail(err));
+    free(message.data);
     return 0;
 }

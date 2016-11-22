@@ -1,7 +1,8 @@
 
 #include <aos/aos.h>
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
-#include "urpc.h"
+#include "urpc/urpc.h"
+#include "urpc/opcodes.h"
 
 errval_t urpc_server_init(struct urpc_buffer* urpc, void* buffer, size_t length)
 {
@@ -23,16 +24,19 @@ errval_t urpc_client_init(struct urpc_buffer* urpc, void* buffer, size_t length)
     return SYS_ERR_OK;
 }
 
-static errval_t read_from_buffer(struct urpc_buffer_data* data, void* cpyto, size_t destlen, size_t* datalen)
+static errval_t read_from_buffer(struct urpc_buffer_data* data, void* cpyto, size_t destlen, size_t* datalen, uint32_t* opcode)
 {
     *datalen = data->data_len;
+    *opcode = data->opcode;
+    if (data->opcode >= URPC_OP_COUNT)
+        return URPC_ERR_INVALID_OPCODE;
     if (*datalen > destlen)
         return URPC_ERR_BUFFER_TOO_SMALL;
     memcpy(cpyto, (void*)data->data, *datalen);
     return SYS_ERR_OK;
 }
 
-errval_t urpc_server_receive_try(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen, bool* has_data)
+errval_t urpc_server_receive_try(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen, uint32_t* opcode, bool* has_data)
 {
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
@@ -40,22 +44,22 @@ errval_t urpc_server_receive_try(struct urpc_buffer* urpc, void* buf, size_t len
     if (urpc->buffer->status == URPC_CLIENT_SENT_DATA)
     {
         *has_data = true;
-        return read_from_buffer(urpc->buffer, buf, len, datalen);
+        return read_from_buffer(urpc->buffer, buf, len, datalen, opcode);
     }
 
     return SYS_ERR_OK;
 }
 
-errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen)
+errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen, uint32_t* opcode)
 {
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
     while (urpc->buffer->status != URPC_CLIENT_SENT_DATA);
     debug_printf("urpc_server_read: got data\n");
-    return read_from_buffer(urpc->buffer, buf, len, datalen);
+    return read_from_buffer(urpc->buffer, buf, len, datalen, opcode);
 }
 
-errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void** answer, size_t* answer_len)
+errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data, size_t len, void** answer, size_t* answer_len)
 {
     *answer_len = 0;
 
@@ -65,10 +69,13 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, void* data, size_t len, void
         return URPC_ERR_WRONG_BUFFER_STATUS;
     if (URPC_MAX_DATA_SIZE(urpc) < len)
         return URPC_ERR_BUFFER_TOO_SMALL;
+    if (opcode >= URPC_OP_COUNT)
+        return URPC_ERR_INVALID_OPCODE;
 
     // 1. Send data
     memcpy(urpc->buffer->data, data, len);
     urpc->buffer->data_len = len;
+    urpc->buffer->opcode = opcode;
     dmb();
     urpc->buffer->status = URPC_CLIENT_SENT_DATA;
     dmb();
@@ -102,12 +109,20 @@ errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
     if (URPC_MAX_DATA_SIZE(urpc) < len)
         return URPC_ERR_BUFFER_TOO_SMALL;
 
-    memcpy(urpc->buffer->data, data, len);
+    if (len)
+        memcpy(urpc->buffer->data, data, len);
     urpc->buffer->data_len = len;
 
     dmb();
     urpc->buffer->status = URPC_SERVER_REPLIED_DATA;
 
     debug_printf("Server replied with data\n");
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_server_dummy_answer_if_need(struct urpc_buffer* urpc)
+{
+    if (urpc->buffer->status == URPC_CLIENT_SENT_DATA)
+        return urpc_server_answer(urpc, NULL, 0);
     return SYS_ERR_OK;
 }
