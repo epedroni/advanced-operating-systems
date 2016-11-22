@@ -14,7 +14,7 @@
 #include "urpc/urpc.h"
 #include "urpc/opcodes.h"
 
-static struct urpc_buffer urpc; // URPC thread holds reference to this object!
+static struct urpc_channel urpc_chan; // URPC thread holds reference to this object!
 
 errval_t os_core_initialize(int argc, char** argv)
 {
@@ -86,18 +86,18 @@ errval_t os_core_initialize(int argc, char** argv)
             return err;
         }
         coreboot_finished_init(urpc_buffer);
-        urpc_client_init(&urpc, urpc_buffer, urpc_buffer_size);
+        urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_SLAVE);
 
         void* response=NULL;
         debug_printf("Sending request to first core\n");
-        size_t bytes;
-        err = urpc_client_send(&urpc, URPC_OP_PRINT, "milan", sizeof("milan"), &response, &bytes);
+        size_t bytes=0;
+        err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PRINT, "milan", sizeof("milan"), &response, &bytes);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "client_send");
             return err;
         }
-        debug_printf("Received answer %s\n", response);
+        debug_printf("Received answer %s bytes: %lu\n", response, bytes);
     }
 
     // 5. Init RPC server
@@ -110,8 +110,8 @@ errval_t os_core_initialize(int argc, char** argv)
         debug_printf("--- Starting new core!\n");
 
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
-        ERROR_RET1(urpc_server_init(&urpc, urpc_buffer, urpc_buffer_size));
-        ERROR_RET1(urpc_server_start_listen(&urpc, true));
+        ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
+        ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
     }
 
     #define LOGO(s) debug_printf("%s\n", s);
@@ -142,6 +142,6 @@ errval_t os_core_events_loop(void)
 {
     debug_printf("Entering accept loop forever\n");
     aos_rpc_accept(&rpc);
-    urpc_server_stop();
+    urpc_server_stop(&urpc_chan);
     return SYS_ERR_OK;
 }

@@ -93,10 +93,12 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data,
     }
     *answer = malloc(data_len);
     memcpy(*answer, urpc->buffer->data, data_len);
+    *answer_len=data_len;
 
     // 4. Once we have finished everything, we are ready to send new data
     dmb();
     urpc->buffer->status = URPC_NO_DATA;
+    debug_printf("Finished client send data\n");
     return SYS_ERR_OK;
 }
 
@@ -126,3 +128,4 @@ errval_t urpc_server_dummy_answer_if_need(struct urpc_buffer* urpc)
         return urpc_server_answer(urpc, NULL, 0);
     return SYS_ERR_OK;
 }
+

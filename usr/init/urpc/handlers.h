@@ -12,7 +12,6 @@ struct urpc_message
 
 typedef errval_t (*urpc_callback_func_t)(struct urpc_buffer*, struct urpc_message*);
 
-
 void urpc_server_register_callbacks(urpc_callback_func_t* callbacks_table);
 
 #endif
