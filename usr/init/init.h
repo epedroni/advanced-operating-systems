@@ -6,11 +6,12 @@
 #include "urpc/urpc.h"
 #include "process/coreprocessmgr.h"
 #include "process/sysprocessmgr.h"
+#include "urpc/urpc.h"
 
 struct aos_rpc rpc;
-struct coreprocessmgr_state core_pm_state;
 coreid_t my_core_id;
 struct bootinfo *bi;
+struct urpc_channel urpc_chan; // URPC thread holds reference to this
 
 errval_t os_core_initialize(int argc, char** argv);
 errval_t os_core_events_loop(void);

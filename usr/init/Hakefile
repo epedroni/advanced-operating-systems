@@ -20,6 +20,7 @@
                         "init.c",
                         "process/sysprocessmgr.c",
                         "process/coreprocessmgr.c",
+                        "process/processmgr.c",
                         "urpc/urpc.c",
                         "urpc/server.c",
                         "urpc/handlers.c"

@@ -8,21 +8,19 @@
 struct running_process{
     struct running_process *next, *prev;
     domainid_t pid;
-    char *name;
     struct lmp_endpoint *endpoint;
 };
 
 struct coreprocessmgr_state{
     struct running_process *running_procs;
     coreid_t core_id;
-    domainid_t next_pid;
-    uint32_t running_count;
     struct processmgr_state* master_pm;
 };
 
-errval_t coreprocessmgr_init(struct coreprocessmgr_state* pm_state, coreid_t core_id, struct aos_rpc* rpc, const char* init_name);
+errval_t coreprocessmgr_init(struct coreprocessmgr_state* pm_state, coreid_t core_id, struct aos_rpc* rpc);
 errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, char* process_name, struct aos_rpc* rpc,
-        coreid_t core_id, domainid_t *ret_pid);
-void coreprocessmgr_register_rpc_handlers(struct aos_rpc* rpc);
+        coreid_t core_id, domainid_t withpid);
+errval_t coreprocessmgr_find_process_by_endpoint(struct coreprocessmgr_state* pm_state, struct lmp_endpoint* ep, domainid_t* pid);
+errval_t coreprocessmgr_process_finished(struct coreprocessmgr_state* pm_state, domainid_t pid);
 
 #endif //_HEADER_INIT_PROCESSMGR

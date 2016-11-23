@@ -78,7 +78,7 @@ errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, do
     - number: Pointer to the initial size of the list
         Modified to the actual number of entries
 */
-errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, const char* name, domainid_t* pids, size_t* number)
+errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, domainid_t* pids, size_t* number)
 {
     struct sysprocessmgr_process* list = pm_state->head;
     int i = 0;
