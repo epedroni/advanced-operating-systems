@@ -33,17 +33,18 @@ errval_t sysprocessmgr_register_process(struct sysprocessmgr_state* pm_state, co
     return SYS_ERR_OK;
 }
 
+static struct sysprocessmgr_process* find_process_by_pid(struct sysprocessmgr_process* list, domainid_t pid)
+{
+    while (list && list->pid != pid)
+        list = list->next;
+    return list;
+}
+
 errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, domainid_t pid)
 {
-    struct sysprocessmgr_process *process=pm_state->head;
-    while(process){
-        if(process->pid==pid)
-            break;
-        process=process->next;
-    }
-
-    if(!process)
-        return SYS_ERR_ILLEGAL_INVOCATION;  //TODO: Create propper error messages
+    struct sysprocessmgr_process *process = find_process_by_pid(pm_state->head, pid);
+    if (!process)
+        return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
 
     if(process->next){
         process->next->prev=process->prev;
@@ -62,9 +63,12 @@ errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, 
     return SYS_ERR_OK;
 }
 
-errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, domainid_t pid, char** name, size_t buffer_len)
+errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, domainid_t pid, char* name, size_t buffer_len)
 {
-    // TODO:
+    struct sysprocessmgr_process *process = find_process_by_pid(pm_state->head, pid);
+    if (!process)
+        return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
+    strncpy(name, process->name, buffer_len);
     return SYS_ERR_OK;
 }
 

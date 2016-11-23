@@ -22,7 +22,7 @@ struct sysprocessmgr_state{
 errval_t sysprocessmgr_init(struct sysprocessmgr_state* pm_state, struct urpc_channel* urpc_channel, coreid_t my_coreid);
 errval_t sysprocessmgr_register_process(struct sysprocessmgr_state* pm_state, const char* name, coreid_t core_id, domainid_t* new_pid);
 errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, domainid_t pid);
-errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, domainid_t pid, char** name, size_t buffer_len);
+errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, domainid_t pid, char* name, size_t buffer_len);
 errval_t sysprocessmgr_get_proces_ids(struct sysprocessmgr_state* pm_state, const char* name, domainid_t* pids, size_t* number);
 
 #endif
