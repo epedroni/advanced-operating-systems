@@ -1258,6 +1258,9 @@ errors urpc URPC_ERR_ {
     failure INVALID_OPCODE          "Invalid opcode",
     failure PROTOCOL_ERROR          "Protocol mismatch. Server can't understand request.",
     failure NO_HANDLER_FOR_OPCODE   "No handler registered for this opcode",
+    failure URPC_BUFFER_TOO_SMALL_FOR_SEND "Too much data sent for URPC buffer",
+    failure ANSWER_BUFFER_TOO_SMALL "Given buffer for received data is too small.",
+    failure BUFFER_TOO_SMALL_FOR_ANSWER "URPC buffer is too small to hold data given in urpc_server_answer.",
 };
 
 errors processmgr PROCMGR_ERR_ {

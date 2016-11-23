@@ -77,6 +77,7 @@ int main(int argc, char *argv[])
 		DEBUG_ERR(err, "Could not get PIDs");
 		return 0;
 	}
+	debug_printf("... got %d PIDs\n", pidcount);
 	for (int i = 0; i < pidcount; i++)
 		debug_printf("Received PID: %d\n", pidptr[i]);
 	free(pidptr);
@@ -84,10 +85,10 @@ int main(int argc, char *argv[])
 	// spawn memeater
 	debug_printf("Spawning memeater via RPC from hello\n");
 	domainid_t mem_eater_pid = 42;
-	/*err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &mem_eater_pid);
+	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &mem_eater_pid);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not spawn memeater");
-	}*/
+	}
 
 	// get all pids again, there should be three now
 	debug_printf("Getting the name of each running process\n");
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
 		DEBUG_ERR(err, "Could not get PIDs");
 		return 0;
 	}
-	debug_printf("Found %d processes.\n", pidcount);
+	debug_printf("... got %d PIDs\n", pidcount);
 
 	char* name;
 	for (int i = 0; i < pidcount; i++) {
@@ -139,7 +140,9 @@ int main(int argc, char *argv[])
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not get PIDs");
+		return 0;
     }
+	debug_printf("... got %d PIDs\n", pidcount);
     for (int i = 0; i < pidcount; i++) {
         err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &name);
         if(err_is_fail(err)){

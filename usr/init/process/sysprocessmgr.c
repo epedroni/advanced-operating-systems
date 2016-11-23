@@ -89,6 +89,7 @@ errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, domainid_
     {
         pids[i] = list->pid;
         list = list->next;
+        debug_printf("sysprocessmgr_list_pids: got %d\n", pids[i]);
         ++i;
     }
     *number = i;

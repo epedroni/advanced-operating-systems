@@ -42,7 +42,7 @@ static errval_t urpc_handle_get_name(struct urpc_buffer* buf, struct urpc_messag
         free(name);
         return err;
     }
-    ERROR_RET1(urpc_server_answer(buf, name, query->max_size));
+    ERROR_RET1(urpc_server_answer(buf, name, strlen(name) + 1));
     free(name);
     return SYS_ERR_OK;
 }
@@ -50,16 +50,18 @@ static errval_t urpc_handle_get_name(struct urpc_buffer* buf, struct urpc_messag
 static errval_t urpc_handle_list_pids(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
 {
     URPC_CHECK_READ_SIZE(msg, sizeof(size_t));
-    size_t max_size = *((size_t*)msg->data);
-    domainid_t* pids = malloc(max_size);
+    size_t max_count = *((size_t*)msg->data);
+    domainid_t* pids = malloc(max_count * sizeof(domainid_t));
 
-    errval_t err = processmgr_list_pids(pids, &max_size);
+    errval_t err = processmgr_list_pids(pids, &max_count);
     if (err_is_fail(err))
     {
         free(pids);
         return err;
     }
-    ERROR_RET1(urpc_server_answer(buf, pids, max_size));
+    for (int i = 0; i < max_count; ++i)
+        debug_printf("urpc_handle_list_pids: pid[%d] = %d\n", i, pids[i]);
+    ERROR_RET1(urpc_server_answer(buf, pids, max_count * sizeof(domainid_t)));
     free(pids);
     return SYS_ERR_OK;
 }

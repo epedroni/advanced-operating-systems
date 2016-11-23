@@ -31,7 +31,10 @@ static errval_t read_from_buffer(struct urpc_buffer_data* data, void* cpyto, siz
     if (data->opcode >= URPC_OP_COUNT)
         return URPC_ERR_INVALID_OPCODE;
     if (*datalen > destlen)
+    {
+        debug_printf("read_from_buffer: destlen=%d datalen=%d\n", destlen, *datalen);
         return URPC_ERR_BUFFER_TOO_SMALL;
+    }
     memcpy(cpyto, (void*)data->data, *datalen);
     return SYS_ERR_OK;
 }
@@ -65,7 +68,7 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
     if (urpc->buffer->status != URPC_NO_DATA)
         return URPC_ERR_WRONG_BUFFER_STATUS;
     if (URPC_MAX_DATA_SIZE(urpc) < len)
-        return URPC_ERR_BUFFER_TOO_SMALL;
+        return URPC_ERR_URPC_BUFFER_TOO_SMALL_FOR_SEND;
     if (opcode >= URPC_OP_COUNT)
         return URPC_ERR_INVALID_OPCODE;
 
@@ -128,7 +131,10 @@ errval_t urpc_client_send_receive_fixed_size(struct urpc_buffer* urpc, uint32_t 
     if (actual_answer_size)
         *actual_answer_size = data_len;
     if (data_len > answer_size)
-        return URPC_ERR_BUFFER_TOO_SMALL;
+    {
+        urpc->buffer->status = URPC_NO_DATA;
+        return URPC_ERR_ANSWER_BUFFER_TOO_SMALL;
+    }
     if (URPC_MAX_DATA_SIZE(urpc) < data_len)
     {
         urpc->buffer->status = URPC_NO_DATA;
@@ -149,7 +155,11 @@ errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
     if (urpc->buffer->status != URPC_CLIENT_SENT_DATA)
         return URPC_ERR_WRONG_BUFFER_STATUS;
     if (URPC_MAX_DATA_SIZE(urpc) < len)
-        return URPC_ERR_BUFFER_TOO_SMALL;
+    {
+        debug_printf("urpc_server_answer[URPC_ERR_BUFFER_TOO_SMALL_FOR_ANSWER]\n");
+        debug_printf("URPC Max Capacity: %d | Answer size: %d\n", URPC_MAX_DATA_SIZE(urpc), len);
+        return URPC_ERR_BUFFER_TOO_SMALL_FOR_ANSWER;
+    }
 
     if (len)
         memcpy(urpc->buffer->data, data, len);

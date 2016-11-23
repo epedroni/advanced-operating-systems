@@ -109,6 +109,7 @@ errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_l
 
 errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
 {
+    debug_printf("processmgr_list_pids: Maximum size %d\n", *number);
     if (use_sysmgr)
         return sysprocessmgr_list_pids(&syspmgr_state, pids, number);
 
@@ -116,6 +117,7 @@ errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
     size_t max_return_size = *number;
     ERROR_RET1(urpc_client_send_receive_fixed_size(&urpc_chan.buffer_send, URPC_OP_LIST_PIDS,
         (void*)&max_return_size, sizeof(max_return_size), pids, max_return_size, number));
+    *number = *number / sizeof(domainid_t);
     return SYS_ERR_OK;
 }
 
