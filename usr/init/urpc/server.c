@@ -1,9 +1,11 @@
 #include "urpc/server.h"
 
+#define URPC_SERV_DEBUG(...) // debug_printf(__VA_ARGS__)
+
 errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_opcodes opcode, urpc_callback_func_t message_handler,
         void* context){
 
-    debug_printf("########## REGISTER HANDLER FOR OPCODE %d\n", opcode);
+    URPC_SERV_DEBUG("########## REGISTER HANDLER FOR OPCODE %d\n", opcode);
     channel->callbacks_table[opcode].message_handler=message_handler;
     channel->callbacks_table[opcode].context=context;
 
@@ -20,11 +22,11 @@ errval_t urpc_channel_init(struct urpc_channel* channel, void* fullbuffer, size_
     memset(channel->callbacks_table, 0, sizeof(channel->callbacks_table));
 
     if(channel_type==URPC_CHAN_MASTER){
-        debug_printf("Initializing urpc channel as master\n");
+        URPC_SERV_DEBUG("Initializing urpc channel as master\n");
         rcv_buffer=fullbuffer;
         send_buffer=fullbuffer+buffer_size;
     }else{
-        debug_printf("Initializing urpc channel as slave\n");
+        URPC_SERV_DEBUG("Initializing urpc channel as slave\n");
         rcv_buffer=fullbuffer+buffer_size;
         send_buffer=fullbuffer;
     }
@@ -58,7 +60,7 @@ errval_t urpc_server_stop(struct urpc_channel* channel)
     if (!channel->server_thread)
         return SYS_ERR_OK;
 
-    debug_printf("[URPC_SERVER] Graceful shutdown requested...\n");
+    URPC_SERV_DEBUG("[URPC_SERVER] Graceful shutdown requested...\n");
     int retval;
     channel->server_stop_now = true;
     errval_t join_err = thread_join(channel->server_thread, &retval);
@@ -79,7 +81,7 @@ int urpc_server_event_loop(void* _buf_void)
     do {
         if (channel->server_stop_now)
         {
-            debug_printf("[URPC_SERVER] Server exited without errors :)\n");
+            URPC_SERV_DEBUG("[URPC_SERVER] Server exited without errors :)\n");
             free(message.data);
             return SYS_ERR_OK;
         }
@@ -89,7 +91,7 @@ int urpc_server_event_loop(void* _buf_void)
             break;
         if (has_data)
         {
-            debug_printf("SERVER: Received data length %d opcode %d\n", message.length, message.opcode);
+            URPC_SERV_DEBUG("SERVER: Received data length %d opcode %d\n", message.length, message.opcode);
             if (channel->callbacks_table[message.opcode].message_handler)
             {
                 errval_t cb_error = (channel->callbacks_table[message.opcode].message_handler)(buf, &message,
@@ -98,14 +100,14 @@ int urpc_server_event_loop(void* _buf_void)
             }
             else
             {
-                debug_printf("[URPC_SERVER] Packet without handler!\n");
+                URPC_SERV_DEBUG("[URPC_SERVER] Packet without handler!\n");
                 urpc_server_answer_error(buf, URPC_ERR_NO_HANDLER_FOR_OPCODE);
             }
             // TODO: Check if we have replied!
         }
     } while (!err_is_fail(err));
 
-    debug_printf("[URPC_SERVER] Exited with error.\n");
+    URPC_SERV_DEBUG("[URPC_SERVER] Exited with error.\n");
     assert (err_is_fail(err));
     free(message.data);
     return 0;

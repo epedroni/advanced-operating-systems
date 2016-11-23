@@ -15,6 +15,7 @@ enum urpc_opcodes
     URPC_OP_PROCESSMGR_GEN_PID,
     URPC_OP_PROCESSMGR_SPAWN,
     URPC_OP_GET_PROCESS_NAME,
+    URPC_OP_LIST_PIDS,
     URPC_OP_COUNT,
 };
 
@@ -32,6 +33,12 @@ struct urpc_msg_spawn
     coreid_t core_id;
     domainid_t pid;
     char name[0];
+};
+
+struct urpc_msg_get_process_name
+{
+    domainid_t pid;
+    size_t max_size;
 };
 
 #endif
