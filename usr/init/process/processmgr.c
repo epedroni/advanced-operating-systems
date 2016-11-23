@@ -65,11 +65,9 @@ errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
     err=processmgr_spawn_process_with_pid(name, core_id, *pid);
     if(err_is_fail(err)){
         debug_printf("We have an error while spawning process, removing PID form list\n");
-        ERROR_RET1(processmgr_remove_pid(*pid));
-    }else{
+        processmgr_remove_pid(*pid);
         return err;
     }
-
     return SYS_ERR_OK;
 }
 
