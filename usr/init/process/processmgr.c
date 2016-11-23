@@ -26,7 +26,7 @@ errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t*
     if (use_sysmgr)
         return sysprocessmgr_register_process(&syspmgr_state, name, core_id, new_pid);
 
-    // URPC CALL TO GET PID
+    // URPC CALL: URPC_OP_PROCESSMGR_GEN_PID
     size_t size = strlen(name)+1;
     size_t send_size = size + sizeof(struct urpc_msg_gen_pid);
     struct urpc_msg_gen_pid* send = malloc(send_size);
@@ -39,21 +39,54 @@ errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t*
     ERROR_RET2(urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PROCESSMGR_GEN_PID,
         send, send_size, (void**)&answer_pid, &answer_len),
         PROCMGR_ERR_URPC_REMOTE_FAIL);
-    if (answer_len != sizeof(domainid_t))
-        return PROCMGR_ERR_URPC_REMOTE_FAIL;
-
-    *new_pid = *answer_pid;
     free(send);
+    if (answer_len != sizeof(domainid_t))
+    {
+        free(answer_pid);
+        return PROCMGR_ERR_URPC_REMOTE_FAIL;
+    }
+
+    *new_pid = (int)*answer_pid;
     free(answer_pid);
+
     return SYS_ERR_OK;
 }
 
-errval_t processmgr_spawn_process(char* process_name, coreid_t core_id, domainid_t *pid)
+errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
 {
-    ERROR_RET1(processmgr_generate_pid(process_name, core_id, pid))
+    debug_printf("processmgr_spawn_process:: Spawn on core %d\n", core_id);
+    ERROR_RET1(processmgr_generate_pid(name, core_id, pid));
+    debug_printf("processmgr_spawn_process:: Got PID %d\n", *pid);
+    return processmgr_spawn_process_with_pid(name, core_id, *pid);
+}
+
+errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, domainid_t pid)
+{
     if (core_id == my_core_id)
-        return coreprocessmgr_spawn_process(&core_pm_state, process_name, &rpc, core_id, *pid);
-    return SYS_ERR_NOT_IMPLEMENTED;
+        return coreprocessmgr_spawn_process(&core_pm_state, name, &rpc, core_id, pid);
+
+    // URPC CALL: URPC_OP_PROCESSMGR_SPAWN
+    size_t size = strlen(name)+1;
+    size_t send_size = size + sizeof(struct urpc_msg_spawn);
+    struct urpc_msg_spawn* send = malloc(send_size);
+    send->name_size = size;
+    send->core_id = core_id;
+    send->pid = pid;
+    memcpy(send->name, name, size);
+    errval_t* answer;
+    size_t answer_len;
+
+    errval_t err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PROCESSMGR_SPAWN,
+        send, send_size, (void**)&answer, &answer_len);
+
+    if (err_is_fail(err))
+        err = err_push(err, PROCMGR_ERR_URPC_REMOTE_FAIL);
+    else
+        err = *answer;
+
+    free(send);
+    free(answer);
+    return err;
 }
 
 errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_len)

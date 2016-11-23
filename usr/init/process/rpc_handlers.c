@@ -13,7 +13,6 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     assert(sess);
-    assert(context && "Context to core process mgr must be set");
 
     domainid_t requested_pid = msg->words[1];
     char* processname = sess->shared_buffer;
@@ -40,7 +39,6 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     assert(sess);
-    assert(context && "Context to core process mgr must be set");
 
     // should the running processes be kept in an array instead of a linked list?
     domainid_t pids[MAX_PID];
@@ -71,7 +69,6 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     assert(sess);
-    assert(context && "Context to core process mgr must be set");
 
     if (!sess->shared_buffer_size)
         return RPC_ERR_SHARED_BUF_EMPTY;
@@ -112,7 +109,6 @@ errval_t handle_exit(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     assert(sess);
-    assert(context && "Context to core process mgr must be set");
 
     debug_printf("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
     return processmgr_process_exited(sess->lc.endpoint);

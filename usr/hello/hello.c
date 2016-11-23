@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not get PIDs");
+		return 0;
 	}
 	for (int i = 0; i < pidcount; i++) {
 		debug_printf("Received PID: %d\n", pidptr[i]);
@@ -81,8 +82,8 @@ int main(int argc, char *argv[])
 
 	// spawn memeater
 	debug_printf("Spawning memeater via RPC from hello\n");
-	domainid_t new_pid;
-	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &new_pid);
+	domainid_t mem_eater_pid;
+	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &mem_eater_pid);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not spawn memeater");
 	}
@@ -93,6 +94,7 @@ int main(int argc, char *argv[])
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not get PIDs");
+		return 0;
 	}
 
 	for (int i = 0; i < pidcount; i++) {
@@ -108,17 +110,23 @@ int main(int argc, char *argv[])
 	if(err_is_fail(err)){
 		debug_printf("Could not get domain name, that is expected\n");
 	}
-	debug_printf("PID: %d, name: \"%s\"\n", 1000, nameptr);
+	else
+	{
+		debug_printf("FATAL ERROR");
+		debug_printf("PID: %d, name: \"%s\"\n", 1000, nameptr);
+		return 0;
+	}
 
 	debug_printf("Trying to spawn a domain that does not exist\n");
-	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/fail", 0, &new_pid);
+	domainid_t fail_pid;
+	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/fail", 0, &fail_pid);
 	if(err_is_fail(err)){
 		debug_printf("Could not spawn domain, that is expected\n");
 	}
-	debug_printf("Returned PID: %d\n", new_pid);
+	debug_printf("Returned PID: %d\n", fail_pid);
 
-	debug_printf("Waiting for memeater to return\n");
-	while (!err_is_fail(aos_rpc_process_get_name(get_init_rpc(), 2, &nameptr)));
+	debug_printf("Waiting for memeater [PID=%d] to return\n", (int)mem_eater_pid);
+	while (!err_is_fail(aos_rpc_process_get_name(get_init_rpc(), mem_eater_pid, &nameptr)));
 
 	debug_printf("Memeater appears to have returned, check all pids\n");
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);

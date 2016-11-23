@@ -32,7 +32,7 @@ errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
 
 // TODO(M4): Build and pass a messaging channel to your child process
-errval_t spawn_load_by_name(void * binary_name, struct spawninfo * si, struct lmp_chan* lc) {
+errval_t spawn_load_by_name(const char* binary_name, struct spawninfo * si, struct lmp_chan* lc) {
     debug_printf("spawn start_child: starting: %s, trying to load module\n", binary_name);
     if (si->core_id >= 2) // We only have 2 cores
         return SPAWN_ERR_WRONG_CORE_ID;

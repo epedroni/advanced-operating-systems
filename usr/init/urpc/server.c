@@ -3,6 +3,7 @@
 errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_opcodes opcode, urpc_callback_func_t message_handler,
         void* context){
 
+    debug_printf("########## REGISTER HANDLER FOR OPCODE %d\n", opcode);
     channel->callbacks_table[opcode].message_handler=message_handler;
     channel->callbacks_table[opcode].context=context;
 
@@ -90,11 +91,16 @@ int urpc_server_event_loop(void* _buf_void)
         {
             debug_printf("SERVER: Received data length %d opcode %d\n", message.length, message.opcode);
             if (channel->callbacks_table[message.opcode].message_handler)
-                (channel->callbacks_table[message.opcode].message_handler)(buf, &message,
+            {
+                errval_t cb_error = (channel->callbacks_table[message.opcode].message_handler)(buf, &message,
                         channel->callbacks_table[message.opcode].context);
+                urpc_server_answer_error(buf, cb_error);
+            }
             else
+            {
                 debug_printf("[URPC_SERVER] Packet without handler!\n");
-            urpc_server_dummy_answer_if_need(buf);
+                urpc_server_answer_error(buf, URPC_ERR_NO_HANDLER_FOR_OPCODE);
+            }
             // TODO: Check if we have replied!
         }
     } while (!err_is_fail(err));

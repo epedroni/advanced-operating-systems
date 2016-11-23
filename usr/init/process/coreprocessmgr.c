@@ -2,7 +2,7 @@
 #include "process/processmgr.h"
 
 // ProcessMgr functions
-errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, char* process_name,
+errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, const char* process_name,
         struct aos_rpc* rpc, coreid_t core_id, domainid_t withpid){
     errval_t err;
 

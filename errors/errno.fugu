@@ -1257,9 +1257,11 @@ errors urpc URPC_ERR_ {
     failure PROTOCOL_FATAL_ERROR    "Something really wrong happened with URPC buffer...",
     failure INVALID_OPCODE          "Invalid opcode",
     failure PROTOCOL_ERROR          "Protocol mismatch. Server can't understand request.",
+    failure NO_HANDLER_FOR_OPCODE   "No handler registered for this opcode",
 };
 
 errors processmgr PROCMGR_ERR_ {
     failure PROCESS_NOT_FOUND       "No process matching given PID",
+    failure REMOTE_DIFFERENT_COREID "URPC handler: trying to spawn process on different core id!",
     failure URPC_REMOTE_FAIL        "Remote URPC procedure failed",
 };

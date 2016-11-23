@@ -5,6 +5,7 @@ errval_t sysprocessmgr_init(struct sysprocessmgr_state* pm_state, struct urpc_ch
     pm_state->running_count=0;
     pm_state->urpc_channel=urpc_channel;
     pm_state->my_core_id=my_coreid;
+    pm_state->next_pid=0;
 
     pm_state->head=NULL;
 
@@ -29,6 +30,7 @@ errval_t sysprocessmgr_register_process(struct sysprocessmgr_state* pm_state, co
     pm_state->head=new_process;
     pm_state->running_count++;
     *new_pid = new_process->pid;
+    debug_printf("coreprocessmgr_spawn_process:: PID generated: 0x%d\n", new_process->pid);
 
     return SYS_ERR_OK;
 }
@@ -46,17 +48,15 @@ errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, 
     if (!process)
         return PROCMGR_ERR_PROCESS_NOT_FOUND;
 
-    if(process->next){
+    if(process->next)
         process->next->prev=process->prev;
-    }
-    if(process->prev){
+    if(process->prev)
         process->prev->next=process->next;
-    }
-    if(process==pm_state->head){
+    if(process==pm_state->head)
         pm_state->head=process->next;
-    }
     pm_state->running_count--;
 
+    debug_printf("DEREGISTER [PID=%d] %s\n", (int)pid, process->name);
     free(process->name);
     free(process);
 
@@ -87,6 +87,8 @@ errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, domainid_
     {
         pids[i] = list->pid;
         list = list->next;
+        ++i;
     }
+    *number = i;
     return SYS_ERR_OK;
 }

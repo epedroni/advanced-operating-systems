@@ -8,6 +8,7 @@ enum urpc_buffer_status
     URPC_NO_DATA,
     URPC_CLIENT_SENT_DATA,
     URPC_SERVER_REPLIED_DATA,
+    URPC_SERVER_REPLIED_ERROR,
 };
 
 struct urpc_buffer_data
@@ -34,6 +35,7 @@ errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t l
 errval_t urpc_server_receive_try(struct urpc_buffer* urpc, void* buf, size_t len, size_t* datalen, uint32_t* opcode, bool* has_data);
 errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data, size_t len, void** answer, size_t* answer_len);
 errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len);
+errval_t urpc_server_answer_error(struct urpc_buffer* urpc, errval_t error);
 errval_t urpc_server_dummy_answer_if_need(struct urpc_buffer* urpc);
 
 #endif

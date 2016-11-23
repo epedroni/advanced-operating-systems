@@ -55,10 +55,13 @@ errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t l
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
     while (urpc->buffer->status != URPC_CLIENT_SENT_DATA);
-    debug_printf("urpc_server_read: got data\n");
     return read_from_buffer(urpc->buffer, buf, len, datalen, opcode);
 }
 
+static void dump_buffer_begin(const char* from, char* buf)
+{
+    debug_printf("%s: Dump buffer: 0x%x 0x%x 0x%x 0x%x...\n", from, buf[0], buf[1], buf[2], buf[3]);
+}
 errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data, size_t len, void** answer, size_t* answer_len)
 {
     *answer_len = 0;
@@ -79,9 +82,19 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data,
     dmb();
     urpc->buffer->status = URPC_CLIENT_SENT_DATA;
     dmb();
+
     // 2. Wait for answer
-    while (urpc->buffer->status != URPC_SERVER_REPLIED_DATA);
-    debug_printf("urpc_client_send: received response\n");
+    while (urpc->buffer->status == URPC_CLIENT_SENT_DATA);
+
+    if (urpc->buffer->status == URPC_SERVER_REPLIED_ERROR)
+    {
+        // VoooodoooOOooo
+        void* pbuf = (void*)&urpc->buffer->data[0];
+        errval_t err = *((errval_t*)pbuf);
+        if (err_is_fail(err))
+            return err;
+    }
+
     // 3. Copy answer
     // TODO: Invalidate cache? Or not needed?
     //assert(false && "TODO: Clear cache here??");
@@ -93,14 +106,16 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data,
     }
     *answer = malloc(data_len);
     memcpy(*answer, urpc->buffer->data, data_len);
+    dump_buffer_begin("urpc_client_send(answer)", urpc->buffer->data);
     *answer_len=data_len;
 
     // 4. Once we have finished everything, we are ready to send new data
     dmb();
     urpc->buffer->status = URPC_NO_DATA;
-    debug_printf("Finished client send data\n");
+    debug_printf("Finished client send data. Answer is at address 0x%08x\n", (int)*answer);
     return SYS_ERR_OK;
 }
+
 
 errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
 {
@@ -114,9 +129,25 @@ errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len)
     if (len)
         memcpy(urpc->buffer->data, data, len);
     urpc->buffer->data_len = len;
+    dump_buffer_begin("urpc_server_answer", urpc->buffer->data);
 
     dmb();
     urpc->buffer->status = URPC_SERVER_REPLIED_DATA;
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_server_answer_error(struct urpc_buffer* urpc, errval_t error)
+{
+    if (!urpc->is_server)
+        return URPC_ERR_IS_NOT_SERVER_BUFFER;
+    if (urpc->buffer->status != URPC_CLIENT_SENT_DATA)
+        return URPC_ERR_WRONG_BUFFER_STATUS;
+
+    memcpy(urpc->buffer->data, &error, sizeof(error));
+    urpc->buffer->data_len = sizeof(error);
+
+    dmb();
+    urpc->buffer->status = URPC_SERVER_REPLIED_ERROR;
 
     debug_printf("Server replied with data\n");
     return SYS_ERR_OK;
@@ -128,4 +159,3 @@ errval_t urpc_server_dummy_answer_if_need(struct urpc_buffer* urpc)
         return urpc_server_answer(urpc, NULL, 0);
     return SYS_ERR_OK;
 }
-

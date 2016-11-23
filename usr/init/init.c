@@ -89,9 +89,8 @@ errval_t os_core_initialize(int argc, char** argv)
     }
 
     // 5. Init RPC server
-    aos_rpc_init(&rpc, NULL_CAP, false);
-    lmp_server_init(&rpc);
-    ERROR_RET1(processmgr_init(my_core_id));
+    ERROR_RET1(aos_rpc_init(&rpc, NULL_CAP, false));
+    ERROR_RET1(lmp_server_init(&rpc));
 
     // 6. Boot second core if needed
     if (my_core_id==0){
@@ -100,15 +99,15 @@ errval_t os_core_initialize(int argc, char** argv)
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
     }
-
-    ERROR_RET1(urpc_register_default_handlers(&urpc_chan));
+    ERROR_RET1(processmgr_init(my_core_id));
 
     // 6. Urpc server stuff
+    ERROR_RET1(urpc_register_default_handlers(&urpc_chan));
     ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
 
     //TODO: Move test to separate function
     char buffer[50];
-    for(int i=0;i<10;++i){
+    for(int i=0;i<0;++i){
         void* response=NULL;
         debug_printf("Sending request for message: %lu\n",i);
         size_t bytes=0;
