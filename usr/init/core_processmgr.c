@@ -1,50 +1,12 @@
-#if 0
-#include <aos/aos.h>
-#include <spawn/spawn.h>
-#include <aos/aos_rpc.h>
-#include "processmgr.h"
-
-// ProcessMgr data
-//struct running_process
-//{
-//    struct running_process *next, *prev;
-//    domainid_t pid;
-//    char *name;
-//    struct lmp_endpoint *endpoint;
-//};
-//
-//static struct running_process *running_procs = NULL;
-//static uint32_t running_count = 0;
-//static domainid_t next_pid = 0;
-
-errval_t processmgr_allocate_process_id(struct processmgr_state* pm_state, const char* process_name, coreid_t core_id,
-        domainid_t* new_id){
-    errval_t err;
-
-    struct running_process *rp = malloc(sizeof(struct running_process));
-    rp->prev = NULL;
-    rp->next = pm_state->running_procs;
-    if (rp->next) {
-        rp->next->prev = rp;
-    }
-    rp->pid = pm_state->next_pid++;
-    rp->name = process_name;
-    rp->endpoint = sess->lc.endpoint;
-
-    running_count++;
-
-    debug_printf("Spawned process with endpoint 0x%x\n", rp->endpoint);
-
-    running_procs = rp;
-
-    *ret_pid = rp->pid;
-
-    return SYS_ERR_OK;
-}
+#include "core_processmgr.h"
 
 // ProcessMgr functions
-errval_t spawn_process(char* process_name, struct aos_rpc* rpc, coreid_t core_id, domainid_t *ret_pid){
+errval_t core_processmgr_spawn_process(struct core_processmgr_state* pm_state, char* process_name,
+        struct aos_rpc* rpc, coreid_t core_id, domainid_t *ret_pid){
     errval_t err;
+
+    //TODO: Ask main PM for new pid for process
+
     struct aos_rpc_session* sess = NULL;
     ERROR_RET1(aos_server_add_client(rpc, &sess));
 
@@ -56,6 +18,7 @@ errval_t spawn_process(char* process_name, struct aos_rpc* rpc, coreid_t core_id
     free(process_info);
     if(err_is_fail(err)) {
         *ret_pid = 0;
+        //TODO: Notify PM to remove newly created pid
         return err;
     }
 
@@ -64,19 +27,19 @@ errval_t spawn_process(char* process_name, struct aos_rpc* rpc, coreid_t core_id
     // add to running processes list
     struct running_process *rp = malloc(sizeof(struct running_process));
     rp->prev = NULL;
-    rp->next = running_procs;
+    rp->next = pm_state->running_procs;
     if (rp->next) {
         rp->next->prev = rp;
     }
-    rp->pid = next_pid++;
+    rp->pid = pm_state->next_pid++;
     rp->name = process_name;
     rp->endpoint = sess->lc.endpoint;
 
-    running_count++;
+    pm_state->running_count++;
 
     debug_printf("Spawned process with endpoint 0x%x\n", rp->endpoint);
 
-    running_procs = rp;
+    pm_state->running_procs = rp;
 
     *ret_pid = rp->pid;
     return SYS_ERR_OK;
@@ -87,13 +50,18 @@ static
 errval_t handle_get_name(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
+        void* context,
         struct capref* ret_cap,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
     assert(sess);
+    assert(context && "Context to core process mgr must be set");
+    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
 
-    struct running_process *rp = running_procs;
+    //TODO: Ask PM for process name
+
+    struct running_process *rp = pm_state->running_procs;
     domainid_t requested_pid = msg->words[1];
     while (rp && rp->pid != requested_pid) {
         rp = rp->next;
@@ -120,31 +88,34 @@ static
 errval_t handle_get_pid(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
+        void* context,
         struct capref* ret_cap,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
     assert(sess);
+    assert(context && "Context to core process mgr must be set");
+    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
 
     // should the running processes be kept in an array instead of a linked list?
-    domainid_t pids[running_count];
-    struct running_process *rp = running_procs;
-    for (int i = 0; i < running_count && rp; i++) {
+    domainid_t pids[pm_state->running_count];
+    struct running_process *rp = pm_state->running_procs;
+    for (int i = 0; i < pm_state->running_count && rp; i++) {
         pids[i] = rp->pid;
         rp = rp->next;
     }
     domainid_t *pidptr = &pids[0];
 
-    if (running_count * sizeof(domainid_t) > sess->shared_buffer_size)
+    if (pm_state->running_count * sizeof(domainid_t) > sess->shared_buffer_size)
         return RPC_ERR_BUF_TOO_SMALL;
 
-    memcpy(sess->shared_buffer, pidptr, running_count * sizeof(domainid_t));
+    memcpy(sess->shared_buffer, pidptr, pm_state->running_count * sizeof(domainid_t));
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             MAKE_RPC_MSG_HEADER(RPC_GET_PID, RPC_FLAG_ACK),
-            running_count));
+            pm_state->running_count));
 
     return SYS_ERR_OK;
 }
@@ -153,10 +124,15 @@ static
 errval_t handle_spawn(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
+        void* context,
         struct capref* ret_cap,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+    assert(sess);
+    assert(context && "Context to core process mgr must be set");
+    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+
     if (!sess->shared_buffer_size)
         return RPC_ERR_SHARED_BUF_EMPTY;
 
@@ -169,7 +145,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     process_name[string_size] = 0;
 
     domainid_t ret_pid;
-    errval_t err = spawn_process(process_name, sess->rpc, core_id, &ret_pid);
+    errval_t err = core_processmgr_spawn_process(pm_state, process_name, sess->rpc, core_id, &ret_pid);
     if (err_is_fail(err))
     {
         // don't need to free otherwise because it is assigned to running_proc
@@ -190,12 +166,17 @@ static
 errval_t handle_exit(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
+        void* context,
         struct capref* ret_cap,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+    assert(sess);
+    assert(context && "Context to core process mgr must be set");
+    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+
     debug_printf("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
-    struct running_process *rp = running_procs;
+    struct running_process *rp = pm_state->running_procs;
 
     while (rp && rp->endpoint != sess->lc.endpoint) {
         rp = rp->next;
@@ -208,10 +189,10 @@ errval_t handle_exit(struct aos_rpc_session* sess,
         if (rp->prev) {
             rp->prev->next = rp->next;
         }
-        if (rp == running_procs) {
-            running_procs = rp->next;
+        if (rp == pm_state->running_procs) {
+            pm_state->running_procs = rp->next;
         }
-        running_count--;
+        pm_state->running_count--;
 
         free(rp->name);
         free(rp);
@@ -220,29 +201,33 @@ errval_t handle_exit(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
-errval_t processmgr_init(struct aos_rpc* rpc, const char* init_name)
+static
+void register_rpc_handlers(struct core_processmgr_state* pm_state, struct aos_rpc* rpc)
 {
+    aos_rpc_register_handler_with_context(rpc, RPC_GET_NAME, handle_get_name, false, pm_state);
+    aos_rpc_register_handler_with_context(rpc, RPC_GET_PID, handle_get_pid, false, pm_state);
+    aos_rpc_register_handler_with_context(rpc, RPC_SPAWN, handle_spawn, false, pm_state);
+    aos_rpc_register_handler_with_context(rpc, RPC_EXIT, handle_exit, false, pm_state);
+}
+
+errval_t core_processmgr_init(struct core_processmgr_state* pm_state, coreid_t core_id,
+        struct aos_rpc* rpc, const char* init_name)
+{
+    pm_state->core_id=core_id;
+    pm_state->running_count=0;
+
     size_t namelen = strlen(init_name);
 
     struct running_process *init_rp = malloc(sizeof(struct running_process));
     init_rp->prev = NULL;
     init_rp->next = NULL;
-    init_rp->pid = next_pid++;
+    init_rp->pid = core_id;
     init_rp->name = malloc(namelen + 1);
     memcpy(init_rp->name, init_name, namelen+1);
 
     init_rp->endpoint = NULL;
-    running_count = 1;
-    running_procs = init_rp;
-    processmgr_register_rpc_handlers(rpc);
+    pm_state->running_procs=init_rp;
+    register_rpc_handlers(pm_state, rpc);
     return SYS_ERR_OK;
 }
 
-void processmgr_register_rpc_handlers(struct aos_rpc* rpc)
-{
-    aos_rpc_register_handler(rpc, RPC_GET_NAME, handle_get_name, false);
-    aos_rpc_register_handler(rpc, RPC_GET_PID, handle_get_pid, false);
-    aos_rpc_register_handler(rpc, RPC_SPAWN, handle_spawn, false);
-    aos_rpc_register_handler(rpc, RPC_EXIT, handle_exit, false);
-}
-#endif

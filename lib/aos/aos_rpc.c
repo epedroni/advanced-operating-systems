@@ -50,7 +50,7 @@ void cb_accept_loop(void* args)
     struct capref ret_cap=NULL_CAP;
 
     if(closure.message_handler!=NULL){
-        err=closure.message_handler(cs, &message, received_cap, &ret_cap, &return_opcode, &return_flags);
+        err=closure.message_handler(cs, &message, received_cap, closure.args, &ret_cap, &return_opcode, &return_flags);
         if (!closure.send_ack && !err_is_fail(err))
             send_ack = false;
 
@@ -388,6 +388,17 @@ errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opco
 
     rpc->aos_rpc_message_handler_closure[opcode].send_ack=send_ack;
     rpc->aos_rpc_message_handler_closure[opcode].message_handler=message_handler;
+    rpc->aos_rpc_message_handler_closure[opcode].args=NULL;
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_register_handler_with_context(struct aos_rpc* rpc, enum message_opcodes opcode,
+        aos_rpc_handler message_handler, bool send_ack, void* context){
+
+    rpc->aos_rpc_message_handler_closure[opcode].send_ack=send_ack;
+    rpc->aos_rpc_message_handler_closure[opcode].message_handler=message_handler;
+    rpc->aos_rpc_message_handler_closure[opcode].args=context;
 
     return SYS_ERR_OK;
 }

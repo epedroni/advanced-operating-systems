@@ -18,7 +18,6 @@
 
 #include "tests.h"
 #include "init.h"
-#include "processmgr.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,10 +32,10 @@ int main(int argc, char *argv[])
     run_all_tests();
 
     // Test spawn a process
-    if (my_core_id == 1 && false)
+    if (my_core_id == 1 )
     {
         domainid_t pid;
-        err = spawn_process("/armv7/sbin/hello", &rpc, my_core_id, &pid);
+        err = core_processmgr_spawn_process(&core_pm_state, "/armv7/sbin/hello", &rpc, my_core_id, &pid);
         if (err_is_fail(err))
             DEBUG_ERR(err, "spawn_process");
     }

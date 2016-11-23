@@ -1,11 +1,13 @@
-#include <aos/threads.h>
-#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
-#include "urpc/urpc.h"
 #include "urpc/server.h"
-#include "urpc/handlers.h"
 
-//static struct thread* server_thread = NULL;
-//static bool server_stop_now;
+errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_opcodes opcode, urpc_callback_func_t message_handler,
+        void* context){
+
+    channel->callbacks_table[opcode].message_handler=message_handler;
+    channel->callbacks_table[opcode].context=context;
+
+    return SYS_ERR_OK;
+}
 
 errval_t urpc_channel_init(struct urpc_channel* channel, void* fullbuffer, size_t length,
         enum urpc_channel_type channel_type){
@@ -13,6 +15,8 @@ errval_t urpc_channel_init(struct urpc_channel* channel, void* fullbuffer, size_
     void* rcv_buffer=NULL;
     void* send_buffer=NULL;
     size_t buffer_size=length/2;
+
+    memset(channel->callbacks_table, 0, sizeof(channel->callbacks_table));
 
     if(channel_type==URPC_CHAN_MASTER){
         debug_printf("Initializing urpc channel as master\n");
@@ -71,9 +75,6 @@ int urpc_server_event_loop(void* _buf_void)
     message.data = malloc(len);
     assert(message.data);
 
-    urpc_callback_func_t callbacks_table[URPC_OP_COUNT];
-    memset(callbacks_table, 0, sizeof(callbacks_table));
-    urpc_server_register_callbacks(callbacks_table);
     do {
         if (channel->server_stop_now)
         {
@@ -88,8 +89,9 @@ int urpc_server_event_loop(void* _buf_void)
         if (has_data)
         {
             debug_printf("SERVER: Received data length %d opcode %d\n", message.length, message.opcode);
-            if (callbacks_table[message.opcode])
-                (callbacks_table[message.opcode])(buf, &message);
+            if (channel->callbacks_table[message.opcode].message_handler)
+                (channel->callbacks_table[message.opcode].message_handler)(buf, &message,
+                        channel->callbacks_table[message.opcode].context);
             else
                 debug_printf("[URPC_SERVER] Packet without handler!\n");
             urpc_server_dummy_answer_if_need(buf);

@@ -6,13 +6,14 @@
 #include <spawn/spawn.h>
 
 #include "coreboot.h"
-#include "processmgr.h"
+#include "core_processmgr.h"
 #include "mem_alloc.h"
 #include "lrpc_server.h"
 #include "init.h"
 #include "urpc/server.h"
 #include "urpc/urpc.h"
 #include "urpc/opcodes.h"
+#include "urpc/handlers.h"
 
 static struct urpc_channel urpc_chan; // URPC thread holds reference to this object!
 
@@ -92,7 +93,7 @@ errval_t os_core_initialize(int argc, char** argv)
     // 5. Init RPC server
     aos_rpc_init(&rpc, NULL_CAP, false);
     lmp_server_init(&rpc);
-    processmgr_init(&rpc, argv[0]);
+    core_processmgr_init(&core_pm_state,my_core_id,&rpc,argv[0]);
 
     // 6. Boot second core if needed
     if (my_core_id==0){
@@ -101,6 +102,8 @@ errval_t os_core_initialize(int argc, char** argv)
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
     }
+
+    ERROR_RET1(urpc_register_default_handlers(&urpc_chan));
 
     // 6. Urpc server stuff
     ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));

@@ -4,8 +4,10 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
 #include "urpc/urpc.h"
+#include "core_processmgr.h"
 
 struct aos_rpc rpc;
+struct core_processmgr_state core_pm_state;
 coreid_t my_core_id;
 struct bootinfo *bi;
 

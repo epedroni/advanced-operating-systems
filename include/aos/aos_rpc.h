@@ -60,11 +60,12 @@ struct aos_rpc_session;
 extern const size_t LMP_MAX_BUFF_SIZE;
 
 typedef errval_t (*aos_rpc_handler)(struct aos_rpc_session* sess, struct lmp_recv_msg* msg, struct capref received_capref,
-        struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
+        void* context, struct capref* ret_cap, uint32_t* ret_type, uint32_t* ret_flags);
 
 struct aos_rpc_message_handler_closure{
     aos_rpc_handler message_handler;
     bool send_ack;
+    void* args;
 };
 
 struct aos_rpc {
@@ -102,6 +103,9 @@ errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session*
 
 errval_t aos_rpc_register_handler(struct aos_rpc* rpc, enum message_opcodes opcode,
         aos_rpc_handler message_handler, bool send_ack);
+
+errval_t aos_rpc_register_handler_with_context(struct aos_rpc* rpc, enum message_opcodes opcode,
+        aos_rpc_handler message_handler, bool send_ack, void* context);
 
 errval_t aos_rpc_accept(struct aos_rpc* rpc);
 errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size);

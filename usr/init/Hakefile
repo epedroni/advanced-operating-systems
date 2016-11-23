@@ -17,6 +17,7 @@
                         "lrpc_server.c",
                         "coreboot.c",
                         "processmgr.c",
+                        "core_processmgr.c",
                         "tests.c",
                         "init.c",
                         "urpc/urpc.c",
