@@ -44,7 +44,7 @@ errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, 
 {
     struct sysprocessmgr_process *process = find_process_by_pid(pm_state->head, pid);
     if (!process)
-        return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
+        return PROCMGR_ERR_PROCESS_NOT_FOUND;
 
     if(process->next){
         process->next->prev=process->prev;
@@ -67,7 +67,7 @@ errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, do
 {
     struct sysprocessmgr_process *process = find_process_by_pid(pm_state->head, pid);
     if (!process)
-        return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
+        return PROCMGR_ERR_PROCESS_NOT_FOUND;
     strncpy(name, process->name, buffer_len);
     return SYS_ERR_OK;
 }

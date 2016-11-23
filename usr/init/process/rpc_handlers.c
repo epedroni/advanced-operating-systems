@@ -1,5 +1,8 @@
+#include <aos/aos.h>
+#include <aos/aos_rpc.h>
 
-// TODO these handlers need to go somewhere else
+#include "process/processmgr.h"
+
 static
 errval_t handle_get_name(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
@@ -11,29 +14,16 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
-    //TODO: Ask PM for process name
-
-    struct running_process *rp = pm_state->running_procs;
     domainid_t requested_pid = msg->words[1];
-    while (rp && rp->pid != requested_pid) {
-        rp = rp->next;
-    }
-
-    size_t size = 0;
-    if (rp) {
-        size = strlen(rp->name);
-        if (size+1 > sess->shared_buffer_size)
-            return RPC_ERR_BUF_TOO_SMALL;
-        memcpy(sess->shared_buffer, rp->name, size + 1);
-    }
+    char* processname = sess->shared_buffer;
+    ERROR_RET1(processmgr_get_process_name(requested_pid, processname, sess->shared_buffer_size));
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
-            MAKE_RPC_MSG_HEADER(RPC_GET_NAME, rp ? RPC_FLAG_ACK : RPC_FLAG_ERROR),
-            size));
+            MAKE_RPC_MSG_HEADER(RPC_GET_NAME, RPC_FLAG_ACK),
+            strlen(processname) + 1));
 
     return SYS_ERR_OK;
 }
@@ -55,12 +45,12 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
     // should the running processes be kept in an array instead of a linked list?
     domainid_t pids[MAX_PID];
     size_t numpid = MAX_PID;
-    ERROR_RET1(processmgr_list_pids(&pids, &numpid))
+    ERROR_RET1(processmgr_list_pids(pids, &numpid));
 
     if (numpid * sizeof(domainid_t) > sess->shared_buffer_size)
         return RPC_ERR_BUF_TOO_SMALL;
 
-    memcpy(sess->shared_buffer, pidptr, numpid * sizeof(domainid_t));
+    memcpy(sess->shared_buffer, pids, numpid * sizeof(domainid_t));
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
             LMP_FLAG_SYNC,
@@ -82,7 +72,6 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
     if (!sess->shared_buffer_size)
         return RPC_ERR_SHARED_BUF_EMPTY;

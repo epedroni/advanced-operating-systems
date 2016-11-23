@@ -1256,8 +1256,10 @@ errors urpc URPC_ERR_ {
     failure BUFFER_TOO_SMALL        "URPC buffer is too small",
     failure PROTOCOL_FATAL_ERROR    "Something really wrong happened with URPC buffer...",
     failure INVALID_OPCODE          "Invalid opcode",
+    failure PROTOCOL_ERROR          "Protocol mismatch. Server can't understand request.",
 };
 
-errors sysprocessmgr SYS_PROCMGR_ERR_ {
+errors processmgr PROCMGR_ERR_ {
     failure PROCESS_NOT_FOUND       "No process matching given PID",
+    failure URPC_REMOTE_FAIL        "Remote URPC procedure failed",
 };

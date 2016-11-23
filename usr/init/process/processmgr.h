@@ -4,6 +4,7 @@
 #include <aos/aos.h>
 
 struct lmp_endpoint;
+struct urpc_channel;
 
 errval_t processmgr_init(coreid_t core_id);
 
@@ -14,5 +15,6 @@ errval_t processmgr_list_pids(domainid_t* pids, size_t* number);
 errval_t processmgr_process_exited(struct lmp_endpoint* ep);
 
 void processmgr_register_rpc_handlers(struct aos_rpc* rpc);
+errval_t processmgr_register_urpc_handlers(struct urpc_channel* channel);
 
 #endif

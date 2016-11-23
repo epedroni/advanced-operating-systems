@@ -1,4 +1,5 @@
 #include "process/coreprocessmgr.h"
+#include "process/processmgr.h"
 
 // ProcessMgr functions
 errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, char* process_name,
@@ -16,11 +17,8 @@ errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, cha
         process_info,
         &sess->lc);
     free(process_info);
-    if(err_is_fail(err)) {
-        *ret_pid = 0;
-        //TODO: Notify PM to remove newly created pid
+    if (err_is_fail(err))
         return err;
-    }
 
     ERROR_RET1(aos_server_register_client(rpc, sess));
 
@@ -37,8 +35,6 @@ errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, cha
     debug_printf("Spawned process with endpoint 0x%x\n", rp->endpoint);
 
     pm_state->running_procs = rp;
-
-    *ret_pid = rp->pid;
     return SYS_ERR_OK;
 }
 
@@ -46,23 +42,16 @@ errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, cha
 errval_t coreprocessmgr_init(struct coreprocessmgr_state* pm_state, coreid_t core_id,
         struct aos_rpc* rpc)
 {
-    const char* init_name = "init";
-
-    pm_state->core_id=core_id;
-    pm_state->running_count=0;
-
-    size_t namelen = strlen(init_name);
+    pm_state->core_id = core_id;
 
     struct running_process *init_rp = malloc(sizeof(struct running_process));
     init_rp->prev = NULL;
     init_rp->next = NULL;
     init_rp->pid = core_id;
-    init_rp->name = malloc(namelen + 1);
-    memcpy(init_rp->name, init_name, namelen+1);
 
     init_rp->endpoint = NULL;
     pm_state->running_procs=init_rp;
-    register_rpc_handlers(pm_state, rpc);
+    processmgr_register_rpc_handlers(rpc);
     return SYS_ERR_OK;
 }
 
@@ -80,7 +69,7 @@ errval_t coreprocessmgr_find_process_by_endpoint(struct coreprocessmgr_state* pm
         }
         rp = rp->next;
     }
-    return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
+    return PROCMGR_ERR_PROCESS_NOT_FOUND;
 }
 
 errval_t coreprocessmgr_process_finished(struct coreprocessmgr_state* pm_state, domainid_t pid)
@@ -89,7 +78,7 @@ errval_t coreprocessmgr_process_finished(struct coreprocessmgr_state* pm_state, 
     while (rp && rp->pid != pid)
         rp = rp->next;
     if (!rp)
-        return SYS_PROCMGR_ERR_PROCESS_NOT_FOUND;
+        return PROCMGR_ERR_PROCESS_NOT_FOUND;
 
     if (rp->next)
         rp->next->prev = rp->prev;
@@ -98,7 +87,6 @@ errval_t coreprocessmgr_process_finished(struct coreprocessmgr_state* pm_state, 
     if (rp == pm_state->running_procs)
         pm_state->running_procs = rp->next;
 
-    free(rp->name);
     free(rp);
     return SYS_ERR_OK;
 }
