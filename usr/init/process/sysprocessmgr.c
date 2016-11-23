@@ -68,6 +68,8 @@ errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, do
     struct sysprocessmgr_process *process = find_process_by_pid(pm_state->head, pid);
     if (!process)
         return PROCMGR_ERR_PROCESS_NOT_FOUND;
+    if (strlen(process->name)+1 > buffer_len)
+        return PROCMGR_ERR_OUT_BUFFER_TOO_SMALL;
     strncpy(name, process->name, buffer_len);
     return SYS_ERR_OK;
 }

@@ -93,7 +93,21 @@ errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_l
 {
     if (use_sysmgr)
         return sysprocessmgr_get_process_name(&syspmgr_state, pid, name, buffer_len);
-    return SYS_ERR_NOT_IMPLEMENTED;
+
+    // URPC CALL: URPC_OP_GET_PROCESS_NAME
+    char* answer;
+    size_t answer_len;
+    errval_t err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_GET_PROCESS_NAME,
+        (void*)&pid, sizeof(pid), (void**)&answer, &answer_len);
+
+    if (err_is_fail(err))
+        return err_push(err, PROCMGR_ERR_URPC_REMOTE_FAIL);
+    if (answer_len > buffer_len)
+        return PROCMGR_ERR_OUT_BUFFER_TOO_SMALL;
+    strncpy(name, answer, answer_len);
+    free(answer);
+
+    return SYS_ERR_OK;
 }
 
 errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
