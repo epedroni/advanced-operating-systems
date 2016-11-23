@@ -66,10 +66,23 @@ static errval_t urpc_handle_list_pids(struct urpc_buffer* buf, struct urpc_messa
     return SYS_ERR_OK;
 }
 
+static errval_t urpc_handle_pid_deregister(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
+{
+    URPC_CHECK_READ_SIZE(msg, sizeof(domainid_t));
+    domainid_t* pid = msg->data;
+
+    debug_printf("Removing PID\n");
+
+    ERROR_RET1(processmgr_remove_pid(*pid));
+
+    return SYS_ERR_OK;
+}
+
 errval_t processmgr_register_urpc_handlers(struct urpc_channel* channel)
 {
     urpc_server_register_handler(channel, URPC_OP_PROCESSMGR_GEN_PID, urpc_handle_gen_pid, NULL);
     urpc_server_register_handler(channel, URPC_OP_PROCESSMGR_SPAWN, urpc_handle_spawn, NULL);
+    urpc_server_register_handler(channel, URPC_OP_GET_PROCESS_DEREGISTER, urpc_handle_pid_deregister, NULL);
     urpc_server_register_handler(channel, URPC_OP_GET_PROCESS_NAME, urpc_handle_get_name, NULL);
     urpc_server_register_handler(channel, URPC_OP_LIST_PIDS, urpc_handle_list_pids, NULL);
     return SYS_ERR_OK;

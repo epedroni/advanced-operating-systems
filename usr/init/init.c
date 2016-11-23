@@ -99,7 +99,7 @@ errval_t os_core_initialize(int argc, char** argv)
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
     }
-    ERROR_RET1(processmgr_init(my_core_id));
+    ERROR_RET1(processmgr_init(my_core_id, argv[0]));
 
     // 6. Urpc server stuff
     ERROR_RET1(urpc_register_default_handlers(&urpc_chan));
