@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#define PF_DEBUG(...) //debug_printf(__VA_ARGS__);
 
 static void paging_thread_exception_handler(enum exception_type type, int val1, void* data, union registers_arm* registers, void ** whatever);
 
@@ -17,7 +18,7 @@ static errval_t handle_pagefault(void *_addr)
     // TODO: Handle unmap
 
     lvaddr_t addr = ROUND_DOWN((lvaddr_t)_addr, BASE_PAGE_SIZE);
-    debug_printf("[Pagefault@0x%08x] Entering callback\n", addr);
+    PF_DEBUG("[Pagefault@0x%08x] Entering callback\n", addr);
     struct paging_state* st = get_current_paging_state();
 
     thread_mutex_lock(&st->page_fault_lock);
@@ -35,7 +36,7 @@ static errval_t handle_pagefault(void *_addr)
     }
     assert(ADDRESS_FROM_VM_BLOCK_KEY(key) <= addr);
 
-    debug_printf("Found block type: %d\n", block->type);
+    PF_DEBUG("Found block type: %d\n", block->type);
 
     if (block->type == VirtualBlock_Free){
         debug_printf("Address not allocated! This is SEGFAULT!\n");
@@ -51,7 +52,7 @@ static errval_t handle_pagefault(void *_addr)
         return SYS_ERR_OK;
     }
 
-    debug_printf("[Pagefault@0x%08x] Block found @ 0x%08x [size 0x%08x]\n",
+    PF_DEBUG("[Pagefault@0x%08x] Block found @ 0x%08x [size 0x%08x]\n",
         addr, (int)ADDRESS_FROM_VM_BLOCK_KEY(key), block->size);
 
     // 2. It is the case: map a new frame here then
@@ -59,7 +60,7 @@ static errval_t handle_pagefault(void *_addr)
     size_t actualsize;
     ERROR_RET2(frame_alloc(&frame, BASE_PAGE_SIZE, &actualsize),
         LIB_ERR_VSPACE_PAGEFAULT_HANDER);
-    debug_printf("[Pagefault@0x%08x] Frame allocated\n", addr);
+    PF_DEBUG("[Pagefault@0x%08x] Frame allocated\n", addr);
     ERROR_RET2(paging_map_fixed_attr(st, addr,
         frame, BASE_PAGE_SIZE, 0,
         VREGION_FLAGS_READ_WRITE, NULL),
@@ -67,7 +68,7 @@ static errval_t handle_pagefault(void *_addr)
 
     paging_mark_as_paged_address(st, addr, BASE_PAGE_SIZE);
 
-    debug_printf("[Pagefault@0x%08x] Finished\n", addr);
+    PF_DEBUG("[Pagefault@0x%08x] Finished\n", addr);
     thread_mutex_unlock(&st->page_fault_lock);
     return SYS_ERR_OK;
 }

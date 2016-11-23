@@ -69,51 +69,57 @@ int main(int argc, char *argv[])
 	}
 
 	// get all pids, there should be two (init and us)
-	domainid_t *pidptr = malloc(sizeof(domainid_t) * 10);
+	domainid_t* pidptr;
 	uint32_t pidcount;
+	debug_printf("Listing all PIDs...\n");
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not get PIDs");
 		return 0;
 	}
-	for (int i = 0; i < pidcount; i++) {
+	for (int i = 0; i < pidcount; i++)
 		debug_printf("Received PID: %d\n", pidptr[i]);
-	}
+	free(pidptr);
 
 	// spawn memeater
 	debug_printf("Spawning memeater via RPC from hello\n");
-	domainid_t mem_eater_pid;
-	err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &mem_eater_pid);
+	domainid_t mem_eater_pid = 42;
+	/*err = aos_rpc_process_spawn(get_init_rpc(), "/armv7/sbin/memeater", 0, &mem_eater_pid);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not spawn memeater");
-	}
+	}*/
 
 	// get all pids again, there should be three now
 	debug_printf("Getting the name of each running process\n");
-	char *nameptr = malloc(sizeof(char) * 30);
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not get PIDs");
 		return 0;
 	}
+	debug_printf("Found %d processes.\n", pidcount);
 
+	char* name;
 	for (int i = 0; i < pidcount; i++) {
-		err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &nameptr);
-		if(err_is_fail(err)){
-			DEBUG_ERR(err, "Could not get domain name");
+		err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &name);
+		if(err_is_ok(err))
+		{
+			debug_printf("PID: %d, name: \"%s\"\n", pidptr[i], name);
+			free(name);
 		}
-		debug_printf("PID: %d, name: \"%s\"\n", pidptr[i], nameptr);
+		else
+			DEBUG_ERR(err, "Could not get domain name [pid=%d]\n", pidptr[i]);
 	}
+	free(pidptr);
 
 	debug_printf("Trying to get the name of a PID that does not exist\n");
-	err = aos_rpc_process_get_name(get_init_rpc(), 1000, &nameptr);
+	err = aos_rpc_process_get_name(get_init_rpc(), 1000, &name);
 	if(err_is_fail(err)){
 		debug_printf("Could not get domain name, that is expected\n");
 	}
 	else
 	{
 		debug_printf("FATAL ERROR");
-		debug_printf("PID: %d, name: \"%s\"\n", 1000, nameptr);
+		debug_printf("PID: %d, name: \"%s\"\n", 1000, name);
 		return 0;
 	}
 
@@ -126,7 +132,8 @@ int main(int argc, char *argv[])
 	debug_printf("Returned PID: %d\n", fail_pid);
 
 	debug_printf("Waiting for memeater [PID=%d] to return\n", (int)mem_eater_pid);
-	while (!err_is_fail(aos_rpc_process_get_name(get_init_rpc(), mem_eater_pid, &nameptr)));
+	while (!err_is_fail(aos_rpc_process_get_name(get_init_rpc(), mem_eater_pid, &name)))
+		free(name);
 
 	debug_printf("Memeater appears to have returned, check all pids\n");
 	err = aos_rpc_process_get_all_pids(get_init_rpc(), &pidptr, &pidcount);
@@ -134,14 +141,14 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "Could not get PIDs");
     }
     for (int i = 0; i < pidcount; i++) {
-        err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &nameptr);
+        err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &name);
         if(err_is_fail(err)){
-            DEBUG_ERR(err, "Could not get domain name");
+            DEBUG_ERR(err, "Could not get domain name [pid=%d]\n", pidptr[i]);
+			continue;
         }
-        debug_printf("PID: %d, name: \"%s\"\n", pidptr[i], nameptr);
+        debug_printf("PID: %d, name: \"%s\"\n", pidptr[i], name);
+		free(name);
     }
-
-	free(nameptr);
 	free(pidptr);
 
 	while(true){

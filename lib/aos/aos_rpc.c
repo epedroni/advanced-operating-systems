@@ -351,6 +351,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid,
     size_t string_size = message.words[1];
     ASSERT_PROTOCOL(string_size <= rpc->server_sess->shared_buffer_size);
 
+    *name = malloc(string_size+1);
     memcpy(*name, rpc->server_sess->shared_buffer, string_size);
     (*name)[string_size] = 0;
 
@@ -378,6 +379,7 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc,
     *pid_count = message.words[1];
     ASSERT_PROTOCOL(*pid_count <= rpc->server_sess->shared_buffer_size);
 
+    *pids = malloc(sizeof(domainid_t) * (*pid_count));
     memcpy(*pids, rpc->server_sess->shared_buffer, *pid_count * sizeof(domainid_t));
 
     return SYS_ERR_OK;

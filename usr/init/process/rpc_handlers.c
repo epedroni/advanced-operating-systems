@@ -16,6 +16,7 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 
     domainid_t requested_pid = msg->words[1];
     char* processname = sess->shared_buffer;
+    debug_printf("\thandle_get_name\t%d\n", requested_pid);
     ERROR_RET1(processmgr_get_process_name(requested_pid, processname, sess->shared_buffer_size));
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,

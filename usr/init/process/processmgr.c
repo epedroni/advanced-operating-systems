@@ -104,21 +104,18 @@ errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, d
 
 errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_len)
 {
+    debug_printf("processmgr_get_process_name [pid = %d, buflen = %d]\n", pid, buffer_len);
     if (use_sysmgr)
         return sysprocessmgr_get_process_name(&syspmgr_state, pid, name, buffer_len);
 
     // URPC CALL: URPC_OP_GET_PROCESS_NAME
-    char* answer;
-    size_t answer_len;
-    errval_t err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_GET_PROCESS_NAME,
-        (void*)&pid, sizeof(pid), (void**)&answer, &answer_len);
-
-    if (err_is_fail(err))
-        return err_push(err, PROCMGR_ERR_URPC_REMOTE_FAIL);
-    if (answer_len > buffer_len)
-        return PROCMGR_ERR_OUT_BUFFER_TOO_SMALL;
-    strncpy(name, answer, answer_len);
-    free(answer);
+    struct urpc_msg_get_process_name query;
+    query.pid = pid;
+    query.max_size = buffer_len;
+    ERROR_RET2(urpc_client_send_receive_fixed_size(&urpc_chan.buffer_send,
+        URPC_OP_GET_PROCESS_NAME,
+        (void*)&query, sizeof(query), name, buffer_len, NULL),
+        PROCMGR_ERR_URPC_REMOTE_FAIL);
 
     return SYS_ERR_OK;
 }
@@ -127,7 +124,12 @@ errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
 {
     if (use_sysmgr)
         return sysprocessmgr_list_pids(&syspmgr_state, pids, number);
-    return SYS_ERR_NOT_IMPLEMENTED;
+
+    // URPC CALL: URPC_OP_LIST_PIDS
+    size_t max_return_size = *number;
+    ERROR_RET1(urpc_client_send_receive_fixed_size(&urpc_chan.buffer_send, URPC_OP_LIST_PIDS,
+        (void*)&max_return_size, sizeof(max_return_size), pids, max_return_size, number));
+    return SYS_ERR_OK;
 }
 
 errval_t processmgr_remove_pid(domainid_t pid){
