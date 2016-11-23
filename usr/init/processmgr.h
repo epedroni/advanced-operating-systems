@@ -16,8 +16,14 @@ struct processmgr_state{
     struct urpc_channel* urpc_channel;
     domainid_t next_pid;
     uint32_t running_count;
+    coreid_t my_core_id;
 };
 
+errval_t processmgr_init(struct processmgr_state* pm_state, struct urpc_channel* urpc_channel, coreid_t my_coreid);
+errval_t processmgr_register_process(struct processmgr_state* pm_state, const char* name, coreid_t core_id, domainid_t* new_pid);
+errval_t processmgr_deregister_process(struct processmgr_state* pm_state, domainid_t pid);
+errval_t processmgr_get_process_name(struct processmgr_state* pm_state, domainid_t pid, char** name, size_t buffer_len);
+errval_t processmgr_get_proces_ids(struct processmgr_state* pm_state, const char* name, domainid_t* pids, size_t* number);
 
 #if 0
 

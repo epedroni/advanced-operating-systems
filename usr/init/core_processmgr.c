@@ -213,6 +213,8 @@ void register_rpc_handlers(struct core_processmgr_state* pm_state, struct aos_rp
 errval_t core_processmgr_init(struct core_processmgr_state* pm_state, coreid_t core_id,
         struct aos_rpc* rpc, const char* init_name)
 {
+    //TODO: Ask process manager for id for init process
+
     pm_state->core_id=core_id;
     pm_state->running_count=0;
 

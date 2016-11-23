@@ -4,6 +4,7 @@
 #include <aos/aos.h>
 #include <spawn/spawn.h>
 #include <aos/aos_rpc.h>
+#include "processmgr.h"
 
 struct running_process{
     struct running_process *next, *prev;
@@ -17,6 +18,7 @@ struct core_processmgr_state{
     coreid_t core_id;
     domainid_t next_pid;
     uint32_t running_count;
+    struct processmgr_state* master_pm;
 };
 
 errval_t core_processmgr_init(struct core_processmgr_state* pm_state, coreid_t core_id, struct aos_rpc* rpc, const char* init_name);
