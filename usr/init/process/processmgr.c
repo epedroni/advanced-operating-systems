@@ -8,7 +8,7 @@ static struct sysprocessmgr_state syspmgr_state;
 static struct coreprocessmgr_state core_pm_state;
 static bool use_sysmgr;
 
-errval_t processmgr_init(coreid_t coreid)
+errval_t processmgr_init(coreid_t coreid, const char* init_process_name)
 {
     if (coreid == 0)
     {
@@ -18,6 +18,10 @@ errval_t processmgr_init(coreid_t coreid)
     ERROR_RET1(coreprocessmgr_init(&core_pm_state, coreid, &rpc));
     processmgr_register_rpc_handlers(&rpc);
     processmgr_register_urpc_handlers(&urpc_chan);
+
+    domainid_t pid;
+    ERROR_RET1(processmgr_generate_pid(init_process_name, coreid, &pid));
+
     return SYS_ERR_OK;
 }
 
@@ -57,7 +61,16 @@ errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
     debug_printf("processmgr_spawn_process:: Spawn on core %d\n", core_id);
     ERROR_RET1(processmgr_generate_pid(name, core_id, pid));
     debug_printf("processmgr_spawn_process:: Got PID %d\n", *pid);
-    return processmgr_spawn_process_with_pid(name, core_id, *pid);
+    errval_t err;
+    err=processmgr_spawn_process_with_pid(name, core_id, *pid);
+    if(err_is_fail(err)){
+        debug_printf("We have an error while spawning process, removing PID form list\n");
+        ERROR_RET1(processmgr_remove_pid(*pid));
+    }else{
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
 
 errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, domainid_t pid)
@@ -117,13 +130,32 @@ errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
     return SYS_ERR_NOT_IMPLEMENTED;
 }
 
+errval_t processmgr_remove_pid(domainid_t pid){
+    if(use_sysmgr)
+        return sysprocessmgr_deregister_process(&syspmgr_state, pid);
+
+    char* answer;
+    size_t answer_len;
+    return urpc_client_send(&urpc_chan.buffer_send,
+            URPC_OP_GET_PROCESS_DEREGISTER,
+            (void*)&pid,
+            sizeof(pid),
+            (void**)&answer,
+            &answer_len);
+}
 
 errval_t processmgr_process_exited(struct lmp_endpoint* ep)
 {
     domainid_t pid;
     ERROR_RET1(coreprocessmgr_find_process_by_endpoint(&core_pm_state, ep, &pid));
     ERROR_RET1(coreprocessmgr_process_finished(&core_pm_state, pid));
+
+    debug_printf("Process exited: [PID: %d]\n", pid);
+
     if (use_sysmgr)
         return sysprocessmgr_deregister_process(&syspmgr_state, pid);
-    return SYS_ERR_NOT_IMPLEMENTED;
+
+    debug_printf("Sending message to other core that process has finished!\n");
+
+    return processmgr_remove_pid(pid);
 }
