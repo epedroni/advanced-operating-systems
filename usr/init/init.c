@@ -6,7 +6,8 @@
 #include <spawn/spawn.h>
 
 #include "coreboot.h"
-#include "core_processmgr.h"
+#include "process/coreprocessmgr.h"
+#include "process/sysprocessmgr.h"
 #include "mem_alloc.h"
 #include "lrpc_server.h"
 #include "init.h"
@@ -16,6 +17,7 @@
 #include "urpc/handlers.h"
 
 static struct urpc_channel urpc_chan; // URPC thread holds reference to this object!
+static struct sysprocessmgr_state syspmgr_state;
 
 errval_t os_core_initialize(int argc, char** argv)
 {
@@ -93,7 +95,8 @@ errval_t os_core_initialize(int argc, char** argv)
     // 5. Init RPC server
     aos_rpc_init(&rpc, NULL_CAP, false);
     lmp_server_init(&rpc);
-    core_processmgr_init(&core_pm_state,my_core_id,&rpc,argv[0]);
+    sysprocessmgr_init(&syspmgr_state, &urpc_chan, my_core_id);
+    coreprocessmgr_init(&core_pm_state, my_core_id, &rpc,argv[0]);
 
     // 6. Boot second core if needed
     if (my_core_id==0){

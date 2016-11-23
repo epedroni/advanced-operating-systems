@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     if (my_core_id == 1 )
     {
         domainid_t pid;
-        err = core_processmgr_spawn_process(&core_pm_state, "/armv7/sbin/hello", &rpc, my_core_id, &pid);
+        err = coreprocessmgr_spawn_process(&core_pm_state, "/armv7/sbin/hello", &rpc, my_core_id, &pid);
         if (err_is_fail(err))
             DEBUG_ERR(err, "spawn_process");
     }

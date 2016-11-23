@@ -16,10 +16,10 @@
                         "mem_alloc.c",
                         "lrpc_server.c",
                         "coreboot.c",
-                        "processmgr.c",
-                        "core_processmgr.c",
                         "tests.c",
                         "init.c",
+                        "process/sysprocessmgr.c",
+                        "process/coreprocessmgr.c",
                         "urpc/urpc.c",
                         "urpc/server.c",
                         "urpc/handlers.c"

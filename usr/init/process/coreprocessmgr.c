@@ -1,7 +1,7 @@
-#include "core_processmgr.h"
+#include "process/coreprocessmgr.h"
 
 // ProcessMgr functions
-errval_t core_processmgr_spawn_process(struct core_processmgr_state* pm_state, char* process_name,
+errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, char* process_name,
         struct aos_rpc* rpc, coreid_t core_id, domainid_t *ret_pid){
     errval_t err;
 
@@ -57,7 +57,7 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
     //TODO: Ask PM for process name
 
@@ -95,7 +95,7 @@ errval_t handle_get_pid(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
     // should the running processes be kept in an array instead of a linked list?
     domainid_t pids[pm_state->running_count];
@@ -131,7 +131,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
     if (!sess->shared_buffer_size)
         return RPC_ERR_SHARED_BUF_EMPTY;
@@ -145,7 +145,7 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     process_name[string_size] = 0;
 
     domainid_t ret_pid;
-    errval_t err = core_processmgr_spawn_process(pm_state, process_name, sess->rpc, core_id, &ret_pid);
+    errval_t err = coreprocessmgr_spawn_process(pm_state, process_name, sess->rpc, core_id, &ret_pid);
     if (err_is_fail(err))
     {
         // don't need to free otherwise because it is assigned to running_proc
@@ -173,7 +173,7 @@ errval_t handle_exit(struct aos_rpc_session* sess,
 {
     assert(sess);
     assert(context && "Context to core process mgr must be set");
-    struct core_processmgr_state* pm_state=(struct core_processmgr_state*)context;
+    struct coreprocessmgr_state* pm_state=(struct coreprocessmgr_state*)context;
 
     debug_printf("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
     struct running_process *rp = pm_state->running_procs;
@@ -202,7 +202,7 @@ errval_t handle_exit(struct aos_rpc_session* sess,
 }
 
 static
-void register_rpc_handlers(struct core_processmgr_state* pm_state, struct aos_rpc* rpc)
+void register_rpc_handlers(struct coreprocessmgr_state* pm_state, struct aos_rpc* rpc)
 {
     aos_rpc_register_handler_with_context(rpc, RPC_GET_NAME, handle_get_name, false, pm_state);
     aos_rpc_register_handler_with_context(rpc, RPC_GET_PID, handle_get_pid, false, pm_state);
@@ -210,7 +210,7 @@ void register_rpc_handlers(struct core_processmgr_state* pm_state, struct aos_rp
     aos_rpc_register_handler_with_context(rpc, RPC_EXIT, handle_exit, false, pm_state);
 }
 
-errval_t core_processmgr_init(struct core_processmgr_state* pm_state, coreid_t core_id,
+errval_t coreprocessmgr_init(struct coreprocessmgr_state* pm_state, coreid_t core_id,
         struct aos_rpc* rpc, const char* init_name)
 {
     //TODO: Ask process manager for id for init process
@@ -232,4 +232,3 @@ errval_t core_processmgr_init(struct core_processmgr_state* pm_state, coreid_t c
     register_rpc_handlers(pm_state, rpc);
     return SYS_ERR_OK;
 }
-
