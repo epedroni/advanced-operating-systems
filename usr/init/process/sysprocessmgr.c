@@ -72,8 +72,21 @@ errval_t sysprocessmgr_get_process_name(struct sysprocessmgr_state* pm_state, do
     return SYS_ERR_OK;
 }
 
-errval_t sysprocessmgr_get_proces_ids(struct sysprocessmgr_state* pm_state, const char* name, domainid_t* pids, size_t* number)
+/**
+ *  Returns the list of processes.
+    - pids: preallocated array of size *number where to store PIDs.
+    - number: Pointer to the initial size of the list
+        Modified to the actual number of entries
+*/
+errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, const char* name, domainid_t* pids, size_t* number)
 {
-    // TODO:
+    struct sysprocessmgr_process* list = pm_state->head;
+    int i = 0;
+    int max_count = *number;
+    while (list && i < max_count)
+    {
+        pids[i] = list->pid;
+        list = list->next;
+    }
     return SYS_ERR_OK;
 }
