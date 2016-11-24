@@ -194,7 +194,13 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
         release_spinlock(&mutex->lock);
         disp_enable(handle);
     }
+}
 
+void thread_mutex_enabled_lock_nested(struct thread_mutex *mutex)
+{
+    if (thread_self()->in_exception)
+        return;
+    thread_mutex_lock_nested(mutex);
 }
 
 /**
@@ -296,6 +302,13 @@ void thread_mutex_unlock(struct thread_mutex *mutex)
         // XXX: Need directed yield to inter-disp thread
         thread_yield();
     }
+}
+
+void thread_mutex_enabled_unlock(struct thread_mutex *mutex)
+{
+    if (thread_self()->in_exception)
+        return;
+    thread_mutex_unlock(mutex);
 }
 
 void thread_sem_init(struct thread_sem *sem, unsigned int value)

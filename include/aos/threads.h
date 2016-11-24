@@ -53,7 +53,9 @@ void thread_mutex_init(struct thread_mutex *mutex);
 void thread_mutex_lock(struct thread_mutex *mutex);
 bool thread_mutex_trylock(struct thread_mutex *mutex);
 void thread_mutex_lock_nested(struct thread_mutex *mutex);
+void thread_mutex_enabled_lock_nested(struct thread_mutex *mutex);
 void thread_mutex_unlock(struct thread_mutex *mutex);
+void thread_mutex_enabled_unlock(struct thread_mutex *mutex);
 struct thread *thread_mutex_unlock_disabled(dispatcher_handle_t handle,
                                             struct thread_mutex *mutex);
 
