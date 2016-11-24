@@ -17,7 +17,6 @@ void backtrace_from_fp(int topfp)
         //int sp = *(((int*)topfp) -2);
         int lr = *(((int*)topfp) -1);
         int pc = *(((int*)topfp) -0);
-        debug_printf("i=%d fp=%.p lr=%.p pc=%.p\n", i, fp, lr, pc);
 
         if (i == 0)
         {
