@@ -8,7 +8,7 @@ static struct sysprocessmgr_state syspmgr_state;
 static struct coreprocessmgr_state core_pm_state;
 static bool use_sysmgr;
 
-#define PMGR_DEBUG(...) debug_printf(__VA_ARGS__);
+#define PMGR_DEBUG(...) //debug_printf(__VA_ARGS__);
 
 errval_t processmgr_init(coreid_t coreid, const char* init_process_name)
 {

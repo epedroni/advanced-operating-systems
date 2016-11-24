@@ -1,6 +1,6 @@
 #include "process/sysprocessmgr.h"
 
-#define SYSPMGR_DEBUG(...) debug_printf(__VA_ARGS__);
+#define SYSPMGR_DEBUG(...) //debug_printf(__VA_ARGS__);
 
 errval_t sysprocessmgr_init(struct sysprocessmgr_state* pm_state, struct urpc_channel* urpc_channel, coreid_t my_coreid)
 {
