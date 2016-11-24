@@ -28,12 +28,12 @@ static errval_t handle_pagefault(void *_addr)
     // ie block_base <= addr < block_base + block_size
     vm_block_key_t key;
     struct vm_block* block = find_block_before(st, addr, &key);
-    DATA_STRUCT_UNLOCK(st);
     if (!block || ADDRESS_FROM_VM_BLOCK_KEY(key) + block->size < addr){
         debug_printf("Address not in any block! This is SEGFAULT!\n");
         //print_backtrace();
         while(true);
         thread_mutex_unlock(&st->page_fault_lock);
+        DATA_STRUCT_UNLOCK(st);
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
     }
     assert(ADDRESS_FROM_VM_BLOCK_KEY(key) <= addr);
@@ -45,12 +45,14 @@ static errval_t handle_pagefault(void *_addr)
         //print_backtrace();
         while(true);
         thread_mutex_unlock(&st->page_fault_lock);
+        DATA_STRUCT_UNLOCK(st);
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
     }
 
     if (block->type == VirtualBlock_Paged){
         debug_printf("Address already paged, returning!\n");
         thread_mutex_unlock(&st->page_fault_lock);
+        DATA_STRUCT_UNLOCK(st);
         return SYS_ERR_OK;
     }
 
@@ -72,6 +74,7 @@ static errval_t handle_pagefault(void *_addr)
 
     PF_DEBUG("[Pagefault@0x%08x] Finished\n", addr);
     thread_mutex_unlock(&st->page_fault_lock);
+    DATA_STRUCT_UNLOCK(st);
     return SYS_ERR_OK;
 }
 
