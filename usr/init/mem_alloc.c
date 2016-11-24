@@ -5,28 +5,30 @@
 
 #include "mem_alloc.h"
 #include <mm/mm.h>
+#include <aos/threads.h>
 
 errval_t aos_slab_refill(struct slab_allocator *slabs){
+	static int refill = 0;
 
-	static bool refill = false;
     SLAB_DEBUG_OUT("[0x%08x:%s] aos_slab_refill",
         (int)slabs, slabs->name);
-	if (refill){
+	if (refill)
 		return SYS_ERR_OK;
-	}
 
-	refill = true;
+	++refill;
+	assert(refill == 1 && "Most likely race cond in aos_slab_refill!!");
+
 	// TODO: To be changed once we have a correct malloc.
 	void* memory;
 	errval_t err = malloc_pages(&memory, 1);
 	if (err_is_fail(err))
 	{
-		refill = false;
+		--refill;
 		return err;
 	}
 
 	slab_grow(slabs, memory, BASE_PAGE_SIZE);
-	refill = false;
+	--refill;
 
 	return SYS_ERR_OK;
 }
