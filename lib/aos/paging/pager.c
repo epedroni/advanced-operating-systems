@@ -5,6 +5,7 @@
 #include "threads_priv.h"
 #include <mm/mm.h>
 
+#include <backtrace.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -30,8 +31,6 @@ static errval_t handle_pagefault(void *_addr)
     struct vm_block* block = find_block_before(st, addr, &key);
     if (!block || ADDRESS_FROM_VM_BLOCK_KEY(key) + block->size < addr){
         debug_printf("Address not in any block! This is SEGFAULT!\n");
-        //print_backtrace();
-        while(true);
         thread_mutex_unlock(&st->page_fault_lock);
         DATA_STRUCT_UNLOCK(st);
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
@@ -42,8 +41,6 @@ static errval_t handle_pagefault(void *_addr)
 
     if (block->type == VirtualBlock_Free){
         debug_printf("Address not allocated! This is SEGFAULT!\n");
-        //print_backtrace();
-        while(true);
         thread_mutex_unlock(&st->page_fault_lock);
         DATA_STRUCT_UNLOCK(st);
         return LIB_ERR_VSPACE_PAGEFAULT_ADDR_NOT_FOUND;
@@ -89,7 +86,10 @@ static void paging_thread_exception_handler(enum exception_type type,
         {
             errval_t err = handle_pagefault(addr);
             if (err_is_fail(err))
+            {
                 DEBUG_ERR(err, "handle_pagefault");
+                backtrace_from_fp(regs->named.r11);
+            }
             break;
         }
         default:

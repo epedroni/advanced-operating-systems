@@ -86,7 +86,7 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  * \param       node      Node to split.
  * \param       size      Size of the first chunk.
  */
-inline void mm_split_mem_node_unsafe(struct mm* mm, struct mmnode* node, size_t size)
+static void mm_split_mem_node_unsafe(struct mm* mm, struct mmnode* node, size_t size)
 {
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
@@ -219,7 +219,7 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
  * \param       mm          The memory manager.
  * \param       node_first  Node to merge with $node->next.
  */
-inline void mm_merge_mem_node_if_free_unsafe(struct mm* mm, struct mmnode* node_first)
+static void mm_merge_mem_node_if_free_unsafe(struct mm* mm, struct mmnode* node_first)
 {
     if (node_first->type != NodeType_Free || node_first->next->type != NodeType_Free)
         return;
