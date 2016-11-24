@@ -376,6 +376,7 @@ static void free_thread(struct thread *thread)
 struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                                         size_t stacksize)
 {
+    static int last_thread_id = -1;
     // allocate stack
     assert((stacksize % sizeof(uintptr_t)) == 0);
     void *stack = malloc(stacksize);
@@ -443,6 +444,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
         - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
 
     paging_init_onthread(newthread);
+    newthread->id = ++last_thread_id;
 
     // init registers
     registers_set_initial(&newthread->regs, newthread, (lvaddr_t)thread_entry,
