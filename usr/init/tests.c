@@ -1,4 +1,5 @@
 #include <aos/aos.h>
+#include <aos/threads.h>
 
 #include "mem_alloc.h"
 #include "tests.h"
@@ -20,12 +21,28 @@ void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
-void run_all_tests(void)
+#define TEST_NUM_THREADS 1
+
+static int test_thread(void* data)
 {
-    debug_printf("[TEST] Running all tests...\n");
-    test_num = 0;
+    int thread_id = *((int*)data);
+    debug_printf("[TEST] Test thread %d\n", thread_id);
     runtests_mem_alloc();
     test_paging();
+    return 0;
+}
+void run_all_tests(void)
+{
+    debug_printf("[TEST] Running all tests [%d threads]\n", TEST_NUM_THREADS);
+
+    struct thread* test_threads[TEST_NUM_THREADS];
+    test_num = 0;
+    int retval;
+    for (int i = 0; i < TEST_NUM_THREADS; ++i)
+        test_threads[i] = thread_create(test_thread, &i);
+    for (int i = 0; i < TEST_NUM_THREADS; ++i)
+        thread_join(test_threads[i], &retval);
+
     debug_printf("[TEST] Tests finished\n");
 }
 
