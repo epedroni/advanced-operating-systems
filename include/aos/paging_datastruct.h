@@ -1,8 +1,8 @@
 #ifndef LIBBARRELFISH_PAGING_DATASTRUCT_H
 #define LIBBARRELFISH_PAGING_DATASTRUCT_H
 
-//#define PAGING_STORE_AS_LIST
-#define PAGING_STORE_AS_BPTREE
+#define PAGING_STORE_AS_LIST
+//#define PAGING_STORE_AS_BPTREE
 
 // Unused here...
 struct paging_region {
