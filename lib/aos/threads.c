@@ -26,6 +26,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <arch/registers.h>
+#include <backtrace.h>
 
 #include "arch/threads.h"
 #include "threads_priv.h"
@@ -1505,6 +1506,7 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
             sys_print(str, sizeof(str));
         }
 
+        backtrace();
         // TODO: actually delete the thread!
         disp_gen->current = NULL;
         thread_remove_from_queue(&disp_gen->runq, thread);
