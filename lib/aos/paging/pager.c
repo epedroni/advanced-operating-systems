@@ -22,11 +22,13 @@ static errval_t handle_pagefault(void *_addr)
     struct paging_state* st = get_current_paging_state();
 
     thread_mutex_lock(&st->page_fault_lock);
+    DATA_STRUCT_LOCK(st);
 
     // 1. Ensure we are on an allocated vmem block
     // ie block_base <= addr < block_base + block_size
     vm_block_key_t key;
     struct vm_block* block = find_block_before(st, addr, &key);
+    DATA_STRUCT_UNLOCK(st);
     if (!block || ADDRESS_FROM_VM_BLOCK_KEY(key) + block->size < addr){
         debug_printf("Address not in any block! This is SEGFAULT!\n");
         //print_backtrace();

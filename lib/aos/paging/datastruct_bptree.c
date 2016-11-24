@@ -174,7 +174,7 @@ static void callback_bpt_free_record(void* data, bpt_record_t record)
 struct vm_block* create_root(struct paging_state* st, size_t start_address)
 {
     slab_init(&st->blocks.slab_nodes,
-        sizeof(bpt_node_t), aos_slab_refill);
+        sizeof(bpt_node_t), NULL);
     SLAB_SET_NAME(&st->blocks.slab_nodes, "PagingBPTree");
     slab_grow(&st->blocks.slab_nodes,
         st->blocks.slab_nodes_init_buffer, sizeof(st->blocks.slab_nodes_init_buffer));
