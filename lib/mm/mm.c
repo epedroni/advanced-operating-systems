@@ -38,6 +38,7 @@ errval_t mm_init(struct mm *mm, enum objtype objtype,
 
     slab_init(&(mm->slabs), sizeof(struct mmnode), slab_refill_func);
     SLAB_SET_NAME(&mm->slabs, "mm");
+    thread_mutex_init(&mm->nodes_lock);
     return SYS_ERR_OK;
 }
 
@@ -57,19 +58,20 @@ void mm_destroy(struct mm *mm)
  */
 errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
 {
-    debug_printf("mm_add invoked\n");
     struct mmnode* newnode = slab_alloc(&mm->slabs);
     newnode->type = NodeType_Free;
     newnode->cap.cap = cap;
     newnode->cap.base = base;
     newnode->cap.size = size;
     newnode->prev = NULL;
+    newnode->base = base;
+    newnode->size = size;
+    LIBMM_STRUCT_LOCK(mm);
     newnode->next = mm->head;
     if (mm->head)
         mm->head->prev = newnode;
-    newnode->base = base;
-    newnode->size = size;
     mm->head = newnode;
+    LIBMM_STRUCT_UNLOCK(mm);
 
     debug_printf("mm_add received %lu MB\n", size / 1024 / 1024);
 
@@ -84,7 +86,7 @@ errval_t mm_add(struct mm *mm, struct capref cap, genpaddr_t base, size_t size)
  * \param       node      Node to split.
  * \param       size      Size of the first chunk.
  */
-inline void mm_split_mem_node(struct mm* mm, struct mmnode* node, size_t size)
+inline void mm_split_mem_node_unsafe(struct mm* mm, struct mmnode* node, size_t size)
 {
     // Split this node in 2 nodes
     struct mmnode* remaining_free = slab_alloc(&mm->slabs);
@@ -134,17 +136,26 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
     if (alignment % BASE_PAGE_SIZE)
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
 
-    struct mmnode* node = mm->head;
-    if (!node)
-        return MM_ERR_NO_NODE;
-
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
     // See comment on maper.c for explanation about the magic 6.
     if (!slab_has_freecount(&mm->slabs, 6*3+2))
     	mm->slabs.refill_func(&mm->slabs);
 
+    // This needs to go BEFORE we lock the datastruct
+    // As mm_alloc_cap may call mm_alloc
+    errval_t err = mm_alloc_cap(mm, retcap);
+    if (err_is_fail(err))
+        return err;
+
     // Find cap with enough space
+    LIBMM_STRUCT_LOCK(mm);
+    struct mmnode* node = mm->head;
+    if (!node)
+    {
+        LIBMM_STRUCT_UNLOCK(mm);
+        return MM_ERR_NO_NODE;
+    }
     while (node != NULL)
     {
         if (node->type == NodeType_Free)
@@ -156,31 +167,31 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 // 1. Split to align
                 if (align_pad)
                 {
-                    mm_split_mem_node(mm, node, align_pad);
+                    mm_split_mem_node_unsafe(mm, node, align_pad);
                     node = node->next;
                     assert(node);
                 }
                 // 2. split the mem we need
                 if (node->size > size){
-                    mm_split_mem_node(mm, node, aligned_size);
+                    mm_split_mem_node_unsafe(mm, node, aligned_size);
                 }
-
-                // 3. Create cap for current node, and put it in retcap
-                errval_t err = mm_alloc_cap(mm, retcap);
-                if (err_is_fail(err))
-                    return err;
 
                 err = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
                 if (err_is_fail(err))
+                {
+                    LIBMM_STRUCT_UNLOCK(mm);
                     return err;
+                }
 
                 node->type = NodeType_Allocated;
+                LIBMM_STRUCT_UNLOCK(mm);
                 return err;
             }
         }
         node = node->next;
     }
+    LIBMM_STRUCT_UNLOCK(mm);
     return MM_ERR_OUT_OF_MEMORY;
 }
 
@@ -205,7 +216,7 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
  * \param       mm          The memory manager.
  * \param       node_first  Node to merge with $node->next.
  */
-inline void mm_merge_mem_node_if_free(struct mm* mm, struct mmnode* node_first)
+inline void mm_merge_mem_node_if_free_unsafe(struct mm* mm, struct mmnode* node_first)
 {
     if (node_first->type != NodeType_Free || node_first->next->type != NodeType_Free)
         return;
@@ -246,6 +257,7 @@ void mm_print_nodes(struct mm* mm)
  */
 errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t size)
 {
+    LIBMM_STRUCT_LOCK(mm);
     struct mmnode* node = mm->head;
     // Find node
     while (node != NULL && node->base != base)
@@ -261,13 +273,13 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
     // (We may need to merge with previous AND next node - see aligned alloc)
     node->type = NodeType_Free;
     if (node->next)
-        mm_merge_mem_node_if_free(mm, node);
+        mm_merge_mem_node_if_free_unsafe(mm, node);
     if (node->prev)
-        mm_merge_mem_node_if_free(mm, node->prev);
+        mm_merge_mem_node_if_free_unsafe(mm, node->prev);
+    LIBMM_STRUCT_UNLOCK(mm);
     //! $node may be invalid now!
     // Revoke the cap.
     //cap_revoke(cap) // NOT YET IMPLEMENTED!
     // Destroy the capability (and frees the slot)
     return cap_destroy(cap);
 }
-

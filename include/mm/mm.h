@@ -62,8 +62,11 @@ struct mm {
     void *slot_alloc_inst;       ///< Opaque instance pointer for slot allocator
     enum objtype objtype;        ///< Type of capabilities stored
     struct mmnode *head;         ///< Head of doubly-linked list of nodes in order
-    // Additionnal fields
+    struct thread_mutex nodes_lock;
 };
+
+#define LIBMM_STRUCT_LOCK(st) { thread_mutex_lock(&(st)->nodes_lock);}
+#define LIBMM_STRUCT_UNLOCK(st) { thread_mutex_unlock(&(st)->nodes_lock);}
 
 errval_t mm_init(struct mm *mm, enum objtype objtype,
                      slab_refill_func_t slab_refill_func,

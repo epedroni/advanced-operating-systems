@@ -61,9 +61,9 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     struct vm_block* initial_free_space = create_root(st, start_vaddr);
     initial_free_space->type = VirtualBlock_Free;
     initial_free_space->size = VADDR_OFFSET;
-    // TODO: Figure out how to limit size of virtual memory
-    // TODO (M4): Implement page fault handler that installs frames when a page fault
-    // occurs and keeps track of the virtual address space.
+
+    thread_mutex_init(&st->page_fault_lock);
+    thread_mutex_init(&st->blocks_lock);
     return SYS_ERR_OK;
 }
 
@@ -81,7 +81,6 @@ errval_t paging_init(void)
     };
     paging_init_state(&current, VADDR_OFFSET, l1_pagetable, get_default_slot_allocator());
     set_current_paging_state(&current);
-    thread_mutex_init(&current.page_fault_lock);
     paging_init_onthread(NULL); // Sets exception handler
 
     // TODO: maybe add paging regions to paging state?
