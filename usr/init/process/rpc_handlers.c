@@ -3,7 +3,7 @@
 
 #include "process/processmgr.h"
 
-#define RPC_HANDLER_DEBUG(...) //debug_printf(__VA_ARGS__);
+#define RPC_HANDLER_DEBUG(...) debug_printf(__VA_ARGS__);
 
 static
 errval_t handle_get_name(struct aos_rpc_session* sess,

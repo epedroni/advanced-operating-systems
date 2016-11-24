@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     run_all_tests();
 
     // Test spawn a process
-    if (my_core_id == 1)
+    if (my_core_id == 10)
     {
         domainid_t pid;
         err = processmgr_spawn_process("/armv7/sbin/hello", 0, &pid);

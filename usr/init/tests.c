@@ -21,7 +21,7 @@ void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
-#define TEST_NUM_THREADS 1
+#define TEST_NUM_THREADS 5
 
 static int test_thread(void* data)
 {
@@ -34,15 +34,16 @@ static int test_thread(void* data)
 void run_all_tests(void)
 {
     debug_printf("[TEST] Running all tests [%d threads]\n", TEST_NUM_THREADS);
-
-    struct thread* test_threads[TEST_NUM_THREADS];
     test_num = 0;
+    struct thread* test_threads[TEST_NUM_THREADS];
     int retval;
     for (int i = 0; i < TEST_NUM_THREADS; ++i)
         test_threads[i] = thread_create(test_thread, &i);
     for (int i = 0; i < TEST_NUM_THREADS; ++i)
         thread_join(test_threads[i], &retval);
 
+    int pid = 0;
+    test_thread(&pid);
     debug_printf("[TEST] Tests finished\n");
 }
 
@@ -59,7 +60,6 @@ void runtests_mem_alloc(void)
     TEST_PRINTF("\tAllocating a LOT of small pages\n");
     for (int i = 0; i < 500; ++i)
         TEST_ALLOC(BASE_PAGE_SIZE, ref);
-
 
     // Keep it simple for now, allocate 4kB caps
     int alloc_size = BASE_PAGE_SIZE;

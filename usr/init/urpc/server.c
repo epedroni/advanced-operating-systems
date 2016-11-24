@@ -1,6 +1,6 @@
 #include "urpc/server.h"
 
-#define URPC_SERV_DEBUG(...) // debug_printf(__VA_ARGS__)
+#define URPC_SERV_DEBUG(...) debug_printf(__VA_ARGS__)
 
 errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_opcodes opcode, urpc_callback_func_t message_handler,
         void* context){

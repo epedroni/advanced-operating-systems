@@ -138,18 +138,13 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
 
     size_t aligned_size = ((size-1) / BASE_PAGE_SIZE + 1) * BASE_PAGE_SIZE;
 
+    LIBMM_STRUCT_LOCK(mm);
+
     // See comment on maper.c for explanation about the magic 6.
     if (!slab_has_freecount(&mm->slabs, 6*3+2))
-    	mm->slabs.refill_func(&mm->slabs);
+        mm->slabs.refill_func(&mm->slabs);
 
-    // This needs to go BEFORE we lock the datastruct
-    // As mm_alloc_cap may call mm_alloc
-    errval_t err = mm_alloc_cap(mm, retcap);
-    if (err_is_fail(err))
-        return err;
 
-    // Find cap with enough space
-    LIBMM_STRUCT_LOCK(mm);
     struct mmnode* node = mm->head;
     if (!node)
     {
@@ -174,6 +169,14 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                 // 2. split the mem we need
                 if (node->size > size){
                     mm_split_mem_node_unsafe(mm, node, aligned_size);
+                }
+
+                // 3. Alloc cap for returned value
+                errval_t err = mm_alloc_cap(mm, retcap);
+                if (err_is_fail(err))
+                {
+                    LIBMM_STRUCT_UNLOCK(mm);
+                    return err;
                 }
 
                 err = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
@@ -265,9 +268,15 @@ errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base, gensize_t si
 
     // This node does not exist!
     if (!node)
+    {
+        LIBMM_STRUCT_UNLOCK(mm);
         return MM_ERR_FIND_NODE;
+    }
     if (node->type != NodeType_Allocated)
+    {
+        LIBMM_STRUCT_UNLOCK(mm);
         return MM_ERR_NOT_ALLOCATED;
+    }
 
     // Merge with previous if the previous one is free
     // (We may need to merge with previous AND next node - see aligned alloc)
