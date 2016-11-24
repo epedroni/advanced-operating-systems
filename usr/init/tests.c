@@ -21,7 +21,7 @@ void* test_alloc_and_map(size_t alloc_size);
 void runtests_mem_alloc(void);
 void test_paging(void);
 
-#define TEST_NUM_THREADS 5
+#define TEST_NUM_THREADS 1
 
 static int test_thread(void* data)
 {
@@ -31,6 +31,7 @@ static int test_thread(void* data)
     test_paging();
     return 0;
 }
+
 void run_all_tests(void)
 {
     debug_printf("[TEST] Running all tests [%d threads]\n", TEST_NUM_THREADS);
@@ -38,12 +39,14 @@ void run_all_tests(void)
     struct thread* test_threads[TEST_NUM_THREADS];
     int retval;
     for (int i = 0; i < TEST_NUM_THREADS; ++i)
+    {
+        debug_printf("Spawning thread %d...\n", i);
         test_threads[i] = thread_create(test_thread, &i);
+        debug_printf("... thread %d spawned\n", i);
+    }
     for (int i = 0; i < TEST_NUM_THREADS; ++i)
         thread_join(test_threads[i], &retval);
 
-    int pid = 0;
-    test_thread(&pid);
     debug_printf("[TEST] Tests finished\n");
 }
 
