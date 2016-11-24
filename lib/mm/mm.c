@@ -6,6 +6,7 @@
 #include <mm/mm.h>
 #include <aos/debug.h>
 #include <aos/paging.h>
+#include <backtrace.h>
 
 /// MM allocator instance data
 struct mm aos_mm;
@@ -167,9 +168,9 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                     assert(node);
                 }
                 // 2. split the mem we need
-                if (node->size > size){
+                if (node->size > size)
                     mm_split_mem_node_unsafe(mm, node, aligned_size);
-                }
+                assert(node->type == NodeType_Free && "mm: After splitting node, node used?!");
 
                 // 3. Alloc cap for returned value
                 errval_t err = mm_alloc_cap(mm, retcap);
@@ -179,6 +180,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct c
                     return err;
                 }
 
+                assert(node->type == NodeType_Free && "mm: After alloc_cap, node used?!");
                 err = cap_retype(*retcap, node->cap.cap, base - node->cap.base,
                         mm->objtype, size, 1);
                 if (err_is_fail(err))

@@ -65,8 +65,8 @@ struct mm {
     struct thread_mutex nodes_lock;
 };
 
-#define LIBMM_STRUCT_LOCK(st) { thread_mutex_enabled_lock_nested(&(st)->nodes_lock);}
-#define LIBMM_STRUCT_UNLOCK(st) { thread_mutex_enabled_unlock(&(st)->nodes_lock);}
+#define LIBMM_STRUCT_LOCK(st) { thread_mutex_lock_nested(&(st)->nodes_lock);}
+#define LIBMM_STRUCT_UNLOCK(st) { thread_mutex_unlock(&(st)->nodes_lock);}
 
 errval_t mm_init(struct mm *mm, enum objtype objtype,
                      slab_refill_func_t slab_refill_func,
