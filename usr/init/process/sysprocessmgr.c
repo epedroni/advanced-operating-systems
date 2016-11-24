@@ -1,5 +1,7 @@
 #include "process/sysprocessmgr.h"
 
+#define SYSPMGR_DEBUG(...) //debug_printf(__VA_ARGS__);
+
 errval_t sysprocessmgr_init(struct sysprocessmgr_state* pm_state, struct urpc_channel* urpc_channel, coreid_t my_coreid)
 {
     pm_state->running_count=0;
@@ -30,7 +32,7 @@ errval_t sysprocessmgr_register_process(struct sysprocessmgr_state* pm_state, co
     pm_state->head=new_process;
     pm_state->running_count++;
     *new_pid = new_process->pid;
-    debug_printf("coreprocessmgr_spawn_process:: PID generated: 0x%d\n", new_process->pid);
+    SYSPMGR_DEBUG("coreprocessmgr_spawn_process:: PID generated: 0x%d\n", new_process->pid);
 
     return SYS_ERR_OK;
 }
@@ -56,7 +58,7 @@ errval_t sysprocessmgr_deregister_process(struct sysprocessmgr_state* pm_state, 
         pm_state->head=process->next;
     pm_state->running_count--;
 
-    debug_printf("DEREGISTER [PID=%d] %s\n", (int)pid, process->name);
+    SYSPMGR_DEBUG("DEREGISTER [PID=%d] %s\n", (int)pid, process->name);
     free(process->name);
     free(process);
 
@@ -89,7 +91,7 @@ errval_t sysprocessmgr_list_pids(struct sysprocessmgr_state* pm_state, domainid_
     {
         pids[i] = list->pid;
         list = list->next;
-        debug_printf("sysprocessmgr_list_pids: got %d\n", pids[i]);
+        SYSPMGR_DEBUG("sysprocessmgr_list_pids: got %d\n", pids[i]);
         ++i;
     }
     *number = i;

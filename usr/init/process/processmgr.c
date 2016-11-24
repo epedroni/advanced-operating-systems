@@ -8,6 +8,8 @@ static struct sysprocessmgr_state syspmgr_state;
 static struct coreprocessmgr_state core_pm_state;
 static bool use_sysmgr;
 
+#define PMGR_DEBUG(...) //debug_printf(__VA_ARGS__);
+
 errval_t processmgr_init(coreid_t coreid, const char* init_process_name)
 {
     if (coreid == 0)
@@ -58,13 +60,13 @@ errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t*
 
 errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
 {
-    debug_printf("processmgr_spawn_process:: Spawn on core %d\n", core_id);
+    debug_printf("[ProcessMgr] Spawn on core %d\n", core_id);
     ERROR_RET1(processmgr_generate_pid(name, core_id, pid));
-    debug_printf("processmgr_spawn_process:: Got PID %d\n", *pid);
+    debug_printf("[ProcessMgr] Generated PID %d\n", *pid);
     errval_t err;
     err=processmgr_spawn_process_with_pid(name, core_id, *pid);
     if(err_is_fail(err)){
-        debug_printf("We have an error while spawning process, removing PID form list\n");
+        debug_printf("[ProcessMgr] We have an error while spawning process, removing PID form list\n");
         processmgr_remove_pid(*pid);
         return err;
     }
@@ -102,7 +104,7 @@ errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, d
 
 errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_len)
 {
-    debug_printf("processmgr_get_process_name [pid = %d, buflen = %d]\n", pid, buffer_len);
+    PMGR_DEBUG("processmgr_get_process_name [pid = %d, buflen = %d]\n", pid, buffer_len);
     if (use_sysmgr)
         return sysprocessmgr_get_process_name(&syspmgr_state, pid, name, buffer_len);
 
@@ -120,7 +122,7 @@ errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_l
 
 errval_t processmgr_list_pids(domainid_t* pids, size_t* number)
 {
-    debug_printf("processmgr_list_pids: Maximum size %d\n", *number);
+    PMGR_DEBUG("processmgr_list_pids: Maximum size %d\n", *number);
     if (use_sysmgr)
         return sysprocessmgr_list_pids(&syspmgr_state, pids, number);
 
@@ -152,12 +154,10 @@ errval_t processmgr_process_exited(struct lmp_endpoint* ep)
     ERROR_RET1(coreprocessmgr_find_process_by_endpoint(&core_pm_state, ep, &pid));
     ERROR_RET1(coreprocessmgr_process_finished(&core_pm_state, pid));
 
-    debug_printf("Process exited: [PID: %d]\n", pid);
+    debug_printf("[ProcessMgr] Process exited: [PID: %d]\n", pid);
 
     if (use_sysmgr)
         return sysprocessmgr_deregister_process(&syspmgr_state, pid);
-
-    debug_printf("Sending message to other core that process has finished!\n");
 
     return processmgr_remove_pid(pid);
 }

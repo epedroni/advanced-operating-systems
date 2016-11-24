@@ -3,6 +3,8 @@
 
 #include "process/processmgr.h"
 
+#define RPC_HANDLER_DEBUG(...) //debug_printf(__VA_ARGS__);
+
 static
 errval_t handle_get_name(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
@@ -16,7 +18,7 @@ errval_t handle_get_name(struct aos_rpc_session* sess,
 
     domainid_t requested_pid = msg->words[1];
     char* processname = sess->shared_buffer;
-    debug_printf("\thandle_get_name\t%d\n", requested_pid);
+    RPC_HANDLER_DEBUG("handle_get_name\t%d\n", requested_pid);
     ERROR_RET1(processmgr_get_process_name(requested_pid, processname, sess->shared_buffer_size));
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
@@ -111,7 +113,7 @@ errval_t handle_exit(struct aos_rpc_session* sess,
 {
     assert(sess);
 
-    debug_printf("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
+    RPC_HANDLER_DEBUG("Received exit message from endpoint 0x%x\n", sess->lc.endpoint);
     return processmgr_process_exited(sess->lc.endpoint);
 }
 
