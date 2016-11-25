@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/urpc/server.h>
+#include <aos/urpc/default_opcodes.h>
 
 struct aos_rpc *init_rpc;
 
@@ -24,6 +26,24 @@ errval_t communicate(void){
     if(err_is_fail(err)){
         debug_printf("We have a problem in connecting to server socket\n");
     }
+
+    debug_printf("We are connected!\n");
+
+    struct frame_identity shared_frame_id;
+    frame_identify(shared_frame,&shared_frame_id);
+    debug_printf("Received frame info: base: [0x%08x] and size: [0x%08x]\n", (int)shared_frame_id.base, (int)shared_frame_id.bytes);
+
+    void* address=NULL;
+    ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),&address, BASE_PAGE_SIZE,
+            shared_frame,VREGION_FLAGS_READ_WRITE, NULL, NULL));
+
+    struct urpc_channel urpc_chan;
+    urpc_channel_init(&urpc_chan, address,BASE_PAGE_SIZE, URPC_CHAN_SLAVE, DEF_URPC_OP_COUNT);
+
+    char text[]="milan";
+    size_t ret_size;
+    urpc_client_send_receive_fixed_size(&urpc_chan.buffer_send,DEF_URPC_OP_PRINT, text,sizeof(text),text, sizeof(text),&ret_size);
+
 //
 //    struct capref shared_buffer;
 //    size_t ret_bytes;
