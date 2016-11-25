@@ -91,6 +91,7 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
         errval_t err = *((errval_t*)pbuf);
         if (err_is_fail(err))
         {
+            dmb();
             urpc->buffer->status = URPC_NO_DATA;
             return err;
         }

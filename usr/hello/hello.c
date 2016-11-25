@@ -48,7 +48,7 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 static
 errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
 {
-    debug_printf("++++++++++++++ Handling string in hello\n");
+    debug_printf("++++++++++++++ Handling string in hello %s \n", msg->data);
 
     return SYS_ERR_OK;
 }
