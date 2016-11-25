@@ -1,8 +1,7 @@
 
 #include <aos/aos.h>
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
-#include "urpc/urpc.h"
-#include "urpc/opcodes.h"
+#include <aos/urpc/urpc.h>
 
 errval_t urpc_server_init(struct urpc_buffer* urpc, void* buffer, size_t length)
 {
@@ -28,8 +27,9 @@ static errval_t read_from_buffer(struct urpc_buffer_data* data, void* cpyto, siz
 {
     *datalen = data->data_len;
     *opcode = data->opcode;
-    if (data->opcode >= URPC_OP_COUNT)
-        return URPC_ERR_INVALID_OPCODE;
+//  We will remove this
+//    if (data->opcode >= URPC_OP_COUNT)
+//        return URPC_ERR_INVALID_OPCODE;
     if (*datalen > destlen)
     {
         debug_printf("read_from_buffer: destlen=%d datalen=%d\n", destlen, *datalen);
@@ -69,8 +69,9 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
         return URPC_ERR_WRONG_BUFFER_STATUS;
     if (URPC_MAX_DATA_SIZE(urpc) < len)
         return URPC_ERR_URPC_BUFFER_TOO_SMALL_FOR_SEND;
-    if (opcode >= URPC_OP_COUNT)
-        return URPC_ERR_INVALID_OPCODE;
+    //  We will remove this
+    //    if (data->opcode >= URPC_OP_COUNT)
+    //        return URPC_ERR_INVALID_OPCODE;
 
     // 1. Send data
     memcpy(urpc->buffer->data, data, len);

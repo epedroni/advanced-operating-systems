@@ -23,8 +23,7 @@
                         "process/processmgr.c",
                         "process/urpc_handlers.c",
                         "process/rpc_handlers.c",
-                        "urpc/urpc.c",
-                        "urpc/server.c",
+                        "binding_server.c",
                         "urpc/handlers.c"
                       ],
                       addLinkFlags = [ "-e _start_init"],

@@ -3,10 +3,9 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
-#include "urpc/urpc.h"
 #include "process/coreprocessmgr.h"
 #include "process/sysprocessmgr.h"
-#include "urpc/urpc.h"
+#include <aos/urpc/urpc.h>
 
 struct aos_rpc rpc;
 coreid_t my_core_id;

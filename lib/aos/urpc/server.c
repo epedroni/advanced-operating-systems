@@ -1,8 +1,8 @@
-#include "urpc/server.h"
+#include <aos/urpc/server.h>
 
 #define URPC_SERV_DEBUG(...) debug_printf(__VA_ARGS__)
 
-errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_opcodes opcode, urpc_callback_func_t message_handler,
+errval_t urpc_server_register_handler(struct urpc_channel* channel, uint32_t opcode, urpc_callback_func_t message_handler,
         void* context){
 
     URPC_SERV_DEBUG("########## REGISTER HANDLER FOR OPCODE %d\n", opcode);
@@ -13,11 +13,13 @@ errval_t urpc_server_register_handler(struct urpc_channel* channel, enum urpc_op
 }
 
 errval_t urpc_channel_init(struct urpc_channel* channel, void* fullbuffer, size_t length,
-        enum urpc_channel_type channel_type){
+        enum urpc_channel_type channel_type, size_t callback_number){
 
     void* rcv_buffer=NULL;
     void* send_buffer=NULL;
     size_t buffer_size=length/2;
+
+    channel->callbacks_table=malloc(sizeof(struct urpc_message_closure)*callback_number);
 
     memset(channel->callbacks_table, 0, sizeof(channel->callbacks_table));
 

@@ -1,13 +1,6 @@
 #ifndef _HEADER_URPC_OPCODES
 #define _HEADER_URPC_OPCODES
 
-struct urpc_message
-{
-    uint32_t opcode;
-    uint32_t length; // Length of $data
-    void* data;
-};
-
 enum urpc_opcodes
 {
     URPC_OP_NULL = 0,
@@ -17,6 +10,7 @@ enum urpc_opcodes
     URPC_OP_GET_PROCESS_NAME,
     URPC_OP_GET_PROCESS_DEREGISTER,
     URPC_OP_LIST_PIDS,
+    URPC_OP_CONNECT_TO_SOCKET,
     URPC_OP_COUNT,
 };
 

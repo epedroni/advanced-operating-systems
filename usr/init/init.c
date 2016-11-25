@@ -10,10 +10,11 @@
 #include "mem_alloc.h"
 #include "lrpc_server.h"
 #include "init.h"
-#include "urpc/server.h"
-#include "urpc/urpc.h"
+#include <aos/urpc/server.h>
+#include <aos/urpc/urpc.h>
 #include "urpc/opcodes.h"
 #include "urpc/handlers.h"
+#include "binding_server.h"
 
 errval_t os_core_initialize(int argc, char** argv)
 {
@@ -40,9 +41,9 @@ errval_t os_core_initialize(int argc, char** argv)
     if (!bi) {
         assert(my_core_id > 0);
         //TODO: Find a way to replace hardcoded value
-        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*6));
+        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*7));
         assert(bi);
-        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*6));
+        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*7));
 
         //TODO: Read this from arguments
         struct frame_identity urpc_frame_id;
@@ -85,7 +86,7 @@ errval_t os_core_initialize(int argc, char** argv)
             return err;
         }
         coreboot_finished_init(urpc_buffer);
-        ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_SLAVE));
+        ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_SLAVE, URPC_OP_COUNT));
     }
 
     // 5. Init RPC server
@@ -97,13 +98,18 @@ errval_t os_core_initialize(int argc, char** argv)
         debug_printf("--- Starting new core!\n");
 
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
-        ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER));
+        ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER, URPC_OP_COUNT));
     }
     ERROR_RET1(processmgr_init(my_core_id, argv[0]));
 
     // 6. Urpc server stuff
     ERROR_RET1(urpc_register_default_handlers(&urpc_chan));
     ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
+    ERROR_RET1(processmgr_register_urpc_handlers(&urpc_chan));
+
+    ERROR_RET1(binding_server_lmp_init(&rpc, &urpc_chan));
+    ERROR_RET1(binding_server_register_urpc_handlers(&urpc_chan));
+
 
     //TODO: Move test to separate function
     char buffer[50];

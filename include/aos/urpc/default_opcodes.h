@@ -1,0 +1,11 @@
+#ifndef _URPC_DEFAULT_OPCODES_
+#define _URPC_DEFAULT_OPCODES_
+
+enum urpc_opcodes
+{
+    DEF_URPC_OP_NULL = 0,
+    DEF_URPC_OP_PRINT,
+    DEF_URPC_OP_COUNT
+};
+
+#endif  //_URPC_DEFAULT_OPCODES_
