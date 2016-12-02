@@ -73,7 +73,7 @@ errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
 
     memcpy(*bi, urpc_buf, sizeof(struct bootinfo));
     debug_printf("Mem regions: %lu\n",(*bi)->regions_length);
-    assert((*bi)->regions_length<=6 && "Allocate more memory for mem_regions in bootinfo");
+    assert((*bi)->regions_length<=7 && "Allocate more memory for mem_regions in bootinfo");
 
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
     memcpy((*bi)->regions, urpc_buf, (*bi)->regions_length * sizeof(struct mem_region));

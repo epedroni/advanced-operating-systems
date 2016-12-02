@@ -31,7 +31,6 @@ static
 void cb_accept_loop(void* args)
 {
     struct aos_rpc_session* cs=(struct aos_rpc_session*)args;
-//    /debug_printf("cb_accept_loop: invoked. sess=0x%08x\n", (int)cs);
     errval_t err;
 
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
@@ -43,7 +42,6 @@ void cb_accept_loop(void* args)
     uint32_t return_flags = RPC_FLAG_ERROR;
     bool send_ack = true;
 
-    //debug_printf("We have message type: 0x%X\n", message.words[0]);
     uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
 
     struct aos_rpc_message_handler_closure closure=cs->rpc->aos_rpc_message_handler_closure[message_opcode];
@@ -68,7 +66,6 @@ void cb_accept_loop(void* args)
     if (send_ack)
     {
         return_flags |= RPC_FLAG_ACK;
-        //debug_printf("lmp_chan_send2 (0x%02x, 0x%02x)\n", return_opcode, return_flags);
         err = lmp_chan_send2(&cs->lc,
             LMP_FLAG_SYNC,
             ret_cap,
@@ -219,6 +216,37 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
             NULL_CAP,
             RPC_STRING,
             size));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_create_server_socket(struct aos_rpc *rpc, struct capref shared_buffer, size_t port){
+    assert(rpc->server_sess);
+
+    RPC_CHAN_WRAPPER_SEND(rpc,
+    lmp_chan_send2(&rpc->server_sess->lc,
+       LMP_FLAG_SYNC,
+       shared_buffer,
+       RPC_CREATE_SERVER_SOCKET,
+       port
+     ));
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_connect_to_port(struct aos_rpc *rpc,
+    uint32_t port,
+    struct capref *retcap)
+{
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_CONNECT_TO_SOCKET,
+            port));
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
+    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);
+
     return SYS_ERR_OK;
 }
 

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PF_DEBUG(...) debug_printf(__VA_ARGS__);
+#define PF_DEBUG(...) //debug_printf(__VA_ARGS__);
 
 static void paging_thread_exception_handler(enum exception_type type, int val1, void* data, union registers_arm* registers, void ** whatever);
 

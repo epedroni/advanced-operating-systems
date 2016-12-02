@@ -32,6 +32,8 @@ enum message_opcodes {
 	RPC_EXIT,
     RPC_GET_NAME,
     RPC_GET_PID,
+    RPC_CREATE_SERVER_SOCKET,
+    RPC_CONNECT_TO_SOCKET,
     RPC_NUM_OPCODES,
 };
 
@@ -109,6 +111,9 @@ errval_t aos_rpc_register_handler_with_context(struct aos_rpc* rpc, enum message
 
 errval_t aos_rpc_accept(struct aos_rpc* rpc);
 errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size);
+
+errval_t aos_rpc_create_server_socket(struct aos_rpc *rpc, struct capref shared_buffer, size_t port);
+errval_t aos_connect_to_port(struct aos_rpc *rpc, uint32_t port, struct capref *retcap);
 
 /**
  * \brief Requests a shared buffer of given size

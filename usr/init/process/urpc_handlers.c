@@ -1,5 +1,5 @@
 #include "init.h"
-#include "urpc/urpc.h"
+#include <aos/urpc/urpc.h>
 #include "urpc/handlers.h"
 #include "process/processmgr.h"
 

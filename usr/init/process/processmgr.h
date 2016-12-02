@@ -2,6 +2,7 @@
 #define _HEADER_INIT_PROCESSMGR
 
 #include <aos/aos.h>
+#include <urpc/opcodes.h>
 
 struct lmp_endpoint;
 struct urpc_channel;

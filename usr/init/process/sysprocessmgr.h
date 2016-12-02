@@ -2,7 +2,7 @@
 #define _HEADER_INIT_SYSPROCESSMGR
 
 #include <aos/aos.h>
-#include "urpc/server.h"
+#include <aos/urpc/server.h>
 
 struct sysprocessmgr_process{
     struct sysprocessmgr_process *next, *prev;

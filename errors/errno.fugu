@@ -1269,3 +1269,7 @@ errors processmgr PROCMGR_ERR_ {
     failure URPC_REMOTE_FAIL        "Remote URPC procedure failed",
     failure OUT_BUFFER_TOO_SMALL    "Output buffer too small for data",
 };
+
+errors processmgr BINDSRV_ERR_ {
+    failure PORT_NOT_FOUND       "There is no such port registered",
+};
