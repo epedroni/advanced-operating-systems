@@ -28,16 +28,6 @@ errval_t shell_setup_file_system(void)
     for (int i = 0; i < sizeof(init_directories) / sizeof(init_directories[0]); ++i)
         ERROR_RET1(mkdir(init_directories[i]));
     return SYS_ERR_OK;
-/*
-    fs_dirhandle_t handle;
-    err = opendir("/", &handle);
-    DEBUG_ERR(err, "opendir /");
-    char* name;
-    err = readdir(handle, &name);
-    DEBUG_ERR(err, "readdir");
-    debug_printf("Found %s\n", name);
-    closedir(handle);
-*/
 }
 
 char* shell_read_absolute_path(struct shell_state* state, char* path_mod)
@@ -101,7 +91,8 @@ char* shell_read_absolute_path(struct shell_state* state, char* path_mod)
         // Just going to a folder:
         // path = path + '/' + segment
         path = realloc(path, strlen(path) + 1 + strlen(segment) + 1);
-        strcat(path, "/");
+        if (path[1] != 0) // path = '/'
+            strcat(path, "/");
         strcat(path, segment);
     }
     return path;

@@ -608,7 +608,6 @@ errval_t ramfs_mkdir(void *st, const char *path)
     if (dirent == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-
     if (parent) {
         dirent_insert(parent->dirent, dirent);
         handle_close(parent);

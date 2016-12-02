@@ -158,9 +158,9 @@ static void handle_oncore(char* const argv[], int argc)
 
 /**
 Filesystem commands:
-    - pwd
-    - cd
-    - ls
+    - [OK] pwd
+    - [OK] cd
+    - [OK] ls
     - cat
     - grep
 */
@@ -175,7 +175,6 @@ static void handle_cd(char* const argv[], int argc)
     char* mod = argc == 1 ? "" : argv[1];
     char* new_path = shell_read_absolute_path(shell_get_state(), mod);
     // Valid path?
-    /*
     fs_dirhandle_t handle;
     if (err_is_ok(opendir(new_path, &handle)))
     {
@@ -187,10 +186,40 @@ static void handle_cd(char* const argv[], int argc)
     {
         printf("Invalid directory: %s\n", new_path);
         free(new_path);
-    }*/
+    }
+}
 
-    free(shell_get_state()->wd);
-    shell_get_state()->wd = new_path;
+static void do_ls(const char* path)
+{
+    fs_dirhandle_t handle;
+    errval_t err = opendir(path, &handle);
+    if (err_is_fail(err))
+    {
+        printf("Unable to open directory '%s'\n", path);
+        return;
+    }
+    char* name;
+    while (err_is_ok(readdir(handle, &name)))
+    {
+        printf("%s\t", name);
+    }
+    printf("\n");
+    closedir(handle);
+}
+
+static void handle_ls(char* const argv[], int argc)
+{
+    if (argc == 1)
+        do_ls(shell_get_state()->wd);
+    else
+        for (int i = 1; i < argc; ++i)
+        {
+            if (argc > 2)
+                printf("\t%s:\n", argv[i]);
+            char* new_path = shell_read_absolute_path(shell_get_state(), argv[i]);
+            do_ls(new_path);
+            free(new_path);
+        }
 }
 
 
@@ -217,6 +246,7 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "echo",        .handler = handle_echo},
         {.name = "help",        .handler = handle_help},
         {.name = "led",         .handler = handle_led},
+        {.name = "ls",          .handler = handle_ls},
         {.name = "memtest",     .handler = handle_memtest},
         {.name = "oncore",      .handler = handle_oncore},
         {.name = "ps",          .handler = handle_ps},

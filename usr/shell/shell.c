@@ -45,13 +45,12 @@ errval_t shell_run(void){
 
 int main(int argc, char *argv[])
 {
-    /*
     errval_t err = shell_setup_file_system();
     if (err_is_fail(err))
     {
         DEBUG_ERR(err, "Unable to start filesystem. Abording.");
         return 0;
-    }*/
+    }
 	shell_run();
 	return 0;
 }
