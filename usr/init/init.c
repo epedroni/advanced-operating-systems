@@ -90,8 +90,8 @@ errval_t os_core_initialize(int argc, char** argv)
     }
 
     // 5. Init RPC server
-    ERROR_RET1(aos_rpc_init(&rpc, NULL_CAP, false));
-    ERROR_RET1(lmp_server_init(&rpc));
+    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false));
+    ERROR_RET1(lmp_server_init(&core_rpc));
 
     // 6. Boot second core if needed
     if (my_core_id==0){
@@ -107,7 +107,7 @@ errval_t os_core_initialize(int argc, char** argv)
     ERROR_RET1(urpc_server_start_listen(&urpc_chan, true));
     ERROR_RET1(processmgr_register_urpc_handlers(&urpc_chan));
 
-    ERROR_RET1(binding_server_lmp_init(&rpc, &urpc_chan));
+    ERROR_RET1(binding_server_lmp_init(&core_rpc, &urpc_chan));
     ERROR_RET1(binding_server_register_urpc_handlers(&urpc_chan));
 
 
@@ -154,7 +154,7 @@ errval_t os_core_initialize(int argc, char** argv)
 errval_t os_core_events_loop(void)
 {
     debug_printf("Entering accept loop forever\n");
-    aos_rpc_accept(&rpc);
+    aos_rpc_accept(&core_rpc);
     urpc_server_stop(&urpc_chan);
     return SYS_ERR_OK;
 }

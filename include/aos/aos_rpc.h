@@ -34,6 +34,8 @@ enum message_opcodes {
     RPC_GET_PID,
     RPC_CREATE_SERVER_SOCKET,
     RPC_CONNECT_TO_SOCKET,
+    RPC_SET_LED,
+    RPC_MEMTEST,
     RPC_NUM_OPCODES,
 };
 
@@ -194,4 +196,7 @@ errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc, lpaddr_t paddr, size_t byte
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake);
 
+
+errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
+errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

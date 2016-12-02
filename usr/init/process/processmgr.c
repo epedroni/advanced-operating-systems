@@ -17,8 +17,8 @@ errval_t processmgr_init(coreid_t coreid, const char* init_process_name)
         ERROR_RET1(sysprocessmgr_init(&syspmgr_state, &urpc_chan, my_core_id));
         use_sysmgr = true;
     }
-    ERROR_RET1(coreprocessmgr_init(&core_pm_state, coreid, &rpc));
-    processmgr_register_rpc_handlers(&rpc);
+    ERROR_RET1(coreprocessmgr_init(&core_pm_state, coreid, &core_rpc));
+    processmgr_register_rpc_handlers(&core_rpc);
     processmgr_register_urpc_handlers(&urpc_chan);
 
     domainid_t pid;
@@ -76,7 +76,7 @@ errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
 errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, domainid_t pid)
 {
     if (core_id == my_core_id)
-        return coreprocessmgr_spawn_process(&core_pm_state, name, &rpc, core_id, pid);
+        return coreprocessmgr_spawn_process(&core_pm_state, name, &core_rpc, core_id, pid);
 
     // URPC CALL: URPC_OP_PROCESSMGR_SPAWN
     size_t size = strlen(name)+1;

@@ -4,9 +4,9 @@
 /**
 Commands:
     - [OK] echo
-    - led
+    - [OK] led
     - [OK] threads
-    - memtest
+    - [OK] memtest
     - oncore
     - [OK] ps
     - [OK] help
@@ -91,6 +91,48 @@ static void handle_threads(char* const argv[], int argc)
     free(thread_ids);
 }
 
+static void handle_led(char* const argv[], int argc)
+{
+    int switch_on = -1;
+    if (argc == 2 && !strcmp(argv[1], "on"))
+        switch_on = 1;
+    if (argc == 2 && !strcmp(argv[1], "off"))
+        switch_on = 0;
+    if (switch_on == -1)
+    {
+        printf("Syntax: %s {on,off}\n", argv[0]);
+        return;
+    }
+    errval_t err = aos_rpc_set_led(get_init_rpc(), switch_on);
+    if (err_is_ok(err))
+    {
+        printf("LED %sabled\n", switch_on ? "en" : "dis");
+        return;
+    }
+    DEBUG_ERR(err, "Error switching led status");
+}
+
+static void handle_memtest(char* const argv[], int argc)
+{
+    printf("** DISCLAIMER **\n");
+    printf("strtol doesnt support values above 1<<31!\n");
+    if (argc != 3)
+    {
+        printf("Syntax: %s base_address size\n", argv[0]);
+        return;
+    }
+    lpaddr_t base = strtol(argv[1], NULL, 0);
+    size_t size = strtol(argv[2], NULL, 0);
+    printf("Testing memory from 0x%08x to 0x%08x [size = 0x%08x]...\n",
+        (unsigned int)base, (unsigned int)(base + size), (unsigned int)size);
+    errval_t err = aos_rpc_memtest(get_init_rpc(), base, size);
+    if (err_is_ok(err))
+    {
+        printf("Test finished\n");
+        return;
+    }
+    DEBUG_ERR(err, "Error in memory test");
+}
 
 bool shell_execute_command(char* const argv[], int argc)
 {
@@ -110,6 +152,8 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "args",        .handler = handle_args},
         {.name = "echo",        .handler = handle_echo},
         {.name = "help",        .handler = handle_help},
+        {.name = "led",         .handler = handle_led},
+        {.name = "memtest",     .handler = handle_memtest},
         {.name = "ps",          .handler = handle_ps},
         {.name = "threads",     .handler = handle_threads},
         {.name = NULL}

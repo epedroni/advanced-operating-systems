@@ -481,6 +481,27 @@ errval_t aos_rpc_request_shared_buffer(struct aos_rpc* rpc, size_t size)
     return aos_rpc_map_shared_buffer(rpc->server_sess, size);
 }
 
+errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_SET_LED,
+            status));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send3(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_MEMTEST,
+            start, size));
+    return SYS_ERR_OK;
+}
 
 errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size)
 {
