@@ -11,9 +11,11 @@ bool shell_execute_command(char* const argv[], int argc);
 typedef void (*command_handler_fn)(char* const argv[], int argc);
 struct command_handler_entry
 {
-    const char* command;
+    const char* name;
     command_handler_fn handler;
 };
+
+struct command_handler_entry* shell_get_command_table(void);
 
 #define SHELL_PRINTF(...) debug_printf(__VA_ARGS__)
 
