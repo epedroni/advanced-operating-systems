@@ -1,4 +1,7 @@
 #include <aos/aos_rpc.h>
+#include <fs/fs.h>
+#include <fs/dirent.h>
+
 #include "shell.h"
 
 /**
@@ -153,6 +156,47 @@ static void handle_oncore(char* const argv[], int argc)
     DEBUG_ERR(err, "Error in memory test");
 }
 
+/**
+Filesystem commands:
+    - pwd
+    - cd
+    - ls
+    - cat
+    - grep
+*/
+static void handle_pwd(char* const argv[], int argc)
+{
+    printf("%s\n", shell_get_state()->wd);
+}
+
+static void handle_cd(char* const argv[], int argc)
+{
+    assert(argc > 0);
+    char* mod = argc == 1 ? "" : argv[1];
+    char* new_path = shell_read_absolute_path(shell_get_state(), mod);
+    // Valid path?
+    /*
+    fs_dirhandle_t handle;
+    if (err_is_ok(opendir(new_path, &handle)))
+    {
+        free(shell_get_state()->wd);
+        shell_get_state()->wd = new_path;
+        closedir(handle);
+    }
+    else
+    {
+        printf("Invalid directory: %s\n", new_path);
+        free(new_path);
+    }*/
+
+    free(shell_get_state()->wd);
+    shell_get_state()->wd = new_path;
+}
+
+
+/**
+Commands handling
+*/
 bool shell_execute_command(char* const argv[], int argc)
 {
     struct command_handler_entry* commands = shell_get_command_table();
@@ -169,12 +213,14 @@ struct command_handler_entry* shell_get_command_table(void)
 {
     static struct command_handler_entry commandsTable[] = {
         {.name = "args",        .handler = handle_args},
+        {.name = "cd",          .handler = handle_cd},
         {.name = "echo",        .handler = handle_echo},
         {.name = "help",        .handler = handle_help},
         {.name = "led",         .handler = handle_led},
         {.name = "memtest",     .handler = handle_memtest},
         {.name = "oncore",      .handler = handle_oncore},
         {.name = "ps",          .handler = handle_ps},
+        {.name = "pwd",         .handler = handle_pwd},
         {.name = "threads",     .handler = handle_threads},
         {.name = NULL}
     };
