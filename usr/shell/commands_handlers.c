@@ -5,7 +5,7 @@
 Commands:
     - [OK] echo
     - led
-    - threads
+    - [OK] threads
     - memtest
     - oncore
     - [OK] ps
@@ -58,6 +58,38 @@ static void handle_ps(char* const argv[], int argc)
 	free(pidptr);
 }
 
+static int thread_demo(void* tid)
+{
+    debug_printf("Thread %d is ok\n", *((int*)tid));
+    return 0;
+}
+
+static void handle_threads(char* const argv[], int argc)
+{
+    int num_threads = 2;
+    if (argc >= 2)
+        num_threads = strtol(argv[1], NULL, 10);
+    if (num_threads <= 0 || num_threads > 100)
+    {
+        printf("Invalid number of threads: %i\n", num_threads);
+        printf("Syntax: %s $num_threads\n", argv[0]);
+        return;
+    }
+    int* thread_ids = malloc(sizeof(int) * num_threads);
+    struct thread** threads = malloc(sizeof(struct thread*) * num_threads);
+    debug_printf("Starting %d threads\n", num_threads);
+    for (int i = 0; i < num_threads; ++i)
+    {
+        thread_ids[i] = i;
+        threads[i] = thread_create(thread_demo, &thread_ids[i]);
+    }
+    printf("Joining...\n", num_threads);
+    int retval;
+    for (int i = 0; i < num_threads; ++i)
+        thread_join(threads[i], &retval);
+    free(threads);
+    free(thread_ids);
+}
 
 
 bool shell_execute_command(char* const argv[], int argc)
@@ -75,10 +107,11 @@ bool shell_execute_command(char* const argv[], int argc)
 struct command_handler_entry* shell_get_command_table(void)
 {
     static struct command_handler_entry commandsTable[] = {
+        {.name = "args",        .handler = handle_args},
         {.name = "echo",        .handler = handle_echo},
         {.name = "help",        .handler = handle_help},
-        {.name = "args",        .handler = handle_args},
         {.name = "ps",          .handler = handle_ps},
+        {.name = "threads",     .handler = handle_threads},
         {.name = NULL}
     };
     return commandsTable;
