@@ -134,6 +134,25 @@ static void handle_memtest(char* const argv[], int argc)
     DEBUG_ERR(err, "Error in memory test");
 }
 
+static void handle_oncore(char* const argv[], int argc)
+{
+    if (argc < 3)
+    {
+        printf("Syntax: %s core_id binary_name...\n", argv[0]);
+        return;
+    }
+    coreid_t core_id = strtol(argv[1], NULL, 0);
+    domainid_t new_pid;
+    errval_t err = aos_rpc_process_spawn_with_args(get_init_rpc(), core_id,
+        &argv[2], argc-2, &new_pid);
+    if (err_is_ok(err))
+    {
+        printf("Test finished\n");
+        return;
+    }
+    DEBUG_ERR(err, "Error in memory test");
+}
+
 bool shell_execute_command(char* const argv[], int argc)
 {
     struct command_handler_entry* commands = shell_get_command_table();
@@ -154,6 +173,7 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "help",        .handler = handle_help},
         {.name = "led",         .handler = handle_led},
         {.name = "memtest",     .handler = handle_memtest},
+        {.name = "oncore",      .handler = handle_oncore},
         {.name = "ps",          .handler = handle_ps},
         {.name = "threads",     .handler = handle_threads},
         {.name = NULL}

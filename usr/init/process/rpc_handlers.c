@@ -1,5 +1,6 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/serializers.h>
 
 #include "process/processmgr.h"
 
@@ -73,25 +74,25 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
 {
     assert(sess);
 
-    if (!sess->shared_buffer_size)
+    if (sess->shared_buffer_size < sizeof(int))
         return RPC_ERR_SHARED_BUF_EMPTY;
 
-    size_t string_size = msg->words[1];
-    coreid_t core_id = msg->words[2];
-    ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
-
-    char* process_name = malloc(string_size + 1);
-    memcpy(process_name, sess->shared_buffer, string_size);
-    process_name[string_size] = 0;
+    coreid_t core_id = msg->words[1];
+    char** argv;
+    int argc;
+    if (!unserialize_array_of_strings(sess->shared_buffer, sess->shared_buffer_size, &argv, &argc))
+        return AOS_ERR_UNSERIALIZE;
 
     domainid_t ret_pid;
-    errval_t err = processmgr_spawn_process(process_name, core_id, &ret_pid);
+    errval_t err = processmgr_spawn_process_with_args(argv, argc, core_id, &ret_pid);
+
+    // Free unserialized data
+    for (int i = 0; i < argc; ++i)
+        free(argv[i]);
+    free(argv);
+
     if (err_is_fail(err))
-    {
-        // don't need to free otherwise because it is assigned to running_proc
-        free(process_name);
         ret_pid = 0;
-    }
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
                 LMP_FLAG_SYNC,

@@ -26,7 +26,9 @@ static errval_t urpc_handle_spawn(struct urpc_buffer* buf, struct urpc_message* 
     if (data->core_id != my_core_id)
         return PROCMGR_ERR_REMOTE_DIFFERENT_COREID;
 
-    ERROR_RET1(processmgr_spawn_process_with_pid(data->name, data->core_id, data->pid));
+    char* argv[1] = {data->name};
+    int argc = 1;
+    ERROR_RET1(processmgr_spawn_process_with_args_and_pid(argv, argc, data->core_id, data->pid));
     return SYS_ERR_OK;
 }
 

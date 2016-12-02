@@ -60,11 +60,19 @@ errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t*
 
 errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
 {
+    char* argv[1] = {name};
+    return processmgr_spawn_process_with_args(argv, 1, core_id, pid);
+}
+
+errval_t processmgr_spawn_process_with_args(char* const argv[], int argc, coreid_t core_id, domainid_t *pid)
+{
+    assert(argc > 0 && "Spawning process with 0 arg?! Need at least process name in argv[0]");
+
     debug_printf("[ProcessMgr] Spawn on core %d\n", core_id);
-    ERROR_RET1(processmgr_generate_pid(name, core_id, pid));
+    ERROR_RET1(processmgr_generate_pid(argv[0], core_id, pid));
     debug_printf("[ProcessMgr] Generated PID %d\n", *pid);
     errval_t err;
-    err=processmgr_spawn_process_with_pid(name, core_id, *pid);
+    err=processmgr_spawn_process_with_args_and_pid(argv, argc, core_id, *pid);
     if(err_is_fail(err)){
         debug_printf("[ProcessMgr] We have an error while spawning process, removing PID form list\n");
         processmgr_remove_pid(*pid);
@@ -73,8 +81,9 @@ errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
     return SYS_ERR_OK;
 }
 
-errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, domainid_t pid)
+errval_t processmgr_spawn_process_with_args_and_pid(char* const argv[], int argc, coreid_t core_id, domainid_t pid)
 {
+    const char* name = argv[0];
     if (core_id == my_core_id)
         return coreprocessmgr_spawn_process(&core_pm_state, name, &core_rpc, core_id, pid);
 

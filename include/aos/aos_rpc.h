@@ -159,6 +159,13 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *name,
                                coreid_t core, domainid_t *newpid);
 
 /**
+* \brief Request process manager to start a new process with provided arguments
+*/
+errval_t aos_rpc_process_spawn_with_args(struct aos_rpc *chan,
+                              coreid_t core, char* const argv[], int argc,
+                              domainid_t *newpid);
+
+/**
  * \brief Get name of process with id pid.
  * \arg pid the process id to lookup
  * \arg name A null-terminated character array with the name of the process

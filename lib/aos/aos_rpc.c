@@ -13,6 +13,7 @@
  */
 
 #include <aos/aos_rpc.h>
+#include <aos/serializers.h>
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 /*
@@ -304,20 +305,23 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
         coreid_t core, domainid_t *newpid)
 {
+    char* const argv[1] = {name};
+    return aos_rpc_process_spawn_with_args(rpc, core, argv, 1, newpid);
+}
+
+errval_t aos_rpc_process_spawn_with_args(struct aos_rpc *rpc,
+        coreid_t core, char* const argv[], int argc,
+        domainid_t *newpid)
+{
     assert(rpc->server_sess);
-    size_t size = strlen(name);
-
-    if (size > rpc->server_sess->shared_buffer_size)
-        return RPC_ERR_BUF_TOO_SMALL;
-
-    memcpy(rpc->server_sess->shared_buffer, name, size);
+    if (!serialize_array_of_strings(rpc->server_sess->shared_buffer, rpc->server_sess->shared_buffer_size, argv, argc))
+        return AOS_ERR_SERIALIZE;
 
     ERROR_RET1(wait_for_send(rpc->server_sess));
-    ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_SPAWN,
-            size,
             core));
 
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
