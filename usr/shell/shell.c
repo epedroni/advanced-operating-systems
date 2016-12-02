@@ -12,12 +12,6 @@
 #include <stdio.h>
 #include <aos/aos.h>
 
-// ???
-errval_t aos_slab_refill(struct slab_allocator *slabs){
-	return SYS_ERR_OK;
-}
-
-
 errval_t shell_run(void){
     char** argv;
 	char* line;
