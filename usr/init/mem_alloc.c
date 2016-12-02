@@ -7,7 +7,7 @@
 #include <mm/mm.h>
 #include <aos/threads.h>
 
-errval_t aos_slab_refill(struct slab_allocator *slabs){
+static errval_t aos_slab_refill(struct slab_allocator *slabs){
 	static int refill = 0;
 
     SLAB_DEBUG_OUT("[0x%08x:%s] aos_slab_refill",

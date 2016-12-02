@@ -8,6 +8,13 @@ errval_t shell_read_line(char** to, size_t* end_pos);
 errval_t shell_read_command(char*** argv, char** line, int* argc);
 bool shell_execute_command(char* const argv[], int argc);
 
+typedef void (*command_handler_fn)(char* const argv[], int argc);
+struct command_handler_entry
+{
+    const char* command;
+    command_handler_fn handler;
+};
+
 #define SHELL_PRINTF(...) debug_printf(__VA_ARGS__)
 
 #endif
