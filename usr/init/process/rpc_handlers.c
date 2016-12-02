@@ -92,12 +92,12 @@ errval_t handle_spawn(struct aos_rpc_session* sess,
     free(argv);
 
     if (err_is_fail(err))
-        ret_pid = 0;
+        return err;
 
     ERROR_RET1(lmp_chan_send2(&sess->lc,
                 LMP_FLAG_SYNC,
                 NULL_CAP,
-                MAKE_RPC_MSG_HEADER(RPC_SPAWN, (err_is_fail(err) ? RPC_FLAG_ERROR : RPC_FLAG_ACK)),
+                MAKE_RPC_MSG_HEADER(RPC_SPAWN, RPC_FLAG_ACK),
                 ret_pid));
 
     return SYS_ERR_OK;

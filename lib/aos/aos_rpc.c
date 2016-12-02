@@ -40,7 +40,7 @@ void cb_accept_loop(void* args)
     lmp_chan_recv(&cs->lc, &message, &received_cap);
 
     uint32_t return_opcode = RPC_NULL_OPCODE;
-    uint32_t return_flags = RPC_FLAG_ERROR;
+    uint32_t return_flags = RPC_FLAG_ACK;
     bool send_ack = true;
 
     uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
@@ -331,7 +331,7 @@ errval_t aos_rpc_process_spawn_with_args(struct aos_rpc *rpc,
 
     if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ERROR) {
         *newpid = 0;
-        return SPAWN_ERR_DOMAIN_NOTFOUND;
+        return err_push(message.words[1], PROCMGR_ERR_RPC_SPAWN_FAILED);
     }
 
     *newpid = message.words[1];

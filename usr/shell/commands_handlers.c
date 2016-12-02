@@ -7,7 +7,7 @@ Commands:
     - [OK] led
     - [OK] threads
     - [OK] memtest
-    - oncore
+    - [OK] oncore
     - [OK] ps
     - [OK] help
 */
