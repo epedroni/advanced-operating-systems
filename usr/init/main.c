@@ -30,23 +30,13 @@ int main(int argc, char *argv[])
     }
 
     // Run tests
-//    run_all_tests();
+    run_all_tests();
 
-    // Test spawn a process
-    if (my_core_id == 1)
-    {
-        domainid_t pid;
-        debug_printf("Spawning hello\n");
-        err = processmgr_spawn_process("/armv7/sbin/server_test", 0, &pid);
-        if (err_is_fail(err))
-            DEBUG_ERR(err, "spawn_process");
-
-        debug_printf("Spawning child\n");
-        err = processmgr_spawn_process("/armv7/sbin/child", 1, &pid);
-        if (err_is_fail(err))
-            DEBUG_ERR(err, "spawn_process");
-    }
-
+    debug_printf("Spawning shell\n");
+    domainid_t pid;
+    err = processmgr_spawn_process("/armv7/sbin/shell", 0, &pid);
+    if (err_is_fail(err))
+        DEBUG_ERR(err, "spawn_process");
     os_core_events_loop();
 
     return EXIT_SUCCESS;
