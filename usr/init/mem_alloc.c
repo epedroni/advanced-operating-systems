@@ -55,7 +55,7 @@ errval_t aos_ram_free(struct capref cap, size_t bytes)
  */
 errval_t initialize_ram_alloc(coreid_t core_id, genpaddr_t ram_base_address, genpaddr_t ram_size)
 {
-	printf("Initializing RAM allocator ...\n");
+    printf("Initializing RAM allocator ...\n");
     errval_t err = aos_init_mm(core_id, ram_base_address, ram_size);
     if (err_is_fail(err)) {
         return err;
@@ -67,8 +67,8 @@ errval_t initialize_ram_alloc(coreid_t core_id, genpaddr_t ram_base_address, gen
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
-	debug_printf("Done initialize ram alloc\n");
-	return err;
+    debug_printf("Done initialize ram alloc\n");
+    return err;
 }
 
 /**

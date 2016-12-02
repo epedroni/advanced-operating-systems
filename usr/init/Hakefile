@@ -25,6 +25,10 @@
                         "process/rpc_handlers.c",
                         "binding_server.c",
                         "urpc/handlers.c"
+--                        "distops/caplock.c",
+--                        "distops/capqueue.c",
+--                        "distops/deletestep.c",
+--                        "distops/invocations.c"
                       ],
                       addLinkFlags = [ "-e _start_init"],
                       addLibraries = [ "mm", "getopt", "elf", "spawn" ],

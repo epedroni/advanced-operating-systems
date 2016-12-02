@@ -46,6 +46,33 @@ static errval_t arml2_alloc(struct paging_state * st, struct capref *ret)
     return SYS_ERR_OK;
 }
 
+static errval_t slab_refill_no_lazy_alloc(struct slab_allocator *slabs){
+        static int refill = 0;
+
+    SLAB_DEBUG_OUT("[0x%08x:%s] slab_refill_no_lazy_alloc",
+        (int)slabs, slabs->name);
+        if (refill)
+                return SYS_ERR_OK;
+
+        ++refill;
+        assert(refill == 1 && "Most likely race cond in aos_slab_refill!!");
+
+        // TODO: To be changed once we have a correct malloc.
+        void* memory;
+        errval_t err = malloc_pages(&memory, 1);
+        if (err_is_fail(err))
+        {
+                --refill;
+                return err;
+        }
+
+        slab_grow(slabs, memory, BASE_PAGE_SIZE);
+        --refill;
+
+        return SYS_ERR_OK;
+}
+
+
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         struct capref pdir, struct slot_allocator * ca)
 {
@@ -54,7 +81,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     st->cap_slot_in_own_space = NULL_CAP;
 
     memset(st->l2nodes, 0, sizeof(st->l2nodes));
-    slab_init(&st->slabs, sizeof(struct vm_block), aos_slab_refill);
+    slab_init(&st->slabs, sizeof(struct vm_block), slab_refill_no_lazy_alloc);
     SLAB_SET_NAME(&st->slabs, "Paging");
     slab_grow(&st->slabs, st->slab_init_buffer, sizeof(st->slab_init_buffer));
 
