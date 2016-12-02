@@ -144,7 +144,7 @@ libusb_libdir = "/usr/lib"
 
 -- Optimisation flags (-Ox -g etc.) passed to compiler
 cOptFlags :: [String]
-cOptFlags = ["-g"]
+cOptFlags = ["-g", "-O2"]
 
 newlib_malloc :: String
 --newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()

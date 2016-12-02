@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     {
         domainid_t pid;
         debug_printf("Spawning hello\n");
-        err = processmgr_spawn_process("/armv7/sbin/hello", 0, &pid);
+        err = processmgr_spawn_process("/armv7/sbin/server_test", 0, &pid);
         if (err_is_fail(err))
             DEBUG_ERR(err, "spawn_process");
 

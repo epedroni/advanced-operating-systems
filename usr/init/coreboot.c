@@ -1,8 +1,9 @@
 #include "coreboot.h"
+#include "init.h"
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensize_t size,
-        struct bootinfo* bi, coreid_t core_to_spawn_on, struct coreboot_available_ram_info available_ram)
+        struct bootinfo* binfo, coreid_t core_to_spawn_on, struct coreboot_available_ram_info available_ram)
 {
     assert (core_to_spawn_on != 0);
 
@@ -12,10 +13,10 @@ errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensiz
     urpc_header->spawned_core_id=core_to_spawn_on;
     urpc_buf+=sizeof(struct urpc_buffer_header);
 
-    *((struct bootinfo*) urpc_buf) = *bi;
+    *((struct bootinfo*) urpc_buf) = *binfo;
 
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
-    memcpy(urpc_buf, bi->regions, bi->regions_length * sizeof(struct mem_region));
+    memcpy(urpc_buf, binfo->regions, binfo->regions_length * sizeof(struct mem_region));
 
     // mmstrings cap, for reading up modules.
     struct capref mmstrings_cap = {
@@ -25,14 +26,14 @@ errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensiz
     struct frame_identity mmstrings_id;
     ERROR_RET1(frame_identify(mmstrings_cap, &mmstrings_id));
 
-    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + binfo->regions_length * sizeof(struct mem_region), 4);
     *((genpaddr_t*) urpc_buf) = mmstrings_id.base;
     urpc_buf += sizeof(genpaddr_t);
     *((gensize_t*) urpc_buf) = mmstrings_id.bytes;
 
     size_t non_zero_slot_count = 0;
-    for (size_t i = 0; i < bi->regions_length; ++i) {
-        if (bi->regions[i].mrmod_slot != 0) {
+    for (size_t i = 0; i < binfo->regions_length; ++i) {
+        if (binfo->regions[i].mrmod_slot != 0) {
             ++non_zero_slot_count;
         }
     }
@@ -40,11 +41,11 @@ errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensiz
     *((size_t*) urpc_buf) = non_zero_slot_count;
     urpc_buf += sizeof(size_t);
 
-    for (size_t i = 0; i < bi->regions_length; ++i) {
-        if (bi->regions[i].mrmod_slot != 0) {
+    for (size_t i = 0; i < binfo->regions_length; ++i) {
+        if (binfo->regions[i].mrmod_slot != 0) {
             struct capref module = {
                 .cnode = cnode_module,
-                .slot = bi->regions[i].mrmod_slot
+                .slot = binfo->regions[i].mrmod_slot
             };
             struct frame_identity module_id;
             ERROR_RET1(frame_identify(module, &module_id));
@@ -60,8 +61,8 @@ errval_t coreboot_write_bootinfo_to_urpc(void* urpc_buf, genpaddr_t base, gensiz
     return SYS_ERR_OK;
 }
 
-errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
-        struct coreboot_available_ram_info* available_ram, coreid_t my_core_id)
+errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** binfo,
+        struct coreboot_available_ram_info* available_ram)
 {
     if (my_core_id == 0) {
         return SYS_ERR_OK;
@@ -71,18 +72,17 @@ errval_t coreboot_read_bootinfo_from_urpc(void* urpc_buf, struct bootinfo** bi,
     *available_ram=urpc_header->ram_info;
     urpc_buf+=sizeof(struct urpc_buffer_header);
 
-    memcpy(*bi, urpc_buf, sizeof(struct bootinfo));
-    debug_printf("Mem regions: %lu\n",(*bi)->regions_length);
-    assert((*bi)->regions_length<=7 && "Allocate more memory for mem_regions in bootinfo");
+    memcpy(*binfo, urpc_buf, sizeof(struct bootinfo));
+    debug_printf("Mem regions: %lu\n",(*binfo)->regions_length);
+    assert((*binfo)->regions_length<=NUM_BOOTINFO_REGIONS && "Allocate more memory for mem_regions in bootinfo");
 
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
-    memcpy((*bi)->regions, urpc_buf, (*bi)->regions_length * sizeof(struct mem_region));
+    memcpy((*binfo)->regions, urpc_buf, (*binfo)->regions_length * sizeof(struct mem_region));
 
     return SYS_ERR_OK;
 }
 
-errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi,
-        coreid_t my_core_id) {
+errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* binfo) {
     if (my_core_id == 0) {
         return SYS_ERR_OK;
     }
@@ -90,7 +90,7 @@ errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi
     urpc_buf+=sizeof(struct urpc_buffer_header);
     // mmstrings cap, for reading up modules.
     urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + sizeof(struct bootinfo), 4);
-    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + bi->regions_length * sizeof(struct mem_region), 4);
+    urpc_buf = (void*) ROUND_UP((uintptr_t) urpc_buf + binfo->regions_length * sizeof(struct mem_region), 4);
 
     genpaddr_t* mmstrings_base = (genpaddr_t*) urpc_buf;
     urpc_buf += sizeof(genpaddr_t);
@@ -140,7 +140,7 @@ errval_t coreboot_urpc_read_bootinfo_modules(void* urpc_buf, struct bootinfo* bi
     return SYS_ERR_OK;
 }
 
-errval_t coreboot_init(struct bootinfo *bi, void** urpc_buffer, size_t* urpc_buffer_size){
+errval_t coreboot_init(struct bootinfo *binfo, void** urpc_buffer, size_t* urpc_buffer_size){
     debug_printf("---- starting coreboot init ----\n");
 
     //KCB: 1
@@ -169,7 +169,7 @@ errval_t coreboot_init(struct bootinfo *bi, void** urpc_buffer, size_t* urpc_buf
 
     //Init: 2 Load and realocate CPU driver
     // 2.1 Find cpu driver in elf
-    struct mem_region* kernel_mem_reg=multiboot_find_module(bi, "cpu_omap44xx");
+    struct mem_region* kernel_mem_reg=multiboot_find_module(binfo, "cpu_omap44xx");
     if (!kernel_mem_reg)
         return SPAWN_ERR_FIND_MODULE;
     struct capref kernel_frame;
@@ -218,7 +218,7 @@ errval_t coreboot_init(struct bootinfo *bi, void** urpc_buffer, size_t* urpc_buf
 
     //Load init
     //Load elf
-    struct mem_region* init_mem_region=multiboot_find_module(bi, "init");
+    struct mem_region* init_mem_region=multiboot_find_module(binfo, "init");
     if (!init_mem_region)
         return SPAWN_ERR_FIND_MODULE;
     const lvaddr_t init_memory=ARM_CORE_DATA_PAGES * BASE_PAGE_SIZE*8;
@@ -256,7 +256,7 @@ errval_t coreboot_init(struct bootinfo *bi, void** urpc_buffer, size_t* urpc_buf
         .ram_base_address=0xa0000000,
         .ram_size=0x20000000
     };
-    ERROR_RET1(coreboot_write_bootinfo_to_urpc(*urpc_buffer, urpc_frame_id.base, urpc_frame_id.bytes, bi, 1, available_ram));
+    ERROR_RET1(coreboot_write_bootinfo_to_urpc(*urpc_buffer, urpc_frame_id.base, urpc_frame_id.bytes, binfo, 1, available_ram));
 
     ERROR_RET1(invoke_monitor_spawn_core(1, CPU_ARM7, core_data_frame_id.base));
 

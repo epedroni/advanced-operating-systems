@@ -41,9 +41,9 @@ errval_t os_core_initialize(int argc, char** argv)
     if (!bi) {
         assert(my_core_id > 0);
         //TODO: Find a way to replace hardcoded value
-        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*7));
+        bi = malloc(sizeof(struct bootinfo)+(sizeof(struct mem_region)*NUM_BOOTINFO_REGIONS));
         assert(bi);
-        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*7));
+        memset(bi, 0, sizeof(struct bootinfo)+(sizeof(struct mem_region)*NUM_BOOTINFO_REGIONS));
 
         //TODO: Read this from arguments
         struct frame_identity urpc_frame_id;
@@ -57,7 +57,7 @@ errval_t os_core_initialize(int argc, char** argv)
             return err;
         }
 
-        err = coreboot_read_bootinfo_from_urpc(urpc_buffer, &bi, &available_ram, 1);
+        err = coreboot_read_bootinfo_from_urpc(urpc_buffer, &bi, &available_ram);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_from_urpc");
@@ -79,7 +79,7 @@ errval_t os_core_initialize(int argc, char** argv)
     // Requires RAM alloc initiated, to allocate a L2 CNode.
     if (urpc_buffer)
     {
-        err = coreboot_urpc_read_bootinfo_modules(urpc_buffer, bi, 1);
+        err = coreboot_urpc_read_bootinfo_modules(urpc_buffer, bi);
         if (err_is_fail(err))
         {
             DEBUG_ERR(err, "read_modules");

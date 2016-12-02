@@ -20,19 +20,19 @@ void backtrace_from_fp(int topfp)
 
         if (i == 0)
         {
-            debug_printf("%s 0x%08x\n", args, pc);
+            printf("%s 0x%08x\n", args, pc);
             if (!pc)
                 break;
         }
         if (fp != 0)
         {
-            debug_printf("%s 0x%08x\n", args, lr);
+            printf("%s 0x%08x\n", args, lr);
             if (!lr)
                 break;
         }
         else
         {
-            debug_printf("%s 0x%08x\n", args, pc);
+            printf("%s 0x%08x\n", args, pc);
             if (!pc)
                 break;
         }

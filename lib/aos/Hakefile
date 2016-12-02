@@ -56,7 +56,7 @@
                              "waitset.c" ],
                   assemblyFiles = [ "arch/arm/entry.S", "arch/arm/syscall.S" ],
                   addIncludes =   [ "include", "include/arch/arm" ],
-                  addLibraries = [ "backtrace" ],
+                  addLibraries = [ "armbacktrace" ],
                   addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                 }
 ]
