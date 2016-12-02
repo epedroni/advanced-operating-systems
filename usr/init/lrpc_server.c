@@ -158,6 +158,21 @@ errval_t handle_set_led(struct aos_rpc_session* sess,
 {
     int status = msg->words[1];
     debug_printf("[handle_set_led] Set led status: %d\n", (int)status);
+
+    struct capref frame_cap;
+    ERROR_RET1(slot_alloc(&frame_cap));
+    ERROR_RET1(frame_forge(frame_cap, 0x4A310000, BASE_PAGE_SIZE, my_core_id));
+    void* buf;
+    ERROR_RET1(paging_map_frame(get_current_paging_state(),
+        (void*)&buf, BASE_PAGE_SIZE, frame_cap, NULL, NULL));
+    int mask = 1 << 8;
+    volatile int * out_enab = (volatile int*)(buf + 0x134);
+    volatile int * dataout  = (volatile int*)(buf + 0x13C);
+    *out_enab &= ~(mask);
+    if (status == 0)
+        *dataout &= ~mask;
+    else if (status == 1)
+        *dataout |= mask;
     return SYS_ERR_OK;
 }
 
