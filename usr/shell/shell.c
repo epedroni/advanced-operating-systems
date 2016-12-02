@@ -8,6 +8,7 @@
  * Attn: Systems Group.
  */
 
+#include "shell.h"
 #include <stdio.h>
 #include <aos/aos.h>
 
@@ -16,15 +17,30 @@ errval_t aos_slab_refill(struct slab_allocator *slabs){
 	return SYS_ERR_OK;
 }
 
-errval_t start_shell(void);
 
-errval_t start_shell(void){
-    debug_printf("Shell not yet implemented\n");
+errval_t shell_run(void){
+    char** argv;
+	char* line;
+    int argc;
+    while (true)
+    {
+        SHELL_PRINTF("shell>");
+        errval_t err = shell_read_command(&argv, &line, &argc);
+        if (err == SHELL_ERR_READ_CMD_TRY_AGAIN)
+            continue;
+        if (err_is_fail(err))
+            return err;
+        if (!shell_execute_command(argv, argc))
+            SHELL_PRINTF("No such command: '%s'\n", argv[0]);
+        free(argv);
+		free(line);
+    }
     return SYS_ERR_OK;
 }
 
+
 int main(int argc, char *argv[])
 {
-	start_shell();
+	shell_run();
 	return 0;
 }

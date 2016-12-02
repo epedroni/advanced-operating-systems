@@ -32,11 +32,15 @@ int main(int argc, char *argv[])
     // Run tests
     run_all_tests();
 
-    debug_printf("Spawning shell\n");
-    domainid_t pid;
-    err = processmgr_spawn_process("/armv7/sbin/shell", 0, &pid);
-    if (err_is_fail(err))
-        DEBUG_ERR(err, "spawn_process");
+    if (my_core_id == 0)
+    {
+        debug_printf("Spawning shell\n");
+        domainid_t pid;
+        err = processmgr_spawn_process("/armv7/sbin/shell", 0, &pid);
+        if (err_is_fail(err))
+            DEBUG_ERR(err, "spawn_process");
+    }
+
     os_core_events_loop();
 
     return EXIT_SUCCESS;
