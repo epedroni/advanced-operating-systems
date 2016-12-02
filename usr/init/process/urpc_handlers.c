@@ -1,4 +1,5 @@
 #include "init.h"
+#include <aos/serializers.h>
 #include <aos/urpc/urpc.h>
 #include "urpc/handlers.h"
 #include "process/processmgr.h"
@@ -18,17 +19,21 @@ static errval_t urpc_handle_gen_pid(struct urpc_buffer* buf, struct urpc_message
 
 static errval_t urpc_handle_spawn(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
 {
-    URPC_CHECK_READ_SIZE(msg, sizeof(struct urpc_msg_spawn));
-    struct urpc_msg_spawn* data = msg->data;
-    URPC_CHECK_READ_SIZE(msg, data->name_size);
-    data->name[data->name_size - 1] = 0;
+    URPC_CHECK_READ_SIZE(msg, sizeof(coreid_t)); // Decreases msg->lenght
+    coreid_t core_id;
+    domainid_t pid;
+    memcpy(&core_id, msg->data, sizeof(coreid_t));
+    memcpy(&pid, msg->data + sizeof(coreid_t), sizeof(domainid_t));
+    char** argv;
+    int argc;
+    if (!unserialize_array_of_strings(msg->data + sizeof(coreid_t) + sizeof(domainid_t), msg->length,
+        &argv, &argc))
+        return AOS_ERR_UNSERIALIZE;
 
-    if (data->core_id != my_core_id)
+    if (core_id != my_core_id)
         return PROCMGR_ERR_REMOTE_DIFFERENT_COREID;
 
-    char* argv[1] = {data->name};
-    int argc = 1;
-    ERROR_RET1(processmgr_spawn_process_with_args_and_pid(argv, argc, data->core_id, data->pid));
+    ERROR_RET1(processmgr_spawn_process_with_args_and_pid(argv, argc, core_id, pid));
     return SYS_ERR_OK;
 }
 

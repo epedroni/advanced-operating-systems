@@ -89,6 +89,7 @@ static void paging_thread_exception_handler(enum exception_type type,
             {
                 DEBUG_ERR(err, "handle_pagefault");
                 backtrace_from_fp(regs->named.r11);
+                while(true);
             }
             break;
         }

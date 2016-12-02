@@ -76,6 +76,16 @@ errval_t spawn_load_by_name(const char* binary_name, struct spawninfo * si, stru
                   slot_dispatcher, true);
 }
 
+errval_t spawn_load_with_args(char* const argv[], int argc, struct spawninfo * si,
+        struct lmp_chan* lc)
+{
+    debug_printf("spawn_load_with_args with %d arguments\n", argc);
+    for (int i = 0; i < argc; ++i)
+        debug_printf("argv[%d] = '%s'\n", i, argv[i]);
+    return spawn_load_by_name(argv[0], si, lc);
+//    return SYS_ERR_OK;
+}
+
 errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct mem_region** process_mem_reg)
 {
     *process_mem_reg=multiboot_find_module(bi, binary_name);

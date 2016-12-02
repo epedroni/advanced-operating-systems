@@ -1,5 +1,5 @@
+#include <aos/serializers.h>
 #include "init.h"
-
 #include "process/processmgr.h"
 #include "process/sysprocessmgr.h"
 #include "process/coreprocessmgr.h"
@@ -83,20 +83,21 @@ errval_t processmgr_spawn_process_with_args(char* const argv[], int argc, coreid
 
 errval_t processmgr_spawn_process_with_args_and_pid(char* const argv[], int argc, coreid_t core_id, domainid_t pid)
 {
-    const char* name = argv[0];
     if (core_id == my_core_id)
-        return coreprocessmgr_spawn_process(&core_pm_state, name, &core_rpc, core_id, pid);
+        return coreprocessmgr_spawn_process(&core_pm_state, argv, argc, &core_rpc, core_id, pid);
 
     // URPC CALL: URPC_OP_PROCESSMGR_SPAWN
-    size_t size = strlen(name)+1;
-    size_t send_size = size + sizeof(struct urpc_msg_spawn);
-    struct urpc_msg_spawn* send = malloc(send_size);
-    send->name_size = size;
-    send->core_id = core_id;
-    send->pid = pid;
-    memcpy(send->name, name, size);
+    size_t size = serialize_array_of_strings_size(argv, argc);
+    size_t send_size = size + sizeof(coreid_t) + sizeof(domainid_t);
+    void* send = malloc(send_size);
+    memcpy(send,                    &core_id,   sizeof(coreid_t));
+    memcpy(send + sizeof(coreid_t), &pid,       sizeof(domainid_t));
+    if (!serialize_array_of_strings(send + sizeof(coreid_t) + sizeof(domainid_t),
+            size, argv, argc))
+        return AOS_ERR_SERIALIZE;
+
     errval_t* answer;
-    size_t answer_len;
+    size_t answer_len = 0;
 
     errval_t err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PROCESSMGR_SPAWN,
         send, send_size, (void**)&answer, &answer_len);
@@ -107,7 +108,8 @@ errval_t processmgr_spawn_process_with_args_and_pid(char* const argv[], int argc
         err = *answer;
 
     free(send);
-    free(answer);
+    if (answer_len)
+        free(answer);
     return err;
 }
 

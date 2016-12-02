@@ -1,5 +1,10 @@
 #include <aos/serializers.h>
 
+size_t serialize_size_string(char* string)
+{
+    return sizeof(size_t) + strlen(string) * sizeof(char);
+}
+
 size_t serialize_string(void* buf, size_t buf_size, char* string)
 {
     size_t arg_len = strlen(string);
@@ -22,6 +27,15 @@ size_t unserialize_string(void* buf, size_t buf_size, char** string)
     memcpy(*string, buf + sizeof(size_t), arg_len * sizeof(char));
     (*string)[arg_len] = 0;
     return sizeof(size_t) + sizeof(char) * arg_len;
+}
+
+
+size_t serialize_array_of_strings_size(char* const argv[], int argc)
+{
+    size_t size = sizeof(size_t);
+    for (int i = 0; i < argc; ++i)
+        size += serialize_size_string(argv[i]);
+    return size;
 }
 
 size_t serialize_array_of_strings(void* buf, size_t buf_size, char* const argv[], int argc)

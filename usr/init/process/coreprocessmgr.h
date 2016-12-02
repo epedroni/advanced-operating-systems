@@ -18,7 +18,7 @@ struct coreprocessmgr_state{
 };
 
 errval_t coreprocessmgr_init(struct coreprocessmgr_state* pm_state, coreid_t core_id, struct aos_rpc* rpc);
-errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, const char* process_name, struct aos_rpc* rpc,
+errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, char* const argv[], int argc, struct aos_rpc* rpc,
         coreid_t core_id, domainid_t withpid);
 errval_t coreprocessmgr_find_process_by_endpoint(struct coreprocessmgr_state* pm_state, struct lmp_endpoint* ep, domainid_t* pid);
 errval_t coreprocessmgr_process_finished(struct coreprocessmgr_state* pm_state, domainid_t pid);
