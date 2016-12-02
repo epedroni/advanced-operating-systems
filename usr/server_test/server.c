@@ -18,10 +18,6 @@ struct aos_rpc *init_rpc;
 
 errval_t listen(void);
 
-errval_t aos_slab_refill(struct slab_allocator *slabs){
-	return SYS_ERR_OK;
-}
-
 static
 errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
 {

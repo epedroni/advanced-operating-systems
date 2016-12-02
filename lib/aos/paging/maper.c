@@ -55,7 +55,7 @@ static errval_t slab_refill_no_lazy_alloc(struct slab_allocator *slabs){
                 return SYS_ERR_OK;
 
         ++refill;
-        assert(refill == 1 && "Most likely race cond in aos_slab_refill!!");
+        assert(refill == 1 && "Most likely race cond in slab_refill_no_lazy_alloc!!");
 
         // TODO: To be changed once we have a correct malloc.
         void* memory;

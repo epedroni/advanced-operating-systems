@@ -74,8 +74,6 @@ struct paging_state {
 #define DATA_STRUCT_LOCK(st) { thread_mutex_lock_nested(&(st)->blocks_lock);}
 #define DATA_STRUCT_UNLOCK(st) { thread_mutex_unlock(&(st)->blocks_lock);}
 
-extern errval_t aos_slab_refill(struct slab_allocator *slabs);
-
 struct thread;
 /// Initialize paging_state struct
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,

@@ -20,12 +20,6 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-
-errval_t aos_slab_refill(struct slab_allocator *slabs){
-    //TODO: We have to think of a way how to provide refill function to every application
-    return SYS_ERR_OK;
-}
-
 const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
                   "sed do eiusmod tempor incididunt ut labore et dolore magna "
                   "aliqua. Ut enim ad minim veniam, quis nostrud exercitation "
