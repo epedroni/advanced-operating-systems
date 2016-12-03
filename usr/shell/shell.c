@@ -82,6 +82,6 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "Unable to start filesystem. Abording.");
         return 0;
     }
-	shell_run();
-	return 0;
+    shell_run();
+    return 0;
 }
