@@ -4,6 +4,8 @@
 
 #include "shell.h"
 
+#define SHELL_STDOUT(...) fprintf(shell_get_state()->out, __VA_ARGS__)
+#define SHELL_STDERR(...) fprintf(shell_get_state()->err, __VA_ARGS__)
 /**
 Commands:
     - [OK] echo
@@ -18,23 +20,23 @@ Commands:
 static void handle_help(char* const argv[], int argc)
 {
     struct command_handler_entry* commands = shell_get_command_table();
-    printf("Available commands:\n");
+    SHELL_STDOUT("Available commands:\n");
     for (int i = 0; commands[i].name != NULL; ++i)
-        printf("\t%s\n", commands[i].name);
+        SHELL_STDOUT("\t%s\n", commands[i].name);
 }
 
 static void handle_echo(char* const argv[], int argc)
 {
     for (int i = 1; i < argc; ++i)
-        printf("%s ", argv[i]);
-    printf("\n");
+        SHELL_STDOUT("%s ", argv[i]);
+    SHELL_STDOUT("\n");
 }
 
 static void handle_args(char* const argv[], int argc)
 {
-    debug_printf("Execute command '%s' with %d arguments\n", argv[0], argc);
+    SHELL_STDOUT("Execute command '%s' with %d arguments\n", argv[0], argc);
     for (int i = 1; i < argc; ++i)
-        debug_printf("arg[%d]: '%s'\n", i, argv[i]);
+        SHELL_STDOUT("arg[%d]: '%s'\n", i, argv[i]);
 }
 
 static void handle_ps(char* const argv[], int argc)
@@ -46,13 +48,13 @@ static void handle_ps(char* const argv[], int argc)
 		DEBUG_ERR(err, "Could not get PIDs");
 		return;
 	}
-    printf("%u running processes:\n", pidcount);
+    SHELL_STDOUT("%u running processes:\n", pidcount);
 	char* name;
 	for (int i = 0; i < pidcount; i++) {
 		err = aos_rpc_process_get_name(get_init_rpc(), pidptr[i], &name);
 		if (err_is_ok(err))
 		{
-			printf("\t%d\t\"%s\"\n", pidptr[i], name);
+			SHELL_STDOUT("\t%d\t\"%s\"\n", pidptr[i], name);
 			free(name);
 		}
 		else
@@ -63,7 +65,7 @@ static void handle_ps(char* const argv[], int argc)
 
 static int thread_demo(void* tid)
 {
-    debug_printf("Thread %d is ok\n", *((int*)tid));
+    SHELL_STDOUT("Thread %d is ok\n", *((int*)tid));
     return 0;
 }
 
@@ -74,19 +76,19 @@ static void handle_threads(char* const argv[], int argc)
         num_threads = strtol(argv[1], NULL, 10);
     if (num_threads <= 0 || num_threads > 100)
     {
-        printf("Invalid number of threads: %i\n", num_threads);
-        printf("Syntax: %s $num_threads\n", argv[0]);
+        SHELL_STDERR("Invalid number of threads: %i\n", num_threads);
+        SHELL_STDOUT("Syntax: %s $num_threads\n", argv[0]);
         return;
     }
     int* thread_ids = malloc(sizeof(int) * num_threads);
     struct thread** threads = malloc(sizeof(struct thread*) * num_threads);
-    debug_printf("Starting %d threads\n", num_threads);
+    SHELL_STDOUT("Starting %d threads\n", num_threads);
     for (int i = 0; i < num_threads; ++i)
     {
         thread_ids[i] = i;
         threads[i] = thread_create(thread_demo, &thread_ids[i]);
     }
-    printf("Joining...\n", num_threads);
+    SHELL_STDOUT("Joining...\n", num_threads);
     int retval;
     for (int i = 0; i < num_threads; ++i)
         thread_join(threads[i], &retval);
@@ -103,13 +105,13 @@ static void handle_led(char* const argv[], int argc)
         switch_on = 0;
     if (switch_on == -1)
     {
-        printf("Syntax: %s {on,off}\n", argv[0]);
+        SHELL_STDOUT("Syntax: %s {on,off}\n", argv[0]);
         return;
     }
     errval_t err = aos_rpc_set_led(get_init_rpc(), switch_on);
     if (err_is_ok(err))
     {
-        printf("LED %sabled\n", switch_on ? "en" : "dis");
+        SHELL_STDOUT("LED %sabled\n", switch_on ? "en" : "dis");
         return;
     }
     DEBUG_ERR(err, "Error switching led status");
@@ -117,8 +119,8 @@ static void handle_led(char* const argv[], int argc)
 
 static void handle_memtest(char* const argv[], int argc)
 {
-    printf("** DISCLAIMER **\n");
-    printf("strtol doesnt support values above 1<<31!\n");
+    SHELL_STDERR("** DISCLAIMER **\n");
+    SHELL_STDERR("strtol doesnt support values above 1<<31!\n");
     if (argc != 3)
     {
         printf("Syntax: %s base_address size\n", argv[0]);
@@ -126,7 +128,7 @@ static void handle_memtest(char* const argv[], int argc)
     }
     lpaddr_t base = strtol(argv[1], NULL, 0);
     size_t size = strtol(argv[2], NULL, 0);
-    printf("Testing memory from 0x%08x to 0x%08x [size = 0x%08x]...\n",
+    SHELL_STDOUT("Testing memory from 0x%08x to 0x%08x [size = 0x%08x]...\n",
         (unsigned int)base, (unsigned int)(base + size), (unsigned int)size);
     errval_t err = aos_rpc_memtest(get_init_rpc(), base, size);
     if (err_is_ok(err))
@@ -141,7 +143,7 @@ static void handle_oncore(char* const argv[], int argc)
 {
     if (argc < 3)
     {
-        printf("Syntax: %s core_id binary_name...\n", argv[0]);
+        SHELL_STDOUT("Syntax: %s core_id binary_name...\n", argv[0]);
         return;
     }
     coreid_t core_id = strtol(argv[1], NULL, 0);
@@ -150,7 +152,7 @@ static void handle_oncore(char* const argv[], int argc)
         &argv[2], argc-2, &new_pid);
     if (err_is_ok(err))
     {
-        printf("Test finished\n");
+        SHELL_STDOUT("Test finished\n");
         return;
     }
     DEBUG_ERR(err, "Error in memory test");
@@ -161,12 +163,12 @@ Filesystem commands:
     - [OK] pwd
     - [OK] cd
     - [OK] ls
-    - cat
+    - [OK] cat
     - grep
 */
 static void handle_pwd(char* const argv[], int argc)
 {
-    printf("%s\n", shell_get_state()->wd);
+    SHELL_STDOUT("%s\n", shell_get_state()->wd);
 }
 
 static void handle_cd(char* const argv[], int argc)
@@ -184,7 +186,7 @@ static void handle_cd(char* const argv[], int argc)
     }
     else
     {
-        printf("Invalid directory: %s\n", new_path);
+        SHELL_STDERR("Invalid directory: %s\n", new_path);
         free(new_path);
     }
 }
@@ -195,15 +197,15 @@ static void do_ls(const char* path)
     errval_t err = opendir(path, &handle);
     if (err_is_fail(err))
     {
-        printf("Unable to open directory '%s'\n", path);
+        SHELL_STDERR("Unable to open directory '%s'\n", path);
         return;
     }
     char* name;
     while (err_is_ok(readdir(handle, &name)))
     {
-        printf("%s\t", name);
+        SHELL_STDOUT("%s\t", name);
     }
-    printf("\n");
+    SHELL_STDOUT("\n");
     closedir(handle);
 }
 
@@ -222,6 +224,33 @@ static void handle_ls(char* const argv[], int argc)
         }
 }
 
+
+static void do_cat(const char* path)
+{
+    FILE* f = fopen(path, "r");
+    if (!f)
+    {
+        SHELL_STDERR("Unable to open file '%s'\n", path);
+        return;
+    }
+    int c;
+    while ((c = fgetc(f)) != EOF)
+        SHELL_STDOUT("%c", c);
+    fclose(f);
+}
+
+static void handle_cat(char* const argv[], int argc)
+{
+    if (argc == 1)
+        printf("Syntax: %s file1 file2...\n", argv[0]);
+    else
+        for (int i = 1; i < argc; ++i)
+        {
+            char* new_path = shell_read_absolute_path(shell_get_state(), argv[i]);
+            do_cat(new_path);
+            free(new_path);
+        }
+}
 
 /**
 Commands handling
@@ -242,6 +271,7 @@ struct command_handler_entry* shell_get_command_table(void)
 {
     static struct command_handler_entry commandsTable[] = {
         {.name = "args",        .handler = handle_args},
+        {.name = "cat",         .handler = handle_cat},
         {.name = "cd",          .handler = handle_cd},
         {.name = "echo",        .handler = handle_echo},
         {.name = "help",        .handler = handle_help},

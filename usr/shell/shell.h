@@ -8,6 +8,8 @@ struct shell_state
 {
     char* wd;               // Working directory
     const char* home;       // Default directory
+    FILE* out;
+    FILE* err;
 };
 
 // Generic shell commands
@@ -15,6 +17,7 @@ errval_t shell_run(void);
 errval_t shell_read_line(char** to, size_t* end_pos);
 errval_t shell_read_command(char*** argv, char** line, int* argc);
 bool shell_execute_command(char* const argv[], int argc);
+void shell_reset_output(void);
 struct shell_state* shell_get_state(void);
 
 // Filesystem
