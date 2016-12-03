@@ -38,10 +38,12 @@ errval_t shell_read_command(char*** argv, char** out_line, int* argc)
     }
 
     // And now fill all arguments
+    *out_line = line;
     *argc = 1;
     size_t argv_size = 4;
     *argv = malloc(sizeof(char*) * argv_size);
     (*argv)[0] = &line[begin_pos];
+
     for (int i = begin_pos; i < end_pos; ++i)
     {
         // TODO: Handle '"' to group arguments
