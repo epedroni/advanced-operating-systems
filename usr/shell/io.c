@@ -12,6 +12,34 @@ static bool shell_isspace(char c)
     }
     return false;
 }
+
+static bool advance_to_begin_of_arg(size_t* i, char* line, size_t end_pos)
+{
+    while (shell_isspace(line[*i]) && *i < end_pos)
+        ++(*i);
+    return *i < end_pos;
+}
+static void advance_to_end_of_arg(size_t* begin, size_t* i, char* line, size_t end_pos)
+{
+    // Quoted args
+    if (line[*i] == '"')
+    {
+        size_t quote_end = *i + 1;
+        while (line[quote_end] != '"' && quote_end < end_pos)
+            ++quote_end;
+        if (quote_end != end_pos) // We found end of quote
+        {
+            assert(line[quote_end] == '"');
+            *i = quote_end;
+            ++(*begin);
+            return;
+        }
+    }
+    // Just go until next space
+    while (!shell_isspace(line[*i]) && *i < end_pos)
+        ++(*i);
+}
+
 errval_t shell_read_command(char*** argv, char** out_line, int* argc)
 {
     char* line;
@@ -39,31 +67,24 @@ errval_t shell_read_command(char*** argv, char** out_line, int* argc)
 
     // And now fill all arguments
     *out_line = line;
-    *argc = 1;
+    *argc = 0;
     size_t argv_size = 4;
     *argv = malloc(sizeof(char*) * argv_size);
-    (*argv)[0] = &line[begin_pos];
-
-    for (int i = begin_pos; i < end_pos; ++i)
+    while (begin_pos != end_pos)
     {
-        // TODO: Handle '"' to group arguments
-        if (shell_isspace(line[i]))
+        if (!advance_to_begin_of_arg(&begin_pos, line, end_pos))
+            return SYS_ERR_OK;
+        size_t arg_end = begin_pos;
+        advance_to_end_of_arg(&begin_pos, &arg_end, line, end_pos);
+        if (*argc == argv_size)
         {
-            line[i] = 0;
-            do
-            {
-                ++i;
-                assert(i < end_pos); // Because we skipped spaces in the end!
-            }
-            while (shell_isspace(line[i]));
-            if (*argc == argv_size)
-            {
-                argv_size *= 2;
-                *argv = realloc(*argv, sizeof(char*) * argv_size);
-            }
-            (*argv)[*argc] = &line[i];
-            ++(*argc);
+            argv_size *= 2;
+            *argv = realloc(*argv, sizeof(char*) * argv_size);
         }
+        (*argv)[*argc] = &line[begin_pos];
+        line[arg_end] = 0;
+        ++(*argc);
+        begin_pos = arg_end+1;
     }
 
     return SYS_ERR_OK;
