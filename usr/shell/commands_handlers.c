@@ -4,8 +4,6 @@
 
 #include "shell.h"
 
-#define SHELL_STDOUT(...) fprintf(shell_get_state()->out, __VA_ARGS__)
-#define SHELL_STDERR(...) fprintf(shell_get_state()->err, __VA_ARGS__)
 /**
 Commands:
     - [OK] echo
@@ -164,7 +162,7 @@ Filesystem commands:
     - [OK] cd
     - [OK] ls
     - [OK] cat
-    - grep
+    - [OK] grep
 */
 static void handle_pwd(char* const argv[], int argc)
 {
@@ -175,7 +173,7 @@ static void handle_cd(char* const argv[], int argc)
 {
     assert(argc > 0);
     char* mod = argc == 1 ? "" : argv[1];
-    char* new_path = shell_read_absolute_path(shell_get_state(), mod);
+    char* new_path = shell_read_absolute_path(shell_get_state()->wd, shell_get_state()->home, mod);
     // Valid path?
     fs_dirhandle_t handle;
     if (err_is_ok(opendir(new_path, &handle)))
@@ -191,19 +189,20 @@ static void handle_cd(char* const argv[], int argc)
     }
 }
 
-static void do_ls(const char* path)
+static void do_ls(void* data, const char* rel_path, const char* abs_path)
 {
     fs_dirhandle_t handle;
-    errval_t err = opendir(path, &handle);
+    errval_t err = opendir(abs_path, &handle);
     if (err_is_fail(err))
     {
-        SHELL_STDERR("Unable to open directory '%s'\n", path);
+        SHELL_STDERR("Unable to open directory '%s'\n", rel_path);
         return;
     }
     char* name;
     while (err_is_ok(readdir(handle, &name)))
     {
         SHELL_STDOUT("%s\t", name);
+        free(name);
     }
     SHELL_STDOUT("\n");
     closedir(handle);
@@ -212,25 +211,18 @@ static void do_ls(const char* path)
 static void handle_ls(char* const argv[], int argc)
 {
     if (argc == 1)
-        do_ls(shell_get_state()->wd);
+        do_ls(NULL, ".", shell_get_state()->wd);
     else
-        for (int i = 1; i < argc; ++i)
-        {
-            if (argc > 2)
-                printf("\t%s:\n", argv[i]);
-            char* new_path = shell_read_absolute_path(shell_get_state(), argv[i]);
-            do_ls(new_path);
-            free(new_path);
-        }
+        shell_fs_match_files(&argv[1], argc-1, do_ls, NULL, MATCH_FLAG_DIRECTORIES);
 }
 
 
-static void do_cat(const char* path)
+static void do_cat(void* data, const char* rel_path, const char* abs_path)
 {
-    FILE* f = fopen(path, "r");
+    FILE* f = fopen(abs_path, "r");
     if (!f)
     {
-        SHELL_STDERR("Unable to open file '%s'\n", path);
+        SHELL_STDERR("Unable to open file '%s'\n", rel_path);
         return;
     }
     int c;
@@ -242,14 +234,83 @@ static void do_cat(const char* path)
 static void handle_cat(char* const argv[], int argc)
 {
     if (argc == 1)
-        printf("Syntax: %s file1 file2...\n", argv[0]);
+        SHELL_STDOUT("Syntax: %s file1 file2...\n", argv[0]);
     else
-        for (int i = 1; i < argc; ++i)
+        shell_fs_match_files(&argv[1], argc-1, do_cat, NULL, MATCH_FLAG_FILES);
+}
+
+static char* readline(FILE* f)
+{
+    size_t buf_size = 16;
+    size_t buf_pos = 0;
+    char* buf = malloc(buf_size);
+    int c;
+    while ((c = fgetc(f)))
+    {
+        if (c == EOF)
         {
-            char* new_path = shell_read_absolute_path(shell_get_state(), argv[i]);
-            do_cat(new_path);
-            free(new_path);
+            if (buf_pos == 0)
+            {
+                free(buf);
+                return NULL;
+            }
+            break;
         }
+        if (c == '\n')
+            break;
+        if (buf_pos + 2 >= buf_size)
+        {
+            buf_size *= 2;
+            buf = realloc(buf, buf_size);
+        }
+        buf[buf_pos] = c;
+        ++buf_pos;
+    }
+    buf[buf_pos] = 0;
+    return buf;
+}
+
+static void do_grep(void* data, const char* rel_path, const char* abs_path)
+{
+    FILE* f = fopen(abs_path, "r");
+    if (!f)
+    {
+        SHELL_STDERR("Unable to open file '%s'\n", rel_path);
+        return;
+    }
+    char* line;
+    int line_num = 1;
+    while ((line = readline(f)))
+    {
+        if (strstr(line, (const char*)data))
+            SHELL_STDOUT("%s[%d]:%s\n", rel_path, line_num, line);
+        free(line);
+        ++line_num;
+    }
+    fclose(f);
+}
+
+static void syntax_grep(void)
+{
+    SHELL_STDOUT("Syntax: grep [-r] pattern file1 file2...\n");
+}
+
+static void handle_grep(char* const argv[], int argc)
+{
+    // Handle args
+    int flags = MATCH_FLAG_FILES;
+    int pattern_idx = 1;
+    if (argc < 3)
+        return syntax_grep();
+    if (!strcmp(argv[1], "-r"))
+    {
+        flags |= MATCH_FLAG_RECURSIVE;
+        ++pattern_idx;
+        if (argc < 4)
+            return syntax_grep();
+    }
+    shell_fs_match_files(&argv[pattern_idx+1], argc-pattern_idx-1,
+        do_grep, argv[pattern_idx], flags);
 }
 
 /**
@@ -274,6 +335,7 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "cat",         .handler = handle_cat},
         {.name = "cd",          .handler = handle_cd},
         {.name = "echo",        .handler = handle_echo},
+        {.name = "grep",        .handler = handle_grep},
         {.name = "help",        .handler = handle_help},
         {.name = "led",         .handler = handle_led},
         {.name = "ls",          .handler = handle_ls},

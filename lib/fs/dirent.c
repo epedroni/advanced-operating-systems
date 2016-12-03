@@ -183,6 +183,16 @@ errval_t stat(const char *path, struct fs_fileinfo *buf)
 {
     FILE *f = fopen(path, "r");
     if (f == NULL) {
+        // Is directory?
+        fs_dirhandle_t handle;
+        errval_t err = opendir(path, &handle);
+        if (err_is_ok(err))
+        {
+            buf->type = FS_DIRECTORY;
+            buf->size = 0;
+            closedir(handle);
+            return SYS_ERR_OK;
+        }
         return FS_ERR_NOTFOUND;
     }
 

@@ -29,7 +29,7 @@ static errval_t shell_configure_output(char*** argv, int* argc)
         bool write_append = !strcmp((*argv)[*argc - 2], ">>");
         if (write_to || write_append)
         {
-            char* file_path = shell_read_absolute_path(&state, (*argv)[*argc - 1]);
+            char* file_path = shell_read_absolute_path(state.wd, state.home, (*argv)[*argc - 1]);
             FILE* f = fopen(file_path, write_append ? "a+" : "w+");
             free(file_path);
             if (!f)
@@ -46,7 +46,7 @@ static errval_t shell_configure_output(char*** argv, int* argc)
 
 errval_t shell_run(void){
     // Init
-    shell_get_state()->home = "/home";
+    shell_get_state()->home = "/home/pandabeer";
     shell_get_state()->wd = strdup(shell_get_state()->home);
 
     char** argv;
