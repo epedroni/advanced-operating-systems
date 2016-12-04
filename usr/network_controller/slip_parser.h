@@ -16,7 +16,7 @@
 #define SLIP_STATE_MAGIC_NUMBER    607495481
 #define SLIP_STATE_INITIALIZED(slp) assert(slp->struct_initialized==SLIP_STATE_MAGIC_NUMBER && "Slip state not initialized, or corrupted")
 #define GET_IP_VERSION(byte) (byte>>4)
-#define GET_IHL(byte) (byte & 0x0F)
+#define GET_IHL(byte) ((byte) & 0x0F)
 
 #define IP_VERSION_V4   4
 #define IP_MAX_IHL      15
@@ -85,6 +85,9 @@ errval_t slip_register_protocol_handler(struct slip_state* slip_state, uint8_t p
         uint8_t* buffer, size_t buff_size, slip_data_received data_handler);
 
 errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t from,
-        uint8_t *buf, size_t len);
+        uint8_t protocol, uint8_t *buf, size_t len);
+
+//Helper functions
+void slip_dump_ip_header(struct ip_header* ip_header);
 
 #endif //_SLIP_PARSER_

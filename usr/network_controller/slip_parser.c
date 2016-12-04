@@ -1,5 +1,6 @@
 #include <slip_parser.h>
 #include <netutil/htons.h>
+#include <netutil/checksum.h>
 
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler){
     slip_state->current_position=0;
@@ -7,6 +8,7 @@ errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler
     slip_state->current_state=SLIP_PARSE_STATE_READY;
     slip_state->is_escape=false;
     slip_state->active_handler=NULL;
+    slip_state->write_handler=write_handler;
     memset(slip_state->available_protocol_handlers,0,sizeof(slip_state->available_protocol_handlers));
 
     return SLIP_ERR_OK;
@@ -26,48 +28,50 @@ uint8_t slip_unescape(uint8_t escaped){
 }
 
 static
-uint16_t ip_sum_calc(struct ip_header* hdr, uint16_t len_ip_header)
-{
-    uint16_t* buff=(uint16_t*)hdr;
-    uint16_t word16;
-    uint32_t sum=0;
-    uint16_t i;
-
-    // make 16 bit words out of every two adjacent 8 bit words in the packet
-    // and add them up
-    for (i=0;i<len_ip_header;i=i+2){
-        word16 =((buff[i]<<8)&0xFF00)+(buff[i+1]&0xFF);
-        sum = sum + (uint32_t) word16;
+uint16_t calculate_checksum(uint16_t* header_buffer, size_t length){
+    uint32_t sum=0x0;
+    for(size_t i=0; i<length; ++i){
+        sum+=header_buffer[i];
     }
 
-    // take only 16 bits out of the 32 bit sum and add up the carries
     while (sum>>16)
-      sum = (sum & 0xFFFF)+(sum >> 16);
+        sum = (sum & 0xFFFF)+(sum >> 16);
 
-    // one's complement the result
-    sum = ~sum;
+    uint16_t calculated_checksum=~sum;
 
-    return ((uint16_t) sum);
+    return calculated_checksum;
 }
 
 static
-uint16_t cksum(struct ip_header *ip, size_t len){
-  uint32_t sum = 0;  /* assume 32 bit long, 16 bit short */
+bool slip_correct_ip_header_checksum(struct ip_header* header){
+    uint32_t ihl= GET_IHL(header->version);
+    if(ihl>IP_MAX_IHL)
+        return false;   //If IHL is larger then maximum value, something is wrong
 
-  while(len > 1){
-    sum += (*((uint16_t*) ip))++;
-    if(sum & 0x80000000)   /* if high order bit set, fold */
-      sum = (sum & 0xFFFF) + (sum >> 16);
-    len -= 2;
-  }
+    uint16_t header_checksum=header->header_checksum;
+    header->header_checksum=0x0;
+    size_t half_word_count=ihl*2;
+    uint16_t* header_buffer=(uint16_t*)header;
+    uint16_t calculated_checksum=calculate_checksum(header_buffer, half_word_count);
 
-  if(len)       /* take care of left over byte */
-    sum += (uint16_t) *(uint8_t*)ip;
+    return (calculated_checksum==header_checksum);
+}
 
-  while(sum>>16)
-    sum = (sum & 0xFFFF) + (sum >> 16);
+void slip_dump_ip_header(struct ip_header* ip_header){
+    debug_printf("\n--- Dumping ip header ---\n");
+    debug_printf("Version: %lu Header length: %lu\n", GET_IP_VERSION(ip_header->version), GET_IHL(ip_header->version));
+    debug_printf("Total length: %lu identification: 0x%04x\n", lwip_ntohs(ip_header->total_length), lwip_ntohs(ip_header->identification));
+    debug_printf("Flags and offset: 0x%04x\n", lwip_ntohs(ip_header->fragmentation_info));
+    debug_printf("TTL: %lu Protocol: 0x%02x\n", ip_header->ttl, ip_header->protocol);
+    debug_printf("Header checksum: 0x%04x inverted: 0x%04x\n", (ip_header->header_checksum), lwip_ntohs(ip_header->header_checksum));
 
-  return ~sum;
+    debug_printf("\n\nPrinting out raw bytes!\n");
+    size_t packet_length=GET_IHL(ip_header->version)*4;
+    uint8_t* ip_buffer=(uint8_t*)ip_header;
+    for(int i=0;i<packet_length;++i){
+        printf("%02x ", ip_buffer[i]);
+    }
+    printf("\n\n\n");
 }
 
 static
@@ -80,6 +84,7 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
 
     slip_state->active_handler->buffer[slip_state->active_handler->data_length++]=byte;
     if (--slip_state->remaining_data_bytes==0){
+        debug_printf("Finished parsing ip data\n");
         slip_state->active_handler->data_handler(slip_state->current_ip_header->source_ip,
                 slip_state->current_ip_header->destination_ip,
                 slip_state->active_handler->buffer,
@@ -105,25 +110,24 @@ errval_t slip_parse_ip_header(struct slip_state* slip_state, uint8_t byte){
         if(slip_state->available_protocol_handlers[slip_state->current_ip_header->protocol].data_handler!=NULL){
             struct slip_protocol_handler* protocol_handler=&slip_state->available_protocol_handlers[slip_state->current_ip_header->protocol];
 
-            uint16_t checksum=slip_state->current_ip_header->header_checksum;
-            slip_state->current_ip_header->header_checksum=0x0000;
-            if(ip_sum_calc(slip_state->current_ip_header, slip_state->ip_header_size)==checksum){
-                debug_printf("EQUAL OHHHOHO\n");
-            }else{
-                if(cksum(slip_state->current_ip_header, slip_state->ip_header_size) == ip_sum_calc(slip_state->current_ip_header, slip_state->ip_header_size)){
-                    debug_printf("BOTH ARE EQUAL!\n");
+            if(slip_correct_ip_header_checksum(slip_state->current_ip_header)){
+
+                if(protocol_handler->buffer_capacity<slip_state->remaining_data_bytes){
+                    debug_printf("Protocol buffer capacity: %lu total datagram size: %lu data bytes: %lu\n",protocol_handler->buffer_capacity, total_datagram_size, slip_state->remaining_data_bytes);
+                    debug_printf("Data to be received is larger then provided buffer! Dropping packet\n");
+                    slip_state->current_state=SLIP_PARSE_STATE_INVALID;
+                    return SLIP_ERR_OK;
                 }
+                slip_state->active_handler=protocol_handler;
+                protocol_handler->data_length=0;
+                slip_state->current_state=SLIP_PARSE_STATE_IP_USER_DATA;
 
-                debug_printf("Received checksum: [0x%04x] calculated: [0x%04x]\n", checksum, ip_sum_calc(slip_state->current_ip_header, slip_state->ip_header_size));
-            }
-
-            if(protocol_handler->buffer_capacity<slip_state->remaining_data_bytes){
-                debug_printf("Data to be received is larger then provided buffer! Dropping packet\n");
+            }else{
+                debug_printf("Received IP packet doesn't have correct checksum, dropping it\n");
                 slip_state->current_state=SLIP_PARSE_STATE_INVALID;
+                return SLIP_ERR_OK;
             }
-            slip_state->active_handler=protocol_handler;
-            protocol_handler->data_length=0;
-            slip_state->current_state=SLIP_PARSE_STATE_IP_USER_DATA;
+
         }else{
             debug_printf("Unsupported protocol!\n");
             slip_state->current_state=SLIP_PARSE_STATE_INVALID;
@@ -218,11 +222,61 @@ errval_t slip_register_protocol_handler(struct slip_state* slip_state, uint8_t p
     return SLIP_ERR_OK;
 }
 
+static
+errval_t slip_write_raw_data(struct slip_state* slip_state, uint8_t *buf, size_t len, bool finished_datagram){
+    static uint8_t ESCAPED_ESC_SEQ[2]={SLIP_ESC, SLIP_ESC_ESC};
+    static uint8_t ESCAPED_END_SEQ[2]={SLIP_ESC, SLIP_ESC_END};
+    static uint8_t ESCAPED_NUL_SEQ[2]={SLIP_ESC, SLIP_ESC_NUL};
+    static uint8_t END_SEQ[1]={SLIP_END};
+
+    for(size_t i=0;i<len;++i){
+        switch(buf[i]){
+        case SLIP_END:
+            slip_state->write_handler(ESCAPED_END_SEQ, 2);
+            break;
+        case SLIP_ESC:
+            slip_state->write_handler(ESCAPED_ESC_SEQ, 2);
+            break;
+        case 0x0:
+            slip_state->write_handler(ESCAPED_NUL_SEQ, 2);
+            break;
+        default:
+            slip_state->write_handler(buf+i, 1);
+        }
+    }
+
+    if(finished_datagram){
+        slip_state->write_handler(END_SEQ, 1);
+    }
+
+    return SLIP_ERR_OK;
+}
+
 errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t from,
-        uint8_t *buf, size_t len){
+        uint8_t protocol, uint8_t *buf, size_t len){
     SLIP_STATE_INITIALIZED(slip_state);
 
+    static const uint8_t HEADER_WORDS=5;   //TODO: Check if fixed size satisfies everything
+    static const uint16_t HEADER_SIZE=HEADER_WORDS*4;  //4 bytes per word
+    static uint16_t last_used_identifier=0xABCD;
 
+    struct ip_header ip_header;
+    ip_header.version=IP_VERSION_V4<<4 | HEADER_WORDS;
+    debug_printf("IP versoin 0x%04x\n", ip_header.version);
+    ip_header.reserved_1=0x0;
+    ip_header.total_length=lwip_htons(HEADER_SIZE+len);
+    ip_header.identification=last_used_identifier++;
+    ip_header.fragmentation_info=lwip_htons(0x4000);
+    ip_header.ttl=64;
+    ip_header.protocol=protocol;
+    ip_header.source_ip=from;
+    ip_header.destination_ip=to;
+    ip_header.header_checksum=inet_checksum((uint8_t*)&ip_header, HEADER_SIZE);
+    debug_printf("Checksum: 0x%04x\n", ip_header.header_checksum);
+
+    slip_dump_ip_header(&ip_header);
+    ERR_CHECK("Sending header data", slip_write_raw_data(slip_state, (uint8_t*)&ip_header, 20, false));
+    ERR_CHECK("Sending data", slip_write_raw_data(slip_state, buf, len, true));
 
     return SLIP_ERR_OK;
 }
