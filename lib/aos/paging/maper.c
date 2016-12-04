@@ -309,14 +309,12 @@ errval_t paging_retype_block_at_address(struct paging_state *st, lvaddr_t desire
 
 errval_t paging_alloc_fixed_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
 {
-    debug_printf("paging_alloc_fixed_address\n");
     return paging_retype_block_at_address(st, desired_address, bytes,
             VirtualBlock_Free, VirtualBlock_Allocated); //from free to allocated
 }
 
 errval_t paging_mark_as_paged_address(struct paging_state *st, lvaddr_t desired_address, size_t bytes)
 {
-    debug_printf("paging_mark_as_paged_address start address [0x%08x] size [0x%08x]\n", desired_address, bytes);
     return paging_retype_block_at_address(st, desired_address, bytes,
             VirtualBlock_Allocated, VirtualBlock_Paged); //from free to allocated
 }
