@@ -26,6 +26,14 @@ struct __attribute__((packed)) icmp_packet{
     uint8_t data[0];
 };
 
+struct __attribute__((packed)) udp_packet{
+    uint16_t source_port;
+    uint16_t dest_port;
+    uint16_t length;
+    uint16_t checksum;
+    uint8_t data[0];
+};
+
 static
 void print_ip(uint32_t ip)
 {
@@ -54,7 +62,26 @@ void icmp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len){
     packet->checksum=0;
     packet->checksum=inet_checksum(buf, len);
     slip_send_datagram(&slip_state, from, to, 0x01, buf, len);
+}
 
+static
+void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len){
+    debug_printf("Received UDP packet\n");
+    struct udp_packet* packet=(struct udp_packet*)buf;
+    debug_printf("Received UDP message: %s length: %lu\n", packet->data, len);
+
+    uint16_t tmp=packet->source_port;
+    packet->source_port=packet->dest_port;
+    packet->dest_port=tmp;
+    packet->checksum=0x0;
+
+    debug_printf("UDP packet printout\n");
+    for(int i=0;i<len;++i){
+        printf("%02x ", buf[i]);
+    }
+    printf("\n");
+
+    slip_send_datagram(&slip_state, from, to, 0x11, buf, len);
 }
 
 int main(int argc, char *argv[])
@@ -72,10 +99,18 @@ int main(int argc, char *argv[])
     ERR_CHECK("Init serial", serial_init((lvaddr_t)uart_address, UART4_IRQ));
     ERR_CHECK("Initializing SLIP parser", slip_init(&slip_state, serial_write));
 
-    uint8_t icmp_buffer[23];
-    ERR_CHECK("Register ICMP", slip_register_protocol_handler(&slip_state, 0x01, icmp_buffer, sizeof(icmp_buffer),icmp_handler));
+    uint8_t icmp_buffer[64];
+    ERR_CHECK("Register ICMP", slip_register_protocol_handler(&slip_state, 0x01, icmp_buffer, sizeof(icmp_buffer), icmp_handler));
+    uint8_t udp_buffer[64];
+    ERR_CHECK("Register UDP", slip_register_protocol_handler(&slip_state, 0x11, udp_buffer, sizeof(udp_buffer), udp_handler));
 
-    aos_rpc_accept(get_init_rpc());
+    while (true) {
+        errval_t err=event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    }
 
 	return 0;
 }
