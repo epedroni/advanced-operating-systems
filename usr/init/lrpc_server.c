@@ -1,5 +1,6 @@
 #include "lrpc_server.h"
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
+#include <omap44xx_map.h>
 
 #define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
@@ -113,6 +114,39 @@ errval_t handle_ram_cap_opcode(struct aos_rpc_session* sess,
 }
 
 static
+errval_t handle_get_special_cap(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    enum aos_rpc_cap_type requested_cap_type=(enum aos_rpc_cap_type)msg->words[1];
+
+    DEBUG_LRPC("Received request for special capability\n");
+
+    if(requested_cap_type==AOS_CAP_IRQ){
+        debug_printf("Sending aos irq table capability\n");
+        ERROR_RET1(lmp_chan_send1(&sess->lc,
+            LMP_FLAG_SYNC,
+            cap_irq,
+            MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
+    }else if(requested_cap_type==AOS_CAP_NETWORK_UART){
+        debug_printf("Sending uart frame capability\n");
+        struct capref uart4_frame;
+        slot_alloc(&uart4_frame);
+        ERROR_RET1(frame_forge(uart4_frame, OMAP44XX_MAP_L4_PER_UART4, OMAP44XX_MAP_L4_PER_UART4_SIZE, 0));
+        ERROR_RET1(lmp_chan_send1(&sess->lc,
+            LMP_FLAG_SYNC,
+            uart4_frame,
+            MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
+    }
+
+    return SYS_ERR_OK;
+}
+
+static
 errval_t handle_get_char_handle(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
@@ -154,6 +188,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_RAM_CAP_QUERY, handle_ram_cap_opcode, false);
     aos_rpc_register_handler(rpc, RPC_GET_CHAR, handle_get_char_handle, false);
     aos_rpc_register_handler(rpc, RPC_PUT_CHAR, handle_put_char_handle, true);
+    aos_rpc_register_handler(rpc, RPC_SPECIAL_CAP_QUERY, handle_get_special_cap, false);
 
     return SYS_ERR_OK;
 }

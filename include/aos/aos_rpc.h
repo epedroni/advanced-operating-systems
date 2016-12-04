@@ -34,6 +34,8 @@ enum message_opcodes {
     RPC_GET_PID,
     RPC_CREATE_SERVER_SOCKET,
     RPC_CONNECT_TO_SOCKET,
+    RPC_SPECIAL_CAP_QUERY,
+    RPC_SPECIAL_CAP_RESPONSE,
     RPC_NUM_OPCODES,
 };
 
@@ -136,6 +138,14 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
  */
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t bytes, size_t alignment,
                              struct capref *retcap, size_t *ret_bytes);
+
+enum aos_rpc_cap_type{
+    AOS_CAP_IRQ,
+    AOS_CAP_NETWORK_UART
+};
+
+errval_t aos_rpc_get_special_capability(struct aos_rpc *chan, enum aos_rpc_cap_type cap_type,
+        struct capref *retcap);
 
 /**
  * \brief get one character from the serial port

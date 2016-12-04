@@ -88,7 +88,6 @@ errval_t spawn_load_module(struct spawninfo* si, const char* binary_name, struct
     si->binary_name = malloc(strlen(binary_name) + 1);
     strcpy(si->binary_name, binary_name);
 
-
     // Binary frame
     si->module_frame.cnode = cnode_module;
     si->module_frame.slot = (*process_mem_reg)->mrmod_slot;

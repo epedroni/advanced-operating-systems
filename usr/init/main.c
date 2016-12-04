@@ -19,6 +19,13 @@
 #include "tests.h"
 #include "init.h"
 #include "process/processmgr.h"
+#include <omap44xx_map.h>
+#include <netutil/user_serial.h>
+#include <aos/inthandler.h>
+
+void serial_input(uint8_t *buf, size_t len){
+    debug_printf("Received: %c\n", *buf);
+}
 
 int main(int argc, char *argv[])
 {
@@ -29,22 +36,21 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // Run tests
-//    run_all_tests();
-
-    // Test spawn a process
-    if (my_core_id == 1)
+    if (my_core_id == 0)
     {
         domainid_t pid;
-        debug_printf("Spawning hello\n");
-        err = processmgr_spawn_process("/armv7/sbin/server_test", 0, &pid);
-        if (err_is_fail(err))
-            DEBUG_ERR(err, "spawn_process");
-
-        debug_printf("Spawning child\n");
-        err = processmgr_spawn_process("/armv7/sbin/child", 1, &pid);
-        if (err_is_fail(err))
-            DEBUG_ERR(err, "spawn_process");
+        debug_printf("Spawning networking\n");
+        ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
+//
+//        struct capref uart4_frame;
+//        slot_alloc(&uart4_frame);
+//        ERR_CHECK("Forging UART4 frame", frame_forge(uart4_frame, OMAP44XX_MAP_L4_PER_UART4, OMAP44XX_MAP_L4_PER_UART4_SIZE, 0))
+//
+//        void* uart_address=NULL;
+//        ERR_CHECK("mapping uart frame", paging_map_frame_attr(get_current_paging_state(), &uart_address,
+//                OMAP44XX_MAP_L4_PER_UART4_SIZE, uart4_frame, VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_NOCACHE, NULL, NULL));
+//
+//        ERR_CHECK("Init serial",serial_init((lvaddr_t)uart_address, UART4_IRQ));
     }
 
     os_core_events_loop();

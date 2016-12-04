@@ -250,6 +250,21 @@ errval_t aos_connect_to_port(struct aos_rpc *rpc,
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_get_special_capability(struct aos_rpc *rpc, enum aos_rpc_cap_type cap_type,
+        struct capref *retcap){
+
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_SPECIAL_CAP_QUERY,
+            (uint32_t)cap_type));
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
+    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_SPECIAL_CAP_RESPONSE);
+    return SYS_ERR_OK;
+}
+
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc,
     size_t request_bits,
     size_t alignment,

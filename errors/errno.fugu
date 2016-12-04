@@ -1291,6 +1291,14 @@ errors processmgr BINDSRV_ERR_ {
     failure PORT_NOT_FOUND       "There is no such port registered",
 };
 
+errors aos SLIP_ERR_ {
+	success OK          		"Success",
+};
+
+errors aos NETWORKING_ERR_ {
+    failure NOT_IMPLEMENTED        "This functionality is not yet implemented",
+};
+
 // errors for AOS
 errors aos AOS_ERR_ {
     failure LMP_SEND_FAILURE        "Failure while sending AOS LMP message",

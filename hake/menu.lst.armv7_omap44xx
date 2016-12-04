@@ -16,6 +16,7 @@ module /armv7/sbin/hello
 module /armv7/sbin/memeater
 module /armv7/sbin/child
 module /armv7/sbin/server_test
+module /armv7/sbin/networking
 
 
 # For pandaboard, use following values.
