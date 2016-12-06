@@ -5,7 +5,7 @@
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler){
     slip_state->current_position=0;
     slip_state->struct_initialized=SLIP_STATE_MAGIC_NUMBER;
-    slip_state->current_state=SLIP_PARSE_STATE_INVALID;
+    slip_state->current_state=SLIP_PARSE_STATE_READY;
     slip_state->is_escape=false;
     slip_state->active_handler=NULL;
     slip_state->write_handler=write_handler;
@@ -81,6 +81,7 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
     assert(slip_state->active_handler->buffer_capacity>slip_state->active_handler->data_length);
 
     if(!slip_state->remaining_data_bytes){
+        debug_printf("Invalid state! Too much bytes for processing\n");
         slip_state->current_state=SLIP_PARSE_STATE_INVALID;
         return SLIP_ERR_OK;
     }
@@ -203,9 +204,9 @@ errval_t slip_consume_byte(struct slip_state* slip_state, uint8_t byte){
         byte=slip_unescape(byte);
         slip_state->is_escape=false;
     }else if(!slip_state->is_escape && byte==SLIP_END){
+
         return slip_datagram_finished(slip_state);
     }
-
     return slip_datagram_process_byte(slip_state, byte);
 }
 

@@ -18,50 +18,58 @@ struct slip_state slip_state;
 uint8_t uart_receive_buffer[UART_RCV_BUFFER_SIZE];
 volatile size_t buffer_start;
 volatile size_t buffer_end;
+volatile size_t buffer_write_offset;
 
-#define DEBUG_BUFF_SIZE 800
+
+struct thread_mutex buffer_lock;
+struct thread_cond buffer_content_changed;
+
+#define DEBUG_BUFF_SIZE 2000
 size_t debug_buff_index;
 uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 
 void serial_input(uint8_t *buf, size_t len){
-    assert(len==1);
+
+    thread_mutex_lock(&buffer_lock);
     for(size_t i=0; i<len; ++i){
 
-        size_t end=(buffer_end+1)%UART_RCV_BUFFER_SIZE;
+        size_t end=(buffer_end+buffer_write_offset+1)%UART_RCV_BUFFER_SIZE;
 
         while(end==buffer_start){
-            debug_printf("------ PROCESSING IS TOOOOO SLOW\n");
-            thread_yield();
+            debug_printf("------ CONSUMER IS TOOOOO SLOW\n");
+            thread_cond_wait(&buffer_content_changed, &buffer_lock);
         }
-//
-//        debug_buffer[debug_buff_index++]=buf[i];
-//        debug_buff_index=debug_buff_index%DEBUG_BUFF_SIZE;
-//
-//        if(debug_buff_index==0){
-//            debug_printf("Printing out buffer backtrace!\n");
-//            for(int j=0;j<DEBUG_BUFF_SIZE;++j){
-//                printf("%02x ", debug_buffer[j]);
-//            }
-//            printf("\n");
-//        }
 
-        uart_receive_buffer[buffer_end]=buf[i];
-        buffer_end=end;
+        size_t tmp_end=(buffer_end+buffer_write_offset)%UART_RCV_BUFFER_SIZE;
+        uart_receive_buffer[tmp_end]=buf[i];
+        if(++buffer_write_offset==800 || buf[i]==0xC0){
+            buffer_write_offset=0;
+            buffer_end=end;
+            thread_cond_signal(&buffer_content_changed);
+        }
     }
+    thread_mutex_unlock(&buffer_lock);
+
 }
 
 int serial_buffer_consumer(void* args);
 int serial_buffer_consumer(void* args){
     debug_printf("Started consumer thread!\n");
     while(1){
-
+        thread_mutex_lock(&buffer_lock);
         while(buffer_start==buffer_end){
-            thread_yield();
+            thread_cond_wait(&buffer_content_changed, &buffer_lock);
         }
+        thread_mutex_unlock(&buffer_lock);
 
-        slip_consume_byte(&slip_state, uart_receive_buffer[buffer_start]);
+        //Do processing
+        ERR_CHECK("Consume byte", slip_consume_byte(&slip_state, uart_receive_buffer[buffer_start]));
+
+        thread_mutex_lock(&buffer_lock);
         size_t start=(buffer_start+1)%UART_RCV_BUFFER_SIZE;
         buffer_start=start;
+        thread_cond_signal(&buffer_content_changed);
+        thread_mutex_unlock(&buffer_lock);
     }
 
     return 0;
@@ -101,14 +109,6 @@ void icmp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len){
     print_ip(lwip_ntohl(from));
     print_ip(lwip_ntohl(to));
     struct icmp_packet* packet=(struct icmp_packet*)buf;
-//    debug_printf("Type %lu code: %lu data:\n", (packet->type), (packet->code));
-
-    thread_yield();
-
-//    for(int i=0;i<len-sizeof(struct icmp_packet);++i){
-//        debug_printf("%02x ", packet->data[i]);
-//    }
-//    printf("\nSending reply!\n");
 
     packet->code=0;
     packet->type=0;
@@ -121,7 +121,8 @@ static
 void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len){
     debug_printf("Received UDP packet\n");
     struct udp_packet* packet=(struct udp_packet*)buf;
-    debug_printf("Received UDP message: %s length: %lu\n", packet->data, len);
+    packet->data[len-1]=0;
+    debug_printf("Received UDP message: %slength: %lu\n", packet->data, len);
 
     uint16_t tmp=packet->source_port;
     packet->source_port=packet->dest_port;
@@ -130,7 +131,7 @@ void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len){
 
     debug_printf("UDP packet printout\n");
     for(int i=0;i<len;++i){
-//        printf("%02x ", buf[i]);
+        printf("%02x ", buf[i]);
     }
     printf("\n");
 
@@ -151,6 +152,9 @@ int main(int argc, char *argv[])
 
     buffer_start=0;
     buffer_end=0;
+    buffer_write_offset=0;
+    thread_cond_init(&buffer_content_changed);
+    thread_mutex_init(&buffer_lock);
 
     // Starting thread
     struct thread* consumer_thread=thread_create(serial_buffer_consumer, NULL);
