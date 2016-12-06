@@ -5,11 +5,12 @@
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler){
     slip_state->current_position=0;
     slip_state->struct_initialized=SLIP_STATE_MAGIC_NUMBER;
-    slip_state->current_state=SLIP_PARSE_STATE_READY;
+    slip_state->current_state=SLIP_PARSE_STATE_INVALID;
     slip_state->is_escape=false;
     slip_state->active_handler=NULL;
     slip_state->write_handler=write_handler;
-    memset(slip_state->available_protocol_handlers,0,sizeof(slip_state->available_protocol_handlers));
+    thread_mutex_init(&slip_state->serial_lock);
+    memset(slip_state->available_protocol_handlers, 0, sizeof(slip_state->available_protocol_handlers));
 
     return SLIP_ERR_OK;
 }
@@ -80,6 +81,7 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
     assert(slip_state->active_handler->buffer_capacity>slip_state->active_handler->data_length);
 
     if(!slip_state->remaining_data_bytes){
+        slip_state->current_state=SLIP_PARSE_STATE_INVALID;
         return SLIP_ERR_OK;
     }
 
@@ -90,7 +92,7 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
                 slip_state->current_ip_header->destination_ip,
                 slip_state->active_handler->buffer,
                 slip_state->active_handler->data_length);
-        slip_state->current_state=SLIP_PARSE_STATE_READY;
+//        slip_state->current_state=SLIP_PARSE_STATE_READY;
     }
 
     return SLIP_ERR_OK;
@@ -120,17 +122,16 @@ errval_t slip_parse_ip_header(struct slip_state* slip_state, uint8_t byte){
                     slip_state->current_state=SLIP_PARSE_STATE_INVALID;
                     return SLIP_ERR_OK;
                 }
-                debug_printf("Ip headers seems to be OK, proceeding to user data parsing of length: %lu\n", slip_state->remaining_data_bytes);
+                debug_printf("IP headers seems to be OK, proceeding to user data parsing of length: %lu\n", slip_state->remaining_data_bytes);
                 slip_state->active_handler=protocol_handler;
                 protocol_handler->data_length=0;
                 slip_state->current_state=SLIP_PARSE_STATE_IP_USER_DATA;
-
+                return SLIP_ERR_OK;
             }else{
                 debug_printf("Received IP packet doesn't have correct checksum, dropping it\n");
                 slip_state->current_state=SLIP_PARSE_STATE_INVALID;
                 return SLIP_ERR_OK;
             }
-
         }else{
             debug_printf("Unsupported protocol!\n");
             slip_state->current_state=SLIP_PARSE_STATE_INVALID;
@@ -142,11 +143,12 @@ errval_t slip_parse_ip_header(struct slip_state* slip_state, uint8_t byte){
 
 static
 errval_t slip_verify_datagram_ip_version(struct slip_state* slip_state, uint8_t byte){
-    if(GET_IP_VERSION(byte)==IP_VERSION_V4 && GET_IHL(byte)<=IP_MAX_IHL){
+    uint8_t ihl=GET_IHL(byte);
+    if(GET_IP_VERSION(byte)==IP_VERSION_V4 && (ihl<=IP_MAX_IHL) && (ihl>=IP_MIN_IHL)){
         debug_printf("Recognized IPV4 version!\n");
         slip_state->rcv_buffer[0]=byte;
         slip_state->current_position=1;
-        slip_state->ip_header_size=GET_IHL(byte)*IP_WORD_SIZE;
+        slip_state->ip_header_size=ihl*IP_WORD_SIZE;
         slip_state->current_state=SLIP_PARSE_STATE_IPV4_HEADER;
     }else{
         debug_printf("Unsupported IP version!\n");
@@ -179,7 +181,11 @@ errval_t slip_datagram_process_byte(struct slip_state* slip_state, uint8_t byte)
 
 static
 errval_t slip_datagram_finished(struct slip_state* slip_state){
-    debug_printf("Datagram end detected\n");
+    if(slip_state->current_state==SLIP_PARSE_STATE_IP_USER_DATA){
+        if(slip_state->remaining_data_bytes){
+            debug_printf("Received end of frame, but there was still %lu bytes to be received\n", slip_state->remaining_data_bytes);
+        }
+    }
 
     slip_state->current_position=0;
     slip_state->is_escape=false;
@@ -187,9 +193,8 @@ errval_t slip_datagram_finished(struct slip_state* slip_state){
     return SLIP_ERR_OK;
 }
 
-static
 errval_t slip_consume_byte(struct slip_state* slip_state, uint8_t byte){
-    //Check if we have to escape character
+    SLIP_STATE_INITIALIZED(slip_state);
 
     if(!slip_state->is_escape && byte==SLIP_ESC){
         slip_state->is_escape=true;
@@ -267,7 +272,7 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
 
     struct ip_header ip_header;
     ip_header.version=IP_VERSION_V4<<4 | HEADER_WORDS;
-    debug_printf("IP version 0x%04x\n", ip_header.version);
+//    debug_printf("IP version 0x%04x\n", ip_header.version);
     ip_header.reserved_1=0x0;
     ip_header.total_length=lwip_htons(HEADER_SIZE+len);
     ip_header.identification=last_used_identifier++;
@@ -277,9 +282,9 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
     ip_header.source_ip=from;
     ip_header.destination_ip=to;
     ip_header.header_checksum=inet_checksum((uint8_t*)&ip_header, HEADER_SIZE);
-    debug_printf("Checksum: 0x%04x\n", ip_header.header_checksum);
+//    debug_printf("Checksum: 0x%04x\n", ip_header.header_checksum);
 
-    slip_dump_ip_header(&ip_header);
+//    slip_dump_ip_header(&ip_header);
     ERR_CHECK("Sending header data", slip_write_raw_data(slip_state, (uint8_t*)&ip_header, HEADER_SIZE, false));
     ERR_CHECK("Sending data", slip_write_raw_data(slip_state, buf, len, true));
 

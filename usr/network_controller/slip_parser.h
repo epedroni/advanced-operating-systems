@@ -20,6 +20,7 @@
 
 #define IP_VERSION_V4   4
 #define IP_MAX_IHL      15
+#define IP_MIN_IHL      5
 
 typedef void (*system_raw_write)(uint8_t *buf, size_t len);
 typedef void (*slip_data_received)(uint32_t from, uint32_t to, uint8_t *buf, size_t len);
@@ -53,6 +54,7 @@ struct __attribute__((packed)) ip_header{
 };
 
 struct slip_state{
+    struct thread_mutex serial_lock;
     uint32_t struct_initialized;
     enum slip_parsing_state current_state;
     uint32_t current_position;
@@ -80,6 +82,8 @@ struct slip_state{
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler);
 
 errval_t slip_raw_rcv(struct slip_state* slip_state, uint8_t *buf, size_t len);
+
+errval_t slip_consume_byte(struct slip_state* slip_state, uint8_t byte);
 
 errval_t slip_register_protocol_handler(struct slip_state* slip_state, uint8_t protocol_id,
         uint8_t* buffer, size_t buff_size, slip_data_received data_handler);
