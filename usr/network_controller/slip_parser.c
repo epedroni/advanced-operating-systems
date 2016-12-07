@@ -1,6 +1,4 @@
 #include <slip_parser.h>
-#include <netutil/htons.h>
-#include <netutil/checksum.h>
 
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler){
     slip_state->current_position=0;
@@ -92,7 +90,8 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
         slip_state->active_handler->data_handler(slip_state->current_ip_header->source_ip,
                 slip_state->current_ip_header->destination_ip,
                 slip_state->active_handler->buffer,
-                slip_state->active_handler->data_length);
+                slip_state->active_handler->data_length,
+                slip_state->active_handler->context);
 //        slip_state->current_state=SLIP_PARSE_STATE_READY;
     }
 
@@ -221,13 +220,14 @@ errval_t slip_raw_rcv(struct slip_state* slip_state, uint8_t *buf, size_t len){
 }
 
 errval_t slip_register_protocol_handler(struct slip_state* slip_state, uint8_t protocol_id,
-        uint8_t* buffer, size_t buff_size, slip_data_received data_handler){
+        uint8_t* buffer, size_t buff_size, slip_data_received data_handler, void* context){
     SLIP_STATE_INITIALIZED(slip_state);
 
     slip_state->available_protocol_handlers[protocol_id].buffer=buffer;
     slip_state->available_protocol_handlers[protocol_id].buffer_capacity=buff_size;
     slip_state->available_protocol_handlers[protocol_id].data_length=0;
     slip_state->available_protocol_handlers[protocol_id].data_handler=data_handler;
+    slip_state->available_protocol_handlers[protocol_id].context=context;
 
     return SLIP_ERR_OK;
 }
@@ -271,9 +271,8 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
     static const uint16_t HEADER_SIZE=HEADER_WORDS*4;  //4 bytes per word
     static uint16_t last_used_identifier=0xABCD;
 
-    struct ip_header ip_header;
+    static struct ip_header ip_header;
     ip_header.version=IP_VERSION_V4<<4 | HEADER_WORDS;
-//    debug_printf("IP version 0x%04x\n", ip_header.version);
     ip_header.reserved_1=0x0;
     ip_header.total_length=lwip_htons(HEADER_SIZE+len);
     ip_header.identification=last_used_identifier++;
@@ -282,10 +281,9 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
     ip_header.protocol=protocol;
     ip_header.source_ip=from;
     ip_header.destination_ip=to;
+    ip_header.header_checksum=0;
     ip_header.header_checksum=inet_checksum((uint8_t*)&ip_header, HEADER_SIZE);
-//    debug_printf("Checksum: 0x%04x\n", ip_header.header_checksum);
 
-//    slip_dump_ip_header(&ip_header);
     ERR_CHECK("Sending header data", slip_write_raw_data(slip_state, (uint8_t*)&ip_header, HEADER_SIZE, false));
     ERR_CHECK("Sending data", slip_write_raw_data(slip_state, buf, len, true));
 

@@ -12,7 +12,8 @@
 
 [ build application { target = "networking",
   		              cFiles = [ "main.c",
-  		              			 "slip_parser.c"
+  		              			 "slip_parser.c",
+  		              			 "icmp.c"
   		               ],
                       addLinkFlags = [ "-e _start"],
                       addLibraries = [ "netutil" ],

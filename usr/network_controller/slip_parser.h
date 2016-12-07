@@ -2,6 +2,8 @@
 #define _SLIP_PARSER_
 
 #include <aos/aos.h>
+#include <netutil/checksum.h>
+#include <netutil/htons.h>
 
 //SLIP specific defines
 #define SLIP_END        0xC0
@@ -23,11 +25,12 @@
 #define IP_MIN_IHL      5
 
 typedef void (*system_raw_write)(uint8_t *buf, size_t len);
-typedef void (*slip_data_received)(uint32_t from, uint32_t to, uint8_t *buf, size_t len);
+typedef void (*slip_data_received)(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void* context);
 
 struct slip_protocol_handler{
     slip_data_received data_handler;
     size_t buffer_capacity;
+    void* context;
     size_t data_length;
     uint8_t* buffer;
 };
@@ -86,7 +89,7 @@ errval_t slip_raw_rcv(struct slip_state* slip_state, uint8_t *buf, size_t len);
 errval_t slip_consume_byte(struct slip_state* slip_state, uint8_t byte);
 
 errval_t slip_register_protocol_handler(struct slip_state* slip_state, uint8_t protocol_id,
-        uint8_t* buffer, size_t buff_size, slip_data_received data_handler);
+        uint8_t* buffer, size_t buff_size, slip_data_received data_handler, void* context);
 
 errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t from,
         uint8_t protocol, uint8_t *buf, size_t len);
