@@ -110,7 +110,6 @@ errval_t os_core_initialize(int argc, char** argv)
     ERROR_RET1(binding_server_lmp_init(&rpc, &urpc_chan));
     ERROR_RET1(binding_server_register_urpc_handlers(&urpc_chan));
 
-
     //TODO: Move test to separate function
     char buffer[50];
     for(int i=0;i<0;++i){

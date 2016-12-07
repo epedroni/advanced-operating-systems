@@ -36,7 +36,7 @@ errval_t listen(void){
     ERROR_RET1(frame_alloc(&shared_buffer, BASE_PAGE_SIZE, &ret_bytes));
 
     void* address=NULL;
-    ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),&address, BASE_PAGE_SIZE,
+    ERROR_RET1(paging_map_frame_attr(get_current_paging_state(), &address, BASE_PAGE_SIZE,
             shared_buffer,VREGION_FLAGS_READ_WRITE, NULL, NULL));
     assert(address);
     memset(address, 0, BASE_PAGE_SIZE);

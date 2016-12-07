@@ -36,6 +36,8 @@ enum message_opcodes {
     RPC_CONNECT_TO_SOCKET,
     RPC_SPECIAL_CAP_QUERY,
     RPC_SPECIAL_CAP_RESPONSE,
+    RPC_NETWORK_UDP_CONNECT,
+    RPC_NETWORK_UDP_CREATE_SERVER,
     RPC_NUM_OPCODES,
 };
 
@@ -102,6 +104,7 @@ errval_t recv_block(struct aos_rpc_session* sess,
     struct lmp_recv_msg* message,
     struct capref* cap);
 
+errval_t wait_for_ack_with_message(struct aos_rpc_session* sess, struct lmp_recv_msg* message, struct capref* ret_capref);
 errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess);
 errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session* sess);
 
@@ -187,6 +190,9 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
                                       domainid_t **pids, size_t *pid_count);
 
 errval_t aos_rpc_process_exit(struct aos_rpc *chan);
+
+errval_t aos_rpc_udp_create_server(struct aos_rpc *rpc, struct capref urpc_frame, uint16_t port);
+errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port);
 
 /**
  * \brief Gets a capability to device registers

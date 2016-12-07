@@ -79,7 +79,7 @@ int urpc_server_event_loop(void* _buf_void)
     struct urpc_message message;
     message.data = malloc(len);
     assert(message.data);
-
+    debug_printf("URPC server started!\n");
     do {
         if (channel->server_stop_now)
         {

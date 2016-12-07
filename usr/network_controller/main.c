@@ -28,7 +28,6 @@ size_t debug_buff_index;
 uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 
 void serial_input(uint8_t *buf, size_t len){
-
     thread_mutex_lock(&buffer_lock);
     for(size_t i=0; i<len; ++i){
 
@@ -81,16 +80,7 @@ struct __attribute__((packed)) udp_packet{
     uint8_t data[0];
 };
 
-//static
-//void print_ip(uint32_t ip)
-//{
-//    unsigned char bytes[4];
-//    bytes[0] = ip & 0xFF;
-//    bytes[1] = (ip >> 8) & 0xFF;
-//    bytes[2] = (ip >> 16) & 0xFF;
-//    bytes[3] = (ip >> 24) & 0xFF;
-//    debug_printf("IP = %d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);
-//}
+struct urpc_channel urpc_chan;
 
 static
 void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void* context){
@@ -110,7 +100,41 @@ void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void* con
     }
     printf("\n");
 
+    uint8_t rcv_data[50];
+    size_t rcv_len=sizeof(rcv_data);
+    ERR_CHECK("Urpc client send", urpc_client_send(&urpc_chan.buffer_send, 1, buf, len, (void**)&rcv_data, &rcv_len));
+
     slip_send_datagram(&slip_state, from, to, 0x11, buf, len);
+}
+
+static
+errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, void* context){
+    return SYS_ERR_OK;
+}
+
+void cb_accept_loop(void* args);
+void cb_accept_loop(void* args){
+    debug_printf("CB ACCEPT LOOP INVOKED\n");
+
+    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
+    struct capref received_cap=NULL_CAP;
+    lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
+
+    uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
+    debug_printf("Received message type: %d\n", message_opcode);
+
+//    if(!capcmp(received_cap, NULL_CAP)){
+//        debug_printf("Capabilities changed, allocating new slot\n");
+//        lmp_chan_alloc_recv_slot(&cs->lc);
+//    }
+    lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL));
+    void* urpc_buffer=NULL;
+    size_t urpc_size=BASE_PAGE_SIZE;
+    ERR_CHECK("Mapping urpc frame", paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_size, received_cap,
+            NULL, NULL));
+
+    ERR_CHECK("Init urpc server", urpc_channel_init(&urpc_chan, urpc_buffer, urpc_size, URPC_CHAN_SLAVE, 8));
+    ERR_CHECK("Urpc server register", urpc_server_register_handler(&urpc_chan, 1, send_udp_datagram, NULL));
 }
 
 int main(int argc, char *argv[])
@@ -145,13 +169,12 @@ int main(int argc, char *argv[])
     uint8_t udp_buffer[64];
     ERR_CHECK("Register UDP", slip_register_protocol_handler(&slip_state, 0x11, udp_buffer, sizeof(udp_buffer), udp_handler, NULL));
 
-    while (true) {
-        errval_t err=event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    }
+    domainid_t pid;
+    ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/child", 0, &pid));
 
+    // Handle requests
+    ERR_CHECK("Register receive", lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL)));
+
+    aos_rpc_accept(init_rpc);
 	return 0;
 }

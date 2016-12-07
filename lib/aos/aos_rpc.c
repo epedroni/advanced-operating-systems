@@ -162,17 +162,22 @@ errval_t recv_block(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+errval_t wait_for_ack_with_message(struct aos_rpc_session* sess, struct lmp_recv_msg* message, struct capref* ret_capref)
+{
+    ERROR_RET1(recv_block(sess, message, ret_capref));
+
+    if (RPC_HEADER_FLAGS(message->words[0]) & RPC_FLAG_ACK)
+        return SYS_ERR_OK;
+    return RPC_ERR_INVALID_PROTOCOL;
+}
+
 static
 errval_t wait_for_ack(struct aos_rpc_session* sess)
 {
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref dummy_capref;
 
-    ERROR_RET1(recv_block(sess, &message, &dummy_capref));
-
-    if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ACK)
-        return SYS_ERR_OK;
-    return RPC_ERR_INVALID_PROTOCOL;
+    return wait_for_ack_with_message(sess, &message, &dummy_capref);
 }
 
 // Waits for send, sends and waits for ack
@@ -185,6 +190,17 @@ errval_t wait_for_ack(struct aos_rpc_session* sess)
         if (err_is_fail(_err)) \
             DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__); \
         ERROR_RET1(wait_for_ack(rpc->server_sess)); \
+    }
+
+#define RPC_CHAN_WRAPPER_SEND_WITH_MESSAGE_RESPONSE(rpc, call, message, retcap) \
+    { \
+        reset_cycle_counter(); \
+        assert(rpc->server_sess); \
+        ERROR_RET1(wait_for_send(rpc->server_sess)); \
+        errval_t _err = call; \
+        if (err_is_fail(_err)) \
+            DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__); \
+        ERROR_RET1(wait_for_ack_with_message(rpc->server_sess, message, retcap)); \
     }
 
 /*
@@ -496,7 +512,6 @@ errval_t aos_rpc_request_shared_buffer(struct aos_rpc* rpc, size_t size)
     return aos_rpc_map_shared_buffer(rpc->server_sess, size);
 }
 
-
 errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size)
 {
     struct paging_state* ps = get_current_paging_state();
@@ -549,6 +564,30 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
 
     return SYS_ERR_OK;
 }
+
+errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port){
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send3(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            urpc_frame,
+            RPC_NETWORK_UDP_CONNECT,
+            address,
+            port));
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_udp_create_server(struct aos_rpc *rpc, struct capref urpc_frame, uint16_t port){
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            urpc_frame,
+            RPC_NETWORK_UDP_CREATE_SERVER,
+            port));
+
+    return SYS_ERR_OK;
+}
+
 
 errval_t aos_server_add_client(struct aos_rpc* rpc, struct aos_rpc_session** sess)
 {

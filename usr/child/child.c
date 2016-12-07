@@ -2,10 +2,11 @@
 #include <stdio.h>
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/urpc/server.h>
 
 struct aos_rpc *init_rpc;
 
-static
+errval_t communicate(void);
 errval_t communicate(void){
     init_rpc = get_init_rpc();
     errval_t err;
@@ -45,6 +46,25 @@ errval_t communicate(void){
     return SYS_ERR_OK;
 }
 
+struct __attribute__((packed)) udp_packet{
+    uint16_t source_port;
+    uint16_t dest_port;
+    uint16_t length;
+    uint16_t checksum;
+    uint8_t data[0];
+};
+
+errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context);
+errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
+{
+    debug_printf("Handling received message from other process\n");
+
+    struct udp_packet* packet=(struct udp_packet*)msg->data;
+    debug_printf("Received udp length:   %s\n",  packet->data);
+
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
 	debug_printf("Received %d arguments \n",argc);
@@ -60,7 +80,22 @@ int main(int argc, char *argv[])
 		DEBUG_ERR(err, "Could not send number");
 	}
 
-	communicate();
+	struct urpc_channel urpc_chan;
+    struct capref urpc_cap;
+	void* urpc_buffer=NULL;
+    size_t urpc_size;
+    ERR_CHECK("Creating frame", frame_alloc(&urpc_cap, BASE_PAGE_SIZE, &urpc_size));
+    ERR_CHECK("Mapping urpc frame", paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_size, urpc_cap,
+            NULL, NULL));
+    ERR_CHECK("urpc channel init", urpc_channel_init(&urpc_chan, urpc_buffer, urpc_size, URPC_CHAN_MASTER, 8));
+    ERR_CHECK("urpc server register", urpc_server_register_handler(&urpc_chan, 1, handle_print, NULL));
+
+    ERR_CHECK("Udp connect", aos_rpc_udp_connect(init_rpc, urpc_cap, 100, 100));
+	debug_printf("### Starting URPC server\n");
+    ERR_CHECK("URPC server start", urpc_server_start_listen(&urpc_chan, false));
+
+    aos_rpc_accept(init_rpc);
+	//communicate();
 
 	return 0;
 }

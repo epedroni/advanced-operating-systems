@@ -4,6 +4,28 @@
 
 #define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
+struct lmp_chan* networking_lmp_chan;
+
+static
+void cb_send_ready(void* args){
+    struct aos_rpc_session *sess = args;
+    sess->can_send=true;
+}
+
+static
+errval_t wait_for_send(struct lmp_chan* lc, struct aos_rpc_session* sess)
+{
+    ERROR_RET2(lmp_chan_register_send(lc, sess->rpc->ws,
+        MKCLOSURE(cb_send_ready, (void*)sess)),
+        RPC_ERR_WAIT_SEND);
+
+    while (!sess->can_send)
+        ERROR_RET2(event_dispatch(sess->rpc->ws),
+            RPC_ERR_WAIT_SEND);
+    sess->can_send = false;
+    return SYS_ERR_OK;
+}
+
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
@@ -125,6 +147,7 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
     enum aos_rpc_cap_type requested_cap_type=(enum aos_rpc_cap_type)msg->words[1];
 
     DEBUG_LRPC("Received request for special capability\n");
+    networking_lmp_chan=&sess->lc;
 
     if(requested_cap_type==AOS_CAP_IRQ){
         debug_printf("Sending aos irq table capability\n");
@@ -142,6 +165,57 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
             uart4_frame,
             MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
     }
+
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_udp_connect(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    debug_printf("---- Connecting to server!\n");
+
+    if(networking_lmp_chan==NULL){
+        return NETWORKING_ERR_NOT_AVAILABLE;
+    }
+    ERROR_RET1(wait_for_send(networking_lmp_chan, sess));
+    ERROR_RET1(lmp_chan_send3(networking_lmp_chan,
+        LMP_FLAG_SYNC,
+        received_capref,
+        RPC_NETWORK_UDP_CONNECT,
+        msg->words[1],
+        msg->words[2]));
+    debug_printf("Message sent to connect to server!\n");
+
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_udp_create_server(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    debug_printf("---- Creating server!\n");
+
+    if(networking_lmp_chan==NULL){
+        return NETWORKING_ERR_NOT_AVAILABLE;
+    }
+
+    ERROR_RET1(lmp_chan_send2(networking_lmp_chan,
+        LMP_FLAG_SYNC,
+        received_capref,
+        RPC_NETWORK_UDP_CREATE_SERVER,
+        msg->words[1]));
+    debug_printf("Message sent to create server!\n");
 
     return SYS_ERR_OK;
 }
@@ -181,6 +255,7 @@ errval_t handle_put_char_handle(struct aos_rpc_session* sess,
 
 errval_t lmp_server_init(struct aos_rpc* rpc)
 {
+    networking_lmp_chan=NULL;
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
@@ -189,6 +264,8 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_GET_CHAR, handle_get_char_handle, false);
     aos_rpc_register_handler(rpc, RPC_PUT_CHAR, handle_put_char_handle, true);
     aos_rpc_register_handler(rpc, RPC_SPECIAL_CAP_QUERY, handle_get_special_cap, false);
+    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CONNECT, handle_udp_connect, true);
+    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CREATE_SERVER, handle_udp_create_server, true);
 
     return SYS_ERR_OK;
 }

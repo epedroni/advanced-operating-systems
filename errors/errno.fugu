@@ -1297,6 +1297,7 @@ errors aos SLIP_ERR_ {
 
 errors aos NETWORKING_ERR_ {
     failure NOT_IMPLEMENTED        "This functionality is not yet implemented",
+    failure NOT_AVAILABLE          "Networking service is not availabe at the moment",
 };
 
 // errors for AOS
