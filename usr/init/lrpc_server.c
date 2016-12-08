@@ -1,6 +1,7 @@
 #include "lrpc_server.h"
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 #include <omap44xx_map.h>
+#include <aos/urpc/udp.h>
 
 #define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
@@ -187,7 +188,7 @@ errval_t handle_udp_connect(struct aos_rpc_session* sess,
     ERROR_RET1(lmp_chan_send3(networking_lmp_chan,
         LMP_FLAG_SYNC,
         received_capref,
-        RPC_NETWORK_UDP_CONNECT,
+        UDP_PARSER_CONNECTION_CLIENT,
         msg->words[1],
         msg->words[2]));
     debug_printf("Message sent to connect to server!\n");
@@ -213,7 +214,7 @@ errval_t handle_udp_create_server(struct aos_rpc_session* sess,
     ERROR_RET1(lmp_chan_send2(networking_lmp_chan,
         LMP_FLAG_SYNC,
         received_capref,
-        RPC_NETWORK_UDP_CREATE_SERVER,
+        UDP_PARSER_CONNECTION_SERVER,
         msg->words[1]));
     debug_printf("Message sent to create server!\n");
 
@@ -237,6 +238,7 @@ errval_t handle_get_char_handle(struct aos_rpc_session* sess,
         NULL_CAP,
         MAKE_RPC_MSG_HEADER(RPC_GET_CHAR, RPC_FLAG_ACK),
         ret_char));
+
     return SYS_ERR_OK;
 }
 

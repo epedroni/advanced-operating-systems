@@ -8,10 +8,12 @@
 #include <aos/inthandler.h>
 #include "slip_parser.h"
 #include "icmp.h"
+#include "udp_parser.h"
 
 struct aos_rpc *init_rpc;
 struct slip_state slip_state;
 struct icmp_state icmp_state;
+struct udp_parser_state udp_state;
 
 //Data buffer variables
 #define UART_RCV_BUFFER_SIZE 2000
@@ -23,7 +25,8 @@ volatile size_t buffer_write_offset;
 struct thread_mutex buffer_lock;
 struct thread_cond buffer_content_changed;
 
-#define DEBUG_BUFF_SIZE 2000
+#define DEBUG_BUFF_SIZE 3500
+#define OFFSET_BUFFER   1133
 size_t debug_buff_index;
 uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 
@@ -40,7 +43,7 @@ void serial_input(uint8_t *buf, size_t len){
 
         size_t tmp_end=(buffer_end+buffer_write_offset)%UART_RCV_BUFFER_SIZE;
         uart_receive_buffer[tmp_end]=buf[i];
-        if(++buffer_write_offset==800 || buf[i]==0xC0){
+        if(++buffer_write_offset==OFFSET_BUFFER || buf[i]==0xC0){
             buffer_write_offset=0;
             buffer_end=end;
             thread_cond_signal(&buffer_content_changed);
@@ -72,69 +75,31 @@ int serial_buffer_consumer(void* args){
     return 0;
 }
 
-struct __attribute__((packed)) udp_packet{
-    uint16_t source_port;
-    uint16_t dest_port;
-    uint16_t length;
-    uint16_t checksum;
-    uint8_t data[0];
-};
-
 struct urpc_channel urpc_chan;
-
-static
-void udp_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void* context){
-    debug_printf("Received UDP packet\n");
-    struct udp_packet* packet=(struct udp_packet*)buf;
-    packet->data[len-1]=0;
-    debug_printf("Received UDP message: %slength: %lu\n", packet->data, len);
-
-    uint16_t tmp=packet->source_port;
-    packet->source_port=packet->dest_port;
-    packet->dest_port=tmp;
-    packet->checksum=0x0;
-
-    debug_printf("UDP packet printout\n");
-    for(int i=0;i<len;++i){
-        printf("%02x ", buf[i]);
-    }
-    printf("\n");
-
-    uint8_t rcv_data[50];
-    size_t rcv_len=sizeof(rcv_data);
-    ERR_CHECK("Urpc client send", urpc_client_send(&urpc_chan.buffer_send, 1, buf, len, (void**)&rcv_data, &rcv_len));
-
-    slip_send_datagram(&slip_state, from, to, 0x11, buf, len);
-}
-
-static
-errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, void* context){
-    return SYS_ERR_OK;
-}
 
 void cb_accept_loop(void* args);
 void cb_accept_loop(void* args){
-    debug_printf("CB ACCEPT LOOP INVOKED\n");
+    debug_printf("Create connection loop invoked!\n");
 
     struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
     struct capref received_cap=NULL_CAP;
     lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
 
-    uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
-    debug_printf("Received message type: %d\n", message_opcode);
+    uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
+    if(connection_type==UDP_PARSER_CONNECTION_SERVER){
+        debug_printf("Creating new server connection\n");
+        udp_create_server_connection(&udp_state, received_cap, message.words[1]);
+    }else if(connection_type==UDP_PARSER_CONNECTION_CLIENT){
+        debug_printf("Creating new client connection\n");
+        udp_create_client_connection(&udp_state, received_cap, message.words[1], message.words[2]);
+    }else{
+        debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
+    }
 
 //    if(!capcmp(received_cap, NULL_CAP)){
 //        debug_printf("Capabilities changed, allocating new slot\n");
 //        lmp_chan_alloc_recv_slot(&cs->lc);
 //    }
-    lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL));
-    void* urpc_buffer=NULL;
-    size_t urpc_size=BASE_PAGE_SIZE;
-    ERR_CHECK("Mapping urpc frame", paging_map_frame(get_current_paging_state(), &urpc_buffer, urpc_size, received_cap,
-            NULL, NULL));
-
-    ERR_CHECK("Init urpc server", urpc_channel_init(&urpc_chan, urpc_buffer, urpc_size, URPC_CHAN_SLAVE, 8));
-    ERR_CHECK("Urpc server register", urpc_server_register_handler(&urpc_chan, 1, send_udp_datagram, NULL));
 }
 
 int main(int argc, char *argv[])
@@ -165,9 +130,7 @@ int main(int argc, char *argv[])
     ERR_CHECK("Initializing SLIP parser", slip_init(&slip_state, serial_write));
 
     ERR_CHECK("Init ICMP", icmp_init(&icmp_state, &slip_state));
-
-    uint8_t udp_buffer[64];
-    ERR_CHECK("Register UDP", slip_register_protocol_handler(&slip_state, 0x11, udp_buffer, sizeof(udp_buffer), udp_handler, NULL));
+    ERR_CHECK("Init UDP", udp_init(&udp_state, &slip_state));
 
     domainid_t pid;
     ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/child", 0, &pid));

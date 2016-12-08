@@ -5,6 +5,8 @@
 #include <netutil/checksum.h>
 #include <netutil/htons.h>
 
+#define MY_IP_ADDRESS   0x0a000201
+
 //SLIP specific defines
 #define SLIP_END        0xC0
 #define SLIP_ESC        0xDB
@@ -57,6 +59,7 @@ struct __attribute__((packed)) ip_header{
 };
 
 struct slip_state{
+    uint32_t my_ip_address;
     struct thread_mutex serial_lock;
     uint32_t struct_initialized;
     enum slip_parsing_state current_state;

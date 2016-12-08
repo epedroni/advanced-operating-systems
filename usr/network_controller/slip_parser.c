@@ -1,6 +1,7 @@
 #include <slip_parser.h>
 
 errval_t slip_init(struct slip_state* slip_state, system_raw_write write_handler){
+    slip_state->my_ip_address=htonl(MY_IP_ADDRESS);
     slip_state->current_position=0;
     slip_state->struct_initialized=SLIP_STATE_MAGIC_NUMBER;
     slip_state->current_state=SLIP_PARSE_STATE_READY;
@@ -119,6 +120,11 @@ errval_t slip_parse_ip_header(struct slip_state* slip_state, uint8_t byte){
                 if(protocol_handler->buffer_capacity<slip_state->remaining_data_bytes){
                     debug_printf("Protocol buffer capacity: %lu total datagram size: %lu data bytes: %lu\n",protocol_handler->buffer_capacity, total_datagram_size, slip_state->remaining_data_bytes);
                     debug_printf("Data to be received is larger then provided buffer! Dropping packet\n");
+                    slip_state->current_state=SLIP_PARSE_STATE_INVALID;
+                    return SLIP_ERR_OK;
+                }
+                if(slip_state->current_ip_header->destination_ip!=slip_state->my_ip_address){
+                    debug_printf("Destination IP address is not valid, dropping packet!\n");
                     slip_state->current_state=SLIP_PARSE_STATE_INVALID;
                     return SLIP_ERR_OK;
                 }

@@ -29,6 +29,7 @@
                              "slot_alloc/twolevel_slot_alloc.c",
                              "urpc/server.c",
                              "urpc/urpc.c",
+                             "urpc/udp.c",
                              "aos_rpc.c",
                              "bpt.c",
                              "capabilities.c",

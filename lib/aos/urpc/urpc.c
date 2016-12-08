@@ -123,7 +123,8 @@ errval_t urpc_client_send(struct urpc_buffer* urpc, uint32_t opcode, void* data,
     return SYS_ERR_OK;
 }
 
-errval_t urpc_client_send_receive_fixed_size(struct urpc_buffer* urpc, uint32_t opcode, void* data, size_t len, void* answer, size_t answer_size, size_t* actual_answer_size)
+errval_t urpc_client_send_receive_fixed_size(struct urpc_buffer* urpc, uint32_t opcode,
+        void* data, size_t len, void* answer, size_t answer_size, size_t* actual_answer_size)
 {
     ERROR_RET1(client_send_and_wait(urpc, opcode, data, len));
 
