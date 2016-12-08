@@ -93,7 +93,6 @@ errval_t slip_parse_ip_data(struct slip_state* slip_state, uint8_t byte){
                 slip_state->active_handler->buffer,
                 slip_state->active_handler->data_length,
                 slip_state->active_handler->context);
-//        slip_state->current_state=SLIP_PARSE_STATE_READY;
     }
 
     return SLIP_ERR_OK;

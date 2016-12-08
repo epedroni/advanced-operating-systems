@@ -10,7 +10,7 @@ void backtrace(void)
 
 void backtrace_from_fp(int topfp)
 {
-    const char* args = "addr2line -f -e armv7/sbin/init";
+    const char* args = "addr2line -f -e armv7/sbin/networking";
     debug_printf("Backtrace from fp @ 0x%08x\n", topfp);
     for (int i=0; i < 10 && topfp; ++i) {
         int fp = *(((int*)topfp) -3);

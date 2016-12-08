@@ -49,6 +49,7 @@ errval_t urpc_server_start_listen(struct urpc_channel* channel, bool new_thread)
         assert(!channel->server_thread);
         channel->server_stop_now=false;
         dmb();
+        debug_printf("Creating new thread for server\n");
         channel->server_thread = thread_create(urpc_server_event_loop, channel);
     }
     else

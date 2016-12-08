@@ -85,6 +85,11 @@ void cb_accept_loop(void* args){
     struct capref received_cap=NULL_CAP;
     lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
 
+    if(!capcmp(received_cap, NULL_CAP)){
+        debug_printf("Capabilities changed, allocating new slot\n");
+        lmp_chan_alloc_recv_slot(&init_rpc->server_sess->lc);
+    }
+
     uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
     if(connection_type==UDP_PARSER_CONNECTION_SERVER){
         debug_printf("Creating new server connection\n");
@@ -95,11 +100,6 @@ void cb_accept_loop(void* args){
     }else{
         debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
     }
-
-//    if(!capcmp(received_cap, NULL_CAP)){
-//        debug_printf("Capabilities changed, allocating new slot\n");
-//        lmp_chan_alloc_recv_slot(&cs->lc);
-//    }
 }
 
 int main(int argc, char *argv[])
