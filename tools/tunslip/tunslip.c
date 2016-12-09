@@ -752,7 +752,7 @@ void tun_to_serial(int infd, int outfd)
 }
 
 #ifndef BAUDRATE
-#define BAUDRATE B115200
+#define BAUDRATE B9600
 #endif
 speed_t b_rate = BAUDRATE;
 

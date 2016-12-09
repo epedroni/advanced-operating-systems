@@ -180,8 +180,9 @@ static void omap44xx_uart3_init(omap44xx_uart3_t *uart, lvaddr_t base)
     //6 config mode B
     omap44xx_uart3_lcr_wr(uart, 0xbf);
     //7 new divisor value --> 115200 baud == 0x00, 0x1A (dlh, dll)
-    omap44xx_uart3_dll_clock_lsb_wrf(uart, 0x1a);
-    omap44xx_uart3_dlh_clock_msb_wrf(uart, 0x0);
+    //7.I new divisor value --> 115200 baud == 0x01, 0x38 (dlh, dll)
+    omap44xx_uart3_dll_clock_lsb_wrf(uart, 0x38);
+    omap44xx_uart3_dlh_clock_msb_wrf(uart, 0x01);
     //8 register operational mode
     omap44xx_uart3_lcr_wr(uart, 0);
     //9 load irq config --> only rhr irq for now

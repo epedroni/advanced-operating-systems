@@ -74,10 +74,18 @@ struct __attribute__((packed)) ntp_packet{
     uint32_t root_delay;
     uint32_t root_dispersion;
     uint32_t reference_identifier;
-    uint64_t reference_timestamp;
-    uint64_t origin_timestamp;
-    uint64_t receive_timestamp;
-    uint64_t transmit_timestamp;
+
+    uint32_t refTm_s;        // 32 bits. Reference time-stamp seconds.
+    uint32_t refTm_f;        // 32 bits. Reference time-stamp fraction of a second.
+
+    uint32_t origTm_s;       // 32 bits. Originate time-stamp seconds.
+    uint32_t origTm_f;       // 32 bits. Originate time-stamp fraction of a second.
+
+    uint32_t rxTm_s;         // 32 bits. Received time-stamp seconds.
+    uint32_t rxTm_f;         // 32 bits. Received time-stamp fraction of a second.
+
+    uint32_t txTm_s;         // 32 bits and the most important field the client cares about. Transmit time-stamp seconds.
+    uint32_t txTm_f;         // 32 bits. Transmit time-stamp fraction of a second.
 };
 
 void server_connection_established(struct udp_socket socket);
@@ -85,6 +93,7 @@ void server_connection_established(struct udp_socket socket){
     debug_printf("Connection with server established\n");
 
     struct ntp_packet ntp_request;
+    memset(&ntp_request, 0, sizeof(struct ntp_packet));
     ntp_request.flags=0xe3; // Copied from wireshark
     ntp_request.stratum=0x0;
     ntp_request.poll=0x3;
@@ -92,24 +101,36 @@ void server_connection_established(struct udp_socket socket){
     ntp_request.root_delay=0x100;
     ntp_request.root_dispersion=0x100;
     ntp_request.reference_identifier=0x0;
-    ntp_request.reference_timestamp=0x0;
-    ntp_request.origin_timestamp=0x0;
-    ntp_request.receive_timestamp=0x0;
-    ntp_request.transmit_timestamp=0x0;
 
     udp_send_data(&socket, &ntp_request, sizeof(ntp_request));
 }
+
+struct __attribute__((packed)) packed_time{
+    uint32_t low;
+    uint32_t high;
+};
+
+static uint64_t NTP_TIMESTAMP_DELTA = 2208988800ull;
 
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len){
     debug_printf("###### Remote porrt: %lu local port: %lu\n", data->source_port, data->dest_port);
 
-    struct ntp_packet* ntp_response=(struct ntp_packet* )data->data;
+    struct ntp_packet* packet=(struct ntp_packet* )data->data;
+
+    packet->txTm_s = ntohl( packet->txTm_s ); // Time-stamp seconds.
+    packet->txTm_f = ntohl( packet->txTm_f ); // Time-stamp fraction of a second.
+    time_t txTm = ( time_t ) ( packet->txTm_s - NTP_TIMESTAMP_DELTA );
+    printf( "Time: %s", ctime( ( const time_t* ) &txTm ) );
 
 //    char buf[30];
 //    strftime(buf, 30, "%a, %d %b %YYYY %HH:%MM:%SS", ntp_response->transmit_timestamp);
 //    debug_printf("Time is: %s\n", buf);
-    printf("%s", asctime(gmtime((time_t*) &ntp_response->transmit_timestamp)));
+
+//    struct packed_time* t=(struct packed_time*)&ntp_response->transmit_timestamp;
+//    uint32_t time=(t->high);
+//    printf("UTC seconds %lu\n",time);
+//    printf("%s", asctime(gmtime((time_t*) &time)));
 //    uint16_t data_length=lwip_ntohs(data->length)-sizeof(struct udp_packet);
 //
 //    debug_printf("Received UDP packet of length: %lu and data lenght: %lu\n", len, data_length);
@@ -137,7 +158,7 @@ int main(int argc, char *argv[])
 	char ntp_server_address[]="81.94.123.17";
 	uint32_t ntp_address=0;
 	inet_aton(ntp_server_address, &ntp_address);
-  ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
+	ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
 
 	return 0;
 }

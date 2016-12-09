@@ -58,7 +58,7 @@ errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, v
     slip_send_datagram(local_connection->udp_parser_state->slip_state,
             remote_connection->remote_address, local_connection->udp_parser_state->slip_state->my_ip_address,
             UDP_PROTOCOL_NUMBER, (void*)send_packet, payload_size+sizeof(struct udp_packet));
-
+    thread_yield();
     return SYS_ERR_OK;
 }
 
