@@ -23,6 +23,18 @@ struct udp_remote_connection* find_socket_by_id(struct udp_local_connection* loc
 }
 
 static
+errval_t get_udp_socket_id(struct urpc_buffer* urpc, struct urpc_message* msg, void* context){
+    struct udp_local_connection* local_connection=(struct udp_local_connection*)context;
+    assert(local_connection);
+    uint32_t* socket_id= msg->data;
+    assert(local_connection->remote_connection_head);
+    *socket_id=local_connection->remote_connection_head->socket.socket_id;
+    urpc_server_answer(urpc, socket_id, sizeof(uint32_t));
+
+    return SYS_ERR_OK;
+}
+
+static
 errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, void* context){
     struct udp_local_connection* local_connection=(struct udp_local_connection*)context;
     debug_printf("##### Sending UDP datagram, packet size: %lu\n", msg->length);
@@ -64,6 +76,7 @@ void udp_handle_connection_to_server(struct udp_parser_state* udp_state, struct 
         remote_connection=(struct udp_remote_connection*)malloc(sizeof(struct udp_remote_connection));
         remote_connection->next=local_open_connection->remote_connection_head;
         remote_connection->remote_address=from;
+        remote_connection->socket.socket_id=local_open_connection->last_socket_id++;
         remote_connection->remote_port=udp_packet->source_port;
         local_open_connection->remote_connection_head=remote_connection;
         debug_printf("Created new remote connection address 0x%04x\n", remote_connection);
@@ -106,6 +119,7 @@ errval_t udp_create_local_connection(struct capref urpc_cap, struct udp_local_co
     ERROR_RET1(urpc_channel_init(&local_connection->udp_state.urpc_chan, local_connection->udp_state.urpc_buffer, BASE_PAGE_SIZE,
             URPC_CHAN_SLAVE, UDP_COMMADN_COUNT));
     ERROR_RET1(urpc_server_register_handler(&local_connection->udp_state.urpc_chan, UDP_SEND_DATAGRAM, send_udp_datagram, local_connection));
+    ERROR_RET1(urpc_server_register_handler(&local_connection->udp_state.urpc_chan, UDP_GET_CLIENT_SOCKET_ID, get_udp_socket_id, local_connection));
     debug_printf("----- creating new thread to listen for messages ---\n");
     ERROR_RET1(urpc_server_start_listen(&local_connection->udp_state.urpc_chan, true));
     return SYS_ERR_OK;
@@ -125,11 +139,30 @@ errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct
 }
 
 errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port){
-//    udp_create_local_connection(struct capref urpc_cap, struct udp_local_connection* local_connection);
+    struct udp_local_connection* local_connection=(struct udp_local_connection*)malloc(sizeof(struct udp_local_connection));
+    //Create local connection
+    local_connection->connection_type=UDP_PARSER_CONNECTION_CLIENT;
+    local_connection->last_socket_id=0;
+    local_connection->local_port=udp_state->first_available_port++;
+    local_connection->next=udp_state->local_connectoin_head;
+    udp_state->local_connectoin_head=local_connection;
+    local_connection->udp_parser_state=udp_state;
+    local_connection->remote_connection_head=NULL;
+    udp_create_local_connection(urpc_cap, local_connection);
+    // Create remote connection
+    struct udp_remote_connection* remote_connection=(struct udp_remote_connection*)malloc(sizeof(struct udp_remote_connection));
+    remote_connection->next=local_connection->remote_connection_head;
+    remote_connection->remote_address=address;
+    remote_connection->socket.socket_id=local_connection->last_socket_id++;
+    remote_connection->remote_port=port;
+    local_connection->remote_connection_head=remote_connection;
+    debug_printf("Created new remote connection address 0x%04x\n", remote_connection);
+
     return SYS_ERR_OK;
 }
 
 errval_t udp_init(struct udp_parser_state* udp_state, struct slip_state* slip_state){
+    udp_state->first_available_port=50000;  //TODO: Implement mechanism for tracking last used port
     udp_state->slip_state=slip_state;
     udp_state->local_connectoin_head=NULL;
     ERROR_RET1(slip_register_protocol_handler(slip_state, UDP_PROTOCOL_NUMBER, udp_state->data, UDP_BUFF_SIZE, udp_data_handler, udp_state));

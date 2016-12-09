@@ -9,13 +9,20 @@ struct aos_rpc *init_rpc;
 
 struct udp_state udp_state;
 
+void server_connection_established(struct udp_socket socket);
+void server_connection_established(struct udp_socket socket){
+    debug_printf("Connection with server established\n");
+    uint8_t buffer[]="milan hahah";
+    udp_send_data(&socket, buffer, sizeof(buffer));
+}
+
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len){
     debug_printf("Remote porrt: %lu local port: %lu\n", data->source_port, data->dest_port);
     uint16_t data_length=lwip_ntohs(data->length)-sizeof(struct udp_packet);
-    data->data[data_length-1]=0;
-    debug_printf("Received UDP packet of length: %lu and data lenght: %lu\n", len, data_length);
-    debug_printf("Received UDP text: %s\n", data->data);
+//
+//    debug_printf("Received UDP packet of length: %lu and data lenght: %lu\n", len, data_length);
+//    debug_printf("Received UDP text: %s\n", data->data);
 
     udp_send_data(&socket, data->data, data_length);
 }
@@ -35,7 +42,8 @@ int main(int argc, char *argv[])
 		DEBUG_ERR(err, "Could not send number");
 	}
 
-	ERR_CHECK("Create udp server", udp_create_server(&udp_state, 12345, handle_udp_packet));
+//	ERR_CHECK("Create udp server", udp_create_server(&udp_state, 12345, handle_udp_packet));
+  ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, 101010, 123, handle_udp_packet, server_connection_established));
 
 	return 0;
 }

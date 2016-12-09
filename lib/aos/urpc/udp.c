@@ -54,12 +54,22 @@ errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packe
 }
 
 errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port,
-        udp_packet_received_handler data_received){
+        udp_packet_received_handler data_received, udp_connection_created connection_created){
 
     ERROR_RET1(init_urpc(udp_state));
     udp_state->data_received_handler=data_received;
     ERROR_RET1(aos_rpc_udp_connect(get_init_rpc(), udp_state->urpc_cap, address, port));
     debug_printf("### Connecting to UDP server\n");
+    uint32_t socket_id=0;
+    size_t ret_size;
+    urpc_client_send_receive_fixed_size(&udp_state->urpc_chan.buffer_send, UDP_GET_CLIENT_SOCKET_ID,
+    NULL, 0, &socket_id ,sizeof(uint32_t),&ret_size);
+    debug_printf("Received socket id: %lu\n", socket_id);
+    struct udp_socket created_socket={
+            .socket_id=socket_id,
+            .state=udp_state
+    };
+    connection_created(created_socket);
     ERROR_RET1(urpc_server_start_listen(&udp_state->urpc_chan, false));
     return SYS_ERR_OK;
 }

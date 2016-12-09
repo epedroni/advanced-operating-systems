@@ -29,6 +29,7 @@ struct udp_local_connection {
 struct udp_parser_state {
     struct slip_state* slip_state;
     struct udp_local_connection* local_connectoin_head;
+    uint16_t first_available_port;
     uint8_t data[UDP_BUFF_SIZE];
 };
 

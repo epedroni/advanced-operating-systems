@@ -18,6 +18,7 @@ struct udp_socket{
 };
 
 typedef void (*udp_packet_received_handler)(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
+typedef void (*udp_connection_created)(struct udp_socket socket);
 
 struct udp_state{
     struct capref urpc_cap;
@@ -36,6 +37,7 @@ enum udp_command_type{
     UDP_ERROR,
     UDP_DATAGRAM_RECEIVED,
     UDP_SEND_DATAGRAM,
+    UDP_GET_CLIENT_SOCKET_ID,
     UDP_CONNECTION_CLOSE,
     UDP_CONNECTION_TERMINATED,
     UDP_COMMADN_COUNT
@@ -51,7 +53,7 @@ struct udp_command_payload{
 };
 
 errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packet_received_handler data_received);
-errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, udp_packet_received_handler data_received);
+errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, udp_packet_received_handler data_received, udp_connection_created connection_created);
 errval_t udp_send_data(struct udp_socket* socket, void* data, size_t len);
 
 #endif  //_LIB_URPC_UDP_
