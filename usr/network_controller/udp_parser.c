@@ -50,7 +50,7 @@ errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, v
     debug_printf("Payload size: %lu\n", payload_size);
     send_packet->checksum=0;
     send_packet->length=lwip_htons(payload_size+sizeof(struct udp_packet));
-    send_packet->source_port=lwip_htons(local_connection->local_port);
+    send_packet->source_port=local_connection->local_port;
     send_packet->dest_port=remote_connection->remote_port;
     assert(remote_connection->remote_address);
     memcpy(send_packet->data, cmd->data, payload_size);
@@ -117,8 +117,11 @@ void udp_data_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void
 
     struct udp_parser_state* udp_state=(struct udp_parser_state*)context;
     struct udp_local_connection* local_open_connection;
+    struct udp_packet* udp_packet=(struct udp_packet*)buf;
     for(local_open_connection=udp_state->local_connectoin_head;local_open_connection!=NULL;local_open_connection=local_open_connection->next){
         debug_printf("Found application with port!\n");
+        if(udp_packet->dest_port!=local_open_connection->local_port)
+            continue;
         if(local_open_connection->connection_type==UDP_PARSER_CONNECTION_SERVER){
             udp_handle_connection_to_server(udp_state, local_open_connection, from, to, buf, len);
         }else{  // We have a response to client connection
@@ -146,6 +149,7 @@ errval_t udp_create_local_connection(struct capref urpc_cap, struct udp_local_co
 
 errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint16_t port){
     struct udp_local_connection* local_connection=(struct udp_local_connection*)malloc(sizeof(struct udp_local_connection));
+    debug_printf("Creating port: %lu\n", port);
     local_connection->connection_type=UDP_PARSER_CONNECTION_SERVER;
     local_connection->last_socket_id=0;
     local_connection->local_port=port;
@@ -162,7 +166,7 @@ errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct
     //Create local connection
     local_connection->connection_type=UDP_PARSER_CONNECTION_CLIENT;
     local_connection->last_socket_id=0;
-    local_connection->local_port=udp_state->first_available_port++;
+    local_connection->local_port=htons(udp_state->first_available_port++);
     local_connection->next=udp_state->local_connectoin_head;
     udp_state->local_connectoin_head=local_connection;
     local_connection->udp_parser_state=udp_state;

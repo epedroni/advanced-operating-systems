@@ -31,7 +31,6 @@ size_t debug_buff_index;
 uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 
 void serial_input(uint8_t *buf, size_t len){
-    debug_printf("data\n");
     thread_mutex_lock(&buffer_lock);
     for(size_t i=0; i<len; ++i){
         size_t end=(buffer_end+buffer_write_offset+1)%UART_RCV_BUFFER_SIZE;
@@ -133,8 +132,8 @@ int main(int argc, char *argv[])
     ERR_CHECK("Init ICMP", icmp_init(&icmp_state, &slip_state));
     ERR_CHECK("Init UDP", udp_init(&udp_state, &slip_state));
 
-    domainid_t pid;
-    ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/child", 0, &pid));
+//    domainid_t pid;
+//    ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/child", 0, &pid));
 
     // Handle requests
     ERR_CHECK("Register receive", lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL)));
