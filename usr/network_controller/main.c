@@ -31,9 +31,9 @@ size_t debug_buff_index;
 uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 
 void serial_input(uint8_t *buf, size_t len){
+    debug_printf("data\n");
     thread_mutex_lock(&buffer_lock);
     for(size_t i=0; i<len; ++i){
-
         size_t end=(buffer_end+buffer_write_offset+1)%UART_RCV_BUFFER_SIZE;
 
         while(end==buffer_start){
@@ -44,6 +44,7 @@ void serial_input(uint8_t *buf, size_t len){
         size_t tmp_end=(buffer_end+buffer_write_offset)%UART_RCV_BUFFER_SIZE;
         uart_receive_buffer[tmp_end]=buf[i];
         if(++buffer_write_offset==OFFSET_BUFFER || buf[i]==0xC0){
+            debug_printf("We have a packet!!!\n");
             buffer_write_offset=0;
             buffer_end=end;
             thread_cond_signal(&buffer_content_changed);

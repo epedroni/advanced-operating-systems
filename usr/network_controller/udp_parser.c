@@ -53,14 +53,26 @@ errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, v
     send_packet->source_port=lwip_htons(local_connection->local_port);
     send_packet->dest_port=remote_connection->remote_port;
     assert(remote_connection->remote_address);
-    debug_printf("Received text: %s\n", cmd->data);
     memcpy(send_packet->data, cmd->data, payload_size);
-
-    debug_printf("My ip address: 0x%04x\n", local_connection->udp_parser_state->slip_state->my_ip_address);
 
     slip_send_datagram(local_connection->udp_parser_state->slip_state,
             remote_connection->remote_address, local_connection->udp_parser_state->slip_state->my_ip_address,
             UDP_PROTOCOL_NUMBER, (void*)send_packet, payload_size+sizeof(struct udp_packet));
+
+    return SYS_ERR_OK;
+}
+
+static
+errval_t forward_datagram(struct udp_local_connection* local_open_connection, void* buf, size_t len){
+    void* temp_buffer=malloc(sizeof(struct udp_command_payload_header)+len);
+
+    struct udp_command_payload* udp_commmand=(struct udp_command_payload*)temp_buffer;
+    memcpy(udp_commmand->data, buf, len);
+    struct udp_command_payload udp_cmd_response;
+    size_t answer_size;
+    urpc_client_send_receive_fixed_size(&local_open_connection->udp_state.urpc_chan.buffer_send,
+        UDP_DATAGRAM_RECEIVED, udp_commmand,
+        len+sizeof(struct udp_command_payload_header), &udp_cmd_response, sizeof(struct udp_command_payload), &answer_size);
 
     return SYS_ERR_OK;
 }
@@ -82,15 +94,22 @@ void udp_handle_connection_to_server(struct udp_parser_state* udp_state, struct 
         debug_printf("Created new remote connection address 0x%04x\n", remote_connection);
     }
 
-    void* temp_buffer=malloc(sizeof(struct udp_command_payload_header)+len);
+    forward_datagram(local_open_connection, buf, len);
+}
 
-    struct udp_command_payload* udp_commmand=(struct udp_command_payload*)temp_buffer;
-    memcpy(udp_commmand->data, buf, len);
-    struct udp_command_payload udp_cmd_response;
-    size_t answer_size;
-    urpc_client_send_receive_fixed_size(&local_open_connection->udp_state.urpc_chan.buffer_send,
-        UDP_DATAGRAM_RECEIVED, udp_commmand,
-        len+sizeof(struct udp_command_payload_header), &udp_cmd_response, sizeof(struct udp_command_payload), &answer_size);
+static
+void udp_handle_connection_to_client(struct udp_parser_state* udp_state, struct udp_local_connection* local_open_connection,
+        uint32_t from, uint32_t to, void* buf, size_t len){
+
+    debug_printf("Handling connection to client, local_open_connection: 0x%04x\n", local_open_connection);
+    struct udp_packet* udp_packet=(struct udp_packet*)buf;
+    struct udp_remote_connection* remote_connection=find_remote_connection(local_open_connection, from, udp_packet->source_port);
+    if(remote_connection==NULL){
+        debug_printf("We don't have opened remote connection for client, ignoring packet!\n");
+        return;
+    }
+
+    forward_datagram(local_open_connection, buf, len);
 }
 
 static
@@ -103,7 +122,7 @@ void udp_data_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void
         if(local_open_connection->connection_type==UDP_PARSER_CONNECTION_SERVER){
             udp_handle_connection_to_server(udp_state, local_open_connection, from, to, buf, len);
         }else{  // We have a response to client connection
-            //TODO: Implement
+            udp_handle_connection_to_client(udp_state, local_open_connection, from, to, buf, len);
         }
         return;
     }
