@@ -29,7 +29,7 @@ enum message_opcodes {
     RPC_PUT_CHAR,
     RPC_GET_CHAR,
     RPC_SPAWN,
-	RPC_EXIT,
+    RPC_EXIT,
     RPC_GET_NAME,
     RPC_GET_PID,
     RPC_CREATE_SERVER_SOCKET,
@@ -38,6 +38,8 @@ enum message_opcodes {
     RPC_SPECIAL_CAP_RESPONSE,
     RPC_NETWORK_UDP_CONNECT,
     RPC_NETWORK_UDP_CREATE_SERVER,
+    RPC_SET_LED,
+    RPC_MEMTEST,
     RPC_NUM_OPCODES,
 };
 
@@ -170,6 +172,13 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *name,
                                coreid_t core, domainid_t *newpid);
 
 /**
+* \brief Request process manager to start a new process with provided arguments
+*/
+errval_t aos_rpc_process_spawn_with_args(struct aos_rpc *chan,
+                              coreid_t core, char* const argv[], int argc,
+                              domainid_t *newpid);
+
+/**
  * \brief Get name of process with id pid.
  * \arg pid the process id to lookup
  * \arg name A null-terminated character array with the name of the process
@@ -210,4 +219,7 @@ errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc, lpaddr_t paddr, size_t byte
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake);
 
+
+errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
+errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

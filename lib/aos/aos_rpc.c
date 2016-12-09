@@ -13,6 +13,7 @@
  */
 
 #include <aos/aos_rpc.h>
+#include <aos/serializers.h>
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 
 /*
@@ -39,7 +40,7 @@ void cb_accept_loop(void* args)
     lmp_chan_recv(&cs->lc, &message, &received_cap);
 
     uint32_t return_opcode = RPC_NULL_OPCODE;
-    uint32_t return_flags = RPC_FLAG_ERROR;
+    uint32_t return_flags = RPC_FLAG_ACK;
     bool send_ack = true;
 
     uint32_t message_opcode=RPC_HEADER_OPCODE(message.words[0]);
@@ -335,20 +336,23 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
         coreid_t core, domainid_t *newpid)
 {
+    char* const argv[1] = {name};
+    return aos_rpc_process_spawn_with_args(rpc, core, argv, 1, newpid);
+}
+
+errval_t aos_rpc_process_spawn_with_args(struct aos_rpc *rpc,
+        coreid_t core, char* const argv[], int argc,
+        domainid_t *newpid)
+{
     assert(rpc->server_sess);
-    size_t size = strlen(name);
-
-    if (size > rpc->server_sess->shared_buffer_size)
-        return RPC_ERR_BUF_TOO_SMALL;
-
-    memcpy(rpc->server_sess->shared_buffer, name, size);
+    if (!serialize_array_of_strings(rpc->server_sess->shared_buffer, rpc->server_sess->shared_buffer_size, argv, argc))
+        return AOS_ERR_SERIALIZE;
 
     ERROR_RET1(wait_for_send(rpc->server_sess));
-    ERROR_RET1(lmp_chan_send3(&rpc->server_sess->lc,
+    ERROR_RET1(lmp_chan_send2(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             NULL_CAP,
             RPC_SPAWN,
-            size,
             core));
 
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
@@ -358,7 +362,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *name,
 
     if (RPC_HEADER_FLAGS(message.words[0]) & RPC_FLAG_ERROR) {
         *newpid = 0;
-        return SPAWN_ERR_DOMAIN_NOTFOUND;
+        return err_push(message.words[1], PROCMGR_ERR_RPC_SPAWN_FAILED);
     }
 
     *newpid = message.words[1];
@@ -510,6 +514,28 @@ errval_t aos_rpc_request_shared_buffer(struct aos_rpc* rpc, size_t size)
 
     // Setup buffer
     return aos_rpc_map_shared_buffer(rpc->server_sess, size);
+}
+
+errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_SET_LED,
+            status));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send3(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_MEMTEST,
+            start, size));
+    return SYS_ERR_OK;
 }
 
 errval_t aos_rpc_map_shared_buffer(struct aos_rpc_session* sess, size_t size)

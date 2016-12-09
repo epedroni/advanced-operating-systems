@@ -11,7 +11,8 @@ errval_t processmgr_init(coreid_t core_id, const char* init_process_name);
 
 errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t* new_pid);
 errval_t processmgr_spawn_process(char* process_name, coreid_t core_id, domainid_t *pid);
-errval_t processmgr_spawn_process_with_pid(const char* process_name, coreid_t core_id, domainid_t pid);
+errval_t processmgr_spawn_process_with_args(char* const argv[], int argc, coreid_t core_id, domainid_t *pid);
+errval_t processmgr_spawn_process_with_args_and_pid(char* const argv[], int argc, coreid_t core_id, domainid_t pid);
 errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_len);
 errval_t processmgr_list_pids(domainid_t* pids, size_t* number);
 errval_t processmgr_process_exited(struct lmp_endpoint* ep);

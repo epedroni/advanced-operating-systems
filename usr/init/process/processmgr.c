@@ -1,5 +1,5 @@
+#include <aos/serializers.h>
 #include "init.h"
-
 #include "process/processmgr.h"
 #include "process/sysprocessmgr.h"
 #include "process/coreprocessmgr.h"
@@ -17,8 +17,8 @@ errval_t processmgr_init(coreid_t coreid, const char* init_process_name)
         ERROR_RET1(sysprocessmgr_init(&syspmgr_state, &urpc_chan, my_core_id));
         use_sysmgr = true;
     }
-    ERROR_RET1(coreprocessmgr_init(&core_pm_state, coreid, &rpc));
-    processmgr_register_rpc_handlers(&rpc);
+    ERROR_RET1(coreprocessmgr_init(&core_pm_state, coreid, &core_rpc));
+    processmgr_register_rpc_handlers(&core_rpc);
     processmgr_register_urpc_handlers(&urpc_chan);
 
     domainid_t pid;
@@ -60,11 +60,19 @@ errval_t processmgr_generate_pid(const char* name, coreid_t core_id, domainid_t*
 
 errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
 {
+    char* argv[1] = {name};
+    return processmgr_spawn_process_with_args(argv, 1, core_id, pid);
+}
+
+errval_t processmgr_spawn_process_with_args(char* const argv[], int argc, coreid_t core_id, domainid_t *pid)
+{
+    assert(argc > 0 && "Spawning process with 0 arg?! Need at least process name in argv[0]");
+
     debug_printf("[ProcessMgr] Spawn on core %d\n", core_id);
-    ERROR_RET1(processmgr_generate_pid(name, core_id, pid));
+    ERROR_RET1(processmgr_generate_pid(argv[0], core_id, pid));
     debug_printf("[ProcessMgr] Generated PID %d\n", *pid);
     errval_t err;
-    err=processmgr_spawn_process_with_pid(name, core_id, *pid);
+    err=processmgr_spawn_process_with_args_and_pid(argv, argc, core_id, *pid);
     if(err_is_fail(err)){
         debug_printf("[ProcessMgr] We have an error while spawning process, removing PID form list\n");
         processmgr_remove_pid(*pid);
@@ -73,21 +81,23 @@ errval_t processmgr_spawn_process(char* name, coreid_t core_id, domainid_t *pid)
     return SYS_ERR_OK;
 }
 
-errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, domainid_t pid)
+errval_t processmgr_spawn_process_with_args_and_pid(char* const argv[], int argc, coreid_t core_id, domainid_t pid)
 {
     if (core_id == my_core_id)
-        return coreprocessmgr_spawn_process(&core_pm_state, name, &rpc, core_id, pid);
+        return coreprocessmgr_spawn_process(&core_pm_state, argv, argc, &core_rpc, core_id, pid);
 
     // URPC CALL: URPC_OP_PROCESSMGR_SPAWN
-    size_t size = strlen(name)+1;
-    size_t send_size = size + sizeof(struct urpc_msg_spawn);
-    struct urpc_msg_spawn* send = malloc(send_size);
-    send->name_size = size;
-    send->core_id = core_id;
-    send->pid = pid;
-    memcpy(send->name, name, size);
+    size_t size = serialize_array_of_strings_size(argv, argc);
+    size_t send_size = size + sizeof(coreid_t) + sizeof(domainid_t);
+    void* send = malloc(send_size);
+    memcpy(send,                    &core_id,   sizeof(coreid_t));
+    memcpy(send + sizeof(coreid_t), &pid,       sizeof(domainid_t));
+    if (!serialize_array_of_strings(send + sizeof(coreid_t) + sizeof(domainid_t),
+            size, argv, argc))
+        return AOS_ERR_SERIALIZE;
+
     errval_t* answer;
-    size_t answer_len;
+    size_t answer_len = 0;
 
     errval_t err = urpc_client_send(&urpc_chan.buffer_send, URPC_OP_PROCESSMGR_SPAWN,
         send, send_size, (void**)&answer, &answer_len);
@@ -98,7 +108,8 @@ errval_t processmgr_spawn_process_with_pid(const char* name, coreid_t core_id, d
         err = *answer;
 
     free(send);
-    free(answer);
+    if (answer_len)
+        free(answer);
     return err;
 }
 

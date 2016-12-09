@@ -36,11 +36,20 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // Run tests
+    run_all_tests();
+
     if (my_core_id == 0)
     {
         domainid_t pid;
+
         debug_printf("Spawning networking\n");
         ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
+
+        debug_printf("Starting shell...\n");
+        err = processmgr_spawn_process("/armv7/sbin/shell", 0, &pid);
+        if (err_is_fail(err))
+            DEBUG_ERR(err, "spawn_process");
     }
 
     os_core_events_loop();

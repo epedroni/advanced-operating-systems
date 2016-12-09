@@ -25,14 +25,20 @@ errval_t spawn_child_slot_free(struct slot_allocator *ca, struct capref cap);
 
 
 errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc   );
-errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg);
+errval_t spawn_setup_arguments(struct spawninfo* si, char* const argv[], int argc);
 errval_t spawn_parse_elf(struct spawninfo* si, lvaddr_t address);
 
 //Util functions
-errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
+errval_t map_argument_to_child_vspace(char* const argv[], int argc, struct spawn_domain_params* child_args, lvaddr_t child_base_address);
 
-// TODO(M4): Build and pass a messaging channel to your child process
-errval_t spawn_load_by_name(const char* binary_name, struct spawninfo * si, struct lmp_chan* lc) {
+errval_t spawn_load_with_args(char* const argv[], int argc, struct spawninfo * si,
+        struct lmp_chan* lc)
+{
+    debug_printf("spawn_load_with_args with %d arguments\n", argc);
+    for (int i = 0; i < argc; ++i)
+        debug_printf("argv[%d] = '%s'\n", i, argv[i]);
+
+    const char* binary_name = argv[0];
     debug_printf("spawn start_child: starting: %s, trying to load module\n", binary_name);
     if (si->core_id >= 2) // We only have 2 cores
         return SPAWN_ERR_WRONG_CORE_ID;
@@ -64,7 +70,7 @@ errval_t spawn_load_by_name(const char* binary_name, struct spawninfo * si, stru
 
     // 7- Setup arguments
     debug_printf("Setup arguments...\n");
-    ERROR_RET1(spawn_setup_arguments(si, process_mem_reg));
+    ERROR_RET1(spawn_setup_arguments(si, argv, argc));
 
     // 8- Make dispatcher runnable0
     debug_printf("And finally invoke dispatcher :)\n");
@@ -275,45 +281,37 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
     return SYS_ERR_OK;
 }
 
-errval_t map_argument_to_child_vspace(const char* arguments, struct spawn_domain_params* child_args, lvaddr_t child_base_address){
-    char* last_word=(char*)child_args+sizeof(struct spawn_domain_params);
-    char* base_address=last_word;
-    child_base_address+=sizeof(struct spawn_domain_params);
-    strcpy(base_address, arguments);
+errval_t map_argument_to_child_vspace(char* const argv[], int argc,
+        struct spawn_domain_params* child_args, lvaddr_t child_base_address)
+{
+    assert(argc > 0 && "Argument list must contain at least one argument, program name");
 
-    //Truncate ending spaces
-    size_t arguments_length=strlen(base_address)-1;
-    while(base_address>0 && base_address[arguments_length]==' '){
-        base_address[arguments_length--]=0;
+    // Mapping:
+    //  parent: child_args
+    //  child:  child_base_address
+
+    // Current position relative to structure begin
+    size_t cur_position = sizeof(struct spawn_domain_params);
+    void* my_buf = child_args;
+    child_args->argc = argc;
+    for (int i = 0; i < argc; ++i)
+    {
+        child_args->argv[i] = (char*)(child_base_address + cur_position);
+        size_t this_size = strlen(argv[i]) + 1;
+        memcpy(my_buf + cur_position, argv[i], this_size);
+        cur_position += this_size;
     }
-
-    assert(arguments[0]!=0 && "Argument list must contain at least one argument, program name");
-
-    size_t arg_count=0;
-    char* iterator=base_address;
-
-    while(*iterator){
-        if(*iterator==' '){
-            *iterator=0;
-            child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
-            iterator++;
-            last_word=iterator;
-        }
-        iterator++;
-    }
-
-    child_args->argv[arg_count++]=(void*)child_base_address+(last_word-base_address);
-    child_args->argc=arg_count;
-
     return SYS_ERR_OK;
 }
 
-errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_mem_reg)
+errval_t spawn_setup_arguments(struct spawninfo* si, char* const argv[], int argc)
 {
-    const char* args = multiboot_module_opts(process_mem_reg);
-    size_t args_length = strlen(args);
+    size_t args_length = 0;
+    for (int i = 0; i < argc; ++i)
+        args_length += strlen(argv[i]) + 1;
+
     size_t domain_params_frame_size = sizeof(struct spawn_domain_params);
-    domain_params_frame_size += args_length + 1;
+    domain_params_frame_size += args_length;
     domain_params_frame_size = ROUND_UP(domain_params_frame_size, BASE_PAGE_SIZE);
 
     // Get a frame with enough space to store that.
@@ -346,7 +344,7 @@ errval_t spawn_setup_arguments(struct spawninfo* si, struct mem_region* process_
     memset(&child_args->envp[0], 0, sizeof(child_args->envp));
     //Copy first argument, name of the program
 
-    map_argument_to_child_vspace(args, child_args, (lvaddr_t)foreign_mapped_args);
+    map_argument_to_child_vspace(argv, argc, child_args, (lvaddr_t)foreign_mapped_args);
 
     // Don't care about this for now.
     child_args->vspace_buf = NULL;   //Not sure if this should be used in this way

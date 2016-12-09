@@ -1,7 +1,9 @@
 #include "lrpc_server.h"
+#include "init.h"
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 #include <omap44xx_map.h>
 #include <aos/urpc/udp.h>
+#include <aos/paging.h>
 
 #define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
@@ -255,6 +257,59 @@ errval_t handle_put_char_handle(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+static
+errval_t handle_set_led(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    int status = msg->words[1];
+    debug_printf("[handle_set_led] Set led status: %d\n", (int)status);
+
+    struct capref frame_cap;
+    ERROR_RET1(slot_alloc(&frame_cap));
+    ERROR_RET1(frame_forge(frame_cap, 0x4A310000, BASE_PAGE_SIZE, my_core_id));
+    void* buf;
+    ERROR_RET1(paging_map_frame(get_current_paging_state(),
+        (void*)&buf, BASE_PAGE_SIZE, frame_cap, NULL, NULL));
+    int mask = 1 << 8;
+    volatile int * out_enab = (volatile int*)(buf + 0x134);
+    volatile int * dataout  = (volatile int*)(buf + 0x13C);
+    *out_enab &= ~(mask);
+    if (status == 0)
+        *dataout &= ~mask;
+    else if (status == 1)
+        *dataout |= mask;
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_memtest(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    lpaddr_t base = msg->words[1];
+    size_t size = msg->words[2];
+    debug_printf("[handle_memtest] Mem tested [0x%08x - 0x%08x] OK\n",
+        (int)base, (int)(base+size));
+    struct capref frame_cap;
+    ERROR_RET1(slot_alloc(&frame_cap));
+    ERROR_RET1(frame_forge(frame_cap, base, size, my_core_id));
+    char* buf;
+    ERROR_RET1(paging_map_frame(get_current_paging_state(),
+        (void*)&buf, size, frame_cap, NULL, NULL));
+    memset(buf, 0, size);
+    memset(buf, 0x42, size);
+    return SYS_ERR_OK;
+}
+
 errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     networking_lmp_chan=NULL;
@@ -268,6 +323,8 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_SPECIAL_CAP_QUERY, handle_get_special_cap, false);
     aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CONNECT, handle_udp_connect, true);
     aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CREATE_SERVER, handle_udp_create_server, true);
+    aos_rpc_register_handler(rpc, RPC_SET_LED, handle_set_led, true);
+    aos_rpc_register_handler(rpc, RPC_MEMTEST, handle_memtest, true);
 
     return SYS_ERR_OK;
 }

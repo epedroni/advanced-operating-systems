@@ -2,7 +2,8 @@
 #include "process/processmgr.h"
 
 // ProcessMgr functions
-errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, const char* process_name,
+errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state,
+        char* const argv[], int argc,
         struct aos_rpc* rpc, coreid_t core_id, domainid_t withpid){
     errval_t err;
 
@@ -13,7 +14,7 @@ errval_t coreprocessmgr_spawn_process(struct coreprocessmgr_state* pm_state, con
 
     struct spawninfo* process_info = malloc(sizeof(struct spawninfo));
     process_info->core_id=core_id;
-    err = spawn_load_by_name(process_name,
+    err = spawn_load_with_args(argv, argc,
         process_info,
         &sess->lc);
     free(process_info);

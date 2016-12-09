@@ -1,4 +1,5 @@
 #include <aos/aos.h>
+#include <aos/dispatch.h>
 #include <backtrace.h>
 
 extern int get_fp(void);
@@ -10,7 +11,10 @@ void backtrace(void)
 
 void backtrace_from_fp(int topfp)
 {
-    const char* args = "addr2line -f -e armv7/sbin/networking";
+    const char* args = "addr2line -f -e ";
+    const char* exe_name = disp_name();
+    // Skip initial '/'
+    exe_name = &exe_name[1];
     debug_printf("Backtrace from fp @ 0x%08x\n", topfp);
     for (int i=0; i < 10 && topfp; ++i) {
         int fp = *(((int*)topfp) -3);
@@ -20,19 +24,19 @@ void backtrace_from_fp(int topfp)
 
         if (i == 0)
         {
-            printf("%s 0x%08x\n", args, pc);
+            printf("%s %s 0x%08x\n", args, exe_name, pc);
             if (!pc)
                 break;
         }
         if (fp != 0)
         {
-            printf("%s 0x%08x\n", args, lr);
+            printf("%s %s 0x%08x\n", args, exe_name, lr);
             if (!lr)
                 break;
         }
         else
         {
-            printf("%s 0x%08x\n", args, pc);
+            printf("%s %s 0x%08x\n", args, exe_name, pc);
             if (!pc)
                 break;
         }

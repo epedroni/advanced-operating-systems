@@ -898,7 +898,7 @@ errors fs FS_ERR_ {
     failure NOTFOUND            "The given name does not exist",
     failure EXISTS              "The given name already exists",
     failure NOTEMPTY            "The given directory is not empty",
-    
+
     failure READ                "Failure during file read",
     failure WRITE               "Failure during writing the file",
     failure OPEN                "Failure during open",
@@ -1284,6 +1284,7 @@ errors processmgr PROCMGR_ERR_ {
     failure PROCESS_NOT_FOUND       "No process matching given PID",
     failure REMOTE_DIFFERENT_COREID "URPC handler: trying to spawn process on different core id!",
     failure URPC_REMOTE_FAIL        "Remote URPC procedure failed",
+    failure RPC_SPAWN_FAILED        "Remote RPC server could not spawn the process",
     failure OUT_BUFFER_TOO_SMALL    "Output buffer too small for data",
 };
 
@@ -1304,4 +1305,12 @@ errors aos NETWORKING_ERR_ {
 errors aos AOS_ERR_ {
     failure LMP_SEND_FAILURE        "Failure while sending AOS LMP message",
     failure LMP_MSGTYPE_UNKNOWN     "Unknown message type for AOS LMP implementation",
+    failure UNSERIALIZE             "Error in unserialization",
+    failure SERIALIZE               "Error in serialization",
+};
+
+errors shell SHELL_ERR_ {
+    failure READ_CMD_TRY_AGAIN   "No command entered. Try again",
+    failure NO_SUCH_COMMAND      "There is no such command",
+    failure BAD_REDIRECT         "Bad output redirect",
 };

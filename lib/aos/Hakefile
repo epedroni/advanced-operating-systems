@@ -47,6 +47,7 @@
                              "lmp_endpoints.c",
                              "morecore.c",
                              "ram_alloc.c",
+                             "serializers.c",
                              "slab.c",
                              "sys_debug.c",
                              "syscalls.c",
