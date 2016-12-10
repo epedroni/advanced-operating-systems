@@ -105,45 +105,24 @@ void server_connection_established(struct udp_socket socket){
     udp_send_data(&socket, &ntp_request, sizeof(ntp_request));
 }
 
-struct __attribute__((packed)) packed_time{
-    uint32_t low;
-    uint32_t high;
-};
-
 static uint64_t NTP_TIMESTAMP_DELTA = 2208988800ull;
 
-void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
+static
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len){
-    debug_printf("###### Remote porrt: %lu local port: %lu\n", data->source_port, data->dest_port);
-
     struct ntp_packet* packet=(struct ntp_packet* )data->data;
 
     packet->txTm_s = ntohl( packet->txTm_s ); // Time-stamp seconds.
     packet->txTm_f = ntohl( packet->txTm_f ); // Time-stamp fraction of a second.
     time_t txTm = ( time_t ) ( packet->txTm_s - NTP_TIMESTAMP_DELTA );
-    printf( "Time: %s", ctime( ( const time_t* ) &txTm ) );
+    printf("Current UTC time is: %s", ctime( ( const time_t* ) &txTm ) );
 }
 
 int main(int argc, char *argv[])
 {
-	debug_printf("Received %d arguments \n",argc);
-	for(int i=0;i<argc;++i){
-		debug_printf("Printing argument: %d %s\n",i, argv[i]);
-	}
-	errval_t err;
+    char ntp_server_address[]="81.94.123.17";
+    uint32_t ntp_address=0;
+    inet_aton(ntp_server_address, &ntp_address);
+    ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
 
-    init_rpc = get_init_rpc();
-	debug_printf("init rpc: 0x%x\n", init_rpc);
-	err = aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
-	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not send number");
-	}
-
-//	ERR_CHECK("Create udp server", udp_create_server(&udp_state, 12345, handle_udp_packet));
-	char ntp_server_address[]="81.94.123.17";
-	uint32_t ntp_address=0;
-	inet_aton(ntp_server_address, &ntp_address);
-	ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
-
-	return 0;
+    return 0;
 }

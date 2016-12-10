@@ -43,7 +43,6 @@ void serial_input(uint8_t *buf, size_t len){
         size_t tmp_end=(buffer_end+buffer_write_offset)%UART_RCV_BUFFER_SIZE;
         uart_receive_buffer[tmp_end]=buf[i];
         if(++buffer_write_offset==OFFSET_BUFFER || buf[i]==0xC0){
-            debug_printf("We have a packet!!!\n");
             buffer_write_offset=0;
             buffer_end=end;
             thread_cond_signal(&buffer_content_changed);
@@ -86,20 +85,22 @@ void cb_accept_loop(void* args){
     lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
 
     if(!capcmp(received_cap, NULL_CAP)){
-        debug_printf("Capabilities changed, allocating new slot\n");
+        debug_printf("Received new frame cap\n");
         lmp_chan_alloc_recv_slot(&init_rpc->server_sess->lc);
+
+        uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
+        if(connection_type==UDP_PARSER_CONNECTION_SERVER){
+            debug_printf("Creating new server connection\n");
+            udp_create_server_connection(&udp_state, received_cap, message.words[1]);
+        }else if(connection_type==UDP_PARSER_CONNECTION_CLIENT){
+            debug_printf("Creating new client connection\n");
+            udp_create_client_connection(&udp_state, received_cap, message.words[1], message.words[2]);
+        }else{
+            debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
+        }
     }
 
-    uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
-    if(connection_type==UDP_PARSER_CONNECTION_SERVER){
-        debug_printf("Creating new server connection\n");
-        udp_create_server_connection(&udp_state, received_cap, message.words[1]);
-    }else if(connection_type==UDP_PARSER_CONNECTION_CLIENT){
-        debug_printf("Creating new client connection\n");
-        udp_create_client_connection(&udp_state, received_cap, message.words[1], message.words[2]);
-    }else{
-        debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
-    }
+    lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, args));
 }
 
 int main(int argc, char *argv[])
@@ -132,8 +133,8 @@ int main(int argc, char *argv[])
     ERR_CHECK("Init ICMP", icmp_init(&icmp_state, &slip_state));
     ERR_CHECK("Init UDP", udp_init(&udp_state, &slip_state));
 
-    domainid_t pid;
-    ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/child", 0, &pid));
+//    domainid_t pid;
+//    ERR_CHECK("Spawning child process", aos_rpc_process_spawn(init_rpc, "/armv7/sbin/ntp_client", 0, &pid));
 
     // Handle requests
     ERR_CHECK("Register receive", lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL)));

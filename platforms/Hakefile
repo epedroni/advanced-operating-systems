@@ -19,6 +19,8 @@ let    -- Default list of modules to build/install
         "args",
         "mmchs",
         "networking",
+        "udp_echo_server",
+        "ntp_client",
         "filereader",
         "shell" ]
 

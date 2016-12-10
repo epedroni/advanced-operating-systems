@@ -17,6 +17,8 @@ module /armv7/sbin/memeater
 module /armv7/sbin/child
 module /armv7/sbin/server_test
 module /armv7/sbin/networking
+module /armv7/sbin/udp_echo_server
+module /armv7/sbin/ntp_client
 module /armv7/sbin/shell
 module /armv7/sbin/args
 

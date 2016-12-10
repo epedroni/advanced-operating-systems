@@ -58,15 +58,15 @@ errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, v
     slip_send_datagram(local_connection->udp_parser_state->slip_state,
             remote_connection->remote_address, local_connection->udp_parser_state->slip_state->my_ip_address,
             UDP_PROTOCOL_NUMBER, (void*)send_packet, payload_size+sizeof(struct udp_packet));
-    thread_yield();
+
     return SYS_ERR_OK;
 }
 
 static
-errval_t forward_datagram(struct udp_local_connection* local_open_connection, void* buf, size_t len){
+errval_t forward_datagram(struct udp_local_connection* local_open_connection, uint32_t socket_id, void* buf, size_t len){
     void* temp_buffer=malloc(sizeof(struct udp_command_payload_header)+len);
-
     struct udp_command_payload* udp_commmand=(struct udp_command_payload*)temp_buffer;
+    udp_commmand->header.socket_id=socket_id;
     memcpy(udp_commmand->data, buf, len);
     struct udp_command_payload udp_cmd_response;
     size_t answer_size;
@@ -94,7 +94,7 @@ void udp_handle_connection_to_server(struct udp_parser_state* udp_state, struct 
         debug_printf("Created new remote connection address 0x%04x\n", remote_connection);
     }
 
-    forward_datagram(local_open_connection, buf, len);
+    forward_datagram(local_open_connection, remote_connection->socket.socket_id, buf, len);
 }
 
 static
@@ -109,7 +109,7 @@ void udp_handle_connection_to_client(struct udp_parser_state* udp_state, struct 
         return;
     }
 
-    forward_datagram(local_open_connection, buf, len);
+    forward_datagram(local_open_connection, remote_connection->socket.socket_id, buf, len);
 }
 
 static
@@ -119,9 +119,10 @@ void udp_data_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void
     struct udp_local_connection* local_open_connection;
     struct udp_packet* udp_packet=(struct udp_packet*)buf;
     for(local_open_connection=udp_state->local_connectoin_head;local_open_connection!=NULL;local_open_connection=local_open_connection->next){
-        debug_printf("Found application with port!\n");
-        if(udp_packet->dest_port!=local_open_connection->local_port)
+        debug_printf("Found application with port %lu!\n", ntohs(local_open_connection->local_port));
+        if(udp_packet->dest_port!=local_open_connection->local_port){
             continue;
+        }
         if(local_open_connection->connection_type==UDP_PARSER_CONNECTION_SERVER){
             udp_handle_connection_to_server(udp_state, local_open_connection, from, to, buf, len);
         }else{  // We have a response to client connection
@@ -135,6 +136,7 @@ void udp_data_handler(uint32_t from, uint32_t to, uint8_t *buf, size_t len, void
 
 static
 errval_t udp_create_local_connection(struct capref urpc_cap, struct udp_local_connection* local_connection){
+    debug_printf("init urpc related stuff\n");
     ERROR_RET1(paging_map_frame(get_current_paging_state(), &local_connection->udp_state.urpc_buffer, BASE_PAGE_SIZE, urpc_cap,
             NULL, NULL));
 
@@ -148,8 +150,10 @@ errval_t udp_create_local_connection(struct capref urpc_cap, struct udp_local_co
 }
 
 errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint16_t port){
+    debug_printf("Creating UDP server\n");
     struct udp_local_connection* local_connection=(struct udp_local_connection*)malloc(sizeof(struct udp_local_connection));
     debug_printf("Creating port: %lu\n", port);
+
     local_connection->connection_type=UDP_PARSER_CONNECTION_SERVER;
     local_connection->last_socket_id=0;
     local_connection->local_port=port;
@@ -157,13 +161,16 @@ errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct
     udp_state->local_connectoin_head=local_connection;
     local_connection->udp_parser_state=udp_state;
     local_connection->remote_connection_head=NULL;
+
     udp_create_local_connection(urpc_cap, local_connection);
     return SYS_ERR_OK;
 }
 
 errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port){
+    debug_printf("Creating UDP client\n");
     struct udp_local_connection* local_connection=(struct udp_local_connection*)malloc(sizeof(struct udp_local_connection));
     //Create local connection
+    debug_printf("Setting all stuff up\n");
     local_connection->connection_type=UDP_PARSER_CONNECTION_CLIENT;
     local_connection->last_socket_id=0;
     local_connection->local_port=htons(udp_state->first_available_port++);

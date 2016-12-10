@@ -264,7 +264,6 @@ errval_t slip_write_raw_data(struct slip_state* slip_state, uint8_t *buf, size_t
         slip_state->write_handler(END_SEQ, 1);
         debug_printf("Writing end sequence\n");
     }
-
     return SLIP_ERR_OK;
 }
 
@@ -275,6 +274,8 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
     static const uint8_t HEADER_WORDS=5;   //TODO: Check if fixed size satisfies everything
     static const uint16_t HEADER_SIZE=HEADER_WORDS*4;  //4 bytes per word
     static uint16_t last_used_identifier=0xABCD;
+
+    thread_mutex_lock(&slip_state->serial_lock);
 
     static struct ip_header ip_header;
     ip_header.version=IP_VERSION_V4<<4 | HEADER_WORDS;
@@ -291,6 +292,8 @@ errval_t slip_send_datagram(struct slip_state* slip_state, uint32_t to, uint32_t
 
     ERR_CHECK("Sending header data", slip_write_raw_data(slip_state, (uint8_t*)&ip_header, HEADER_SIZE, false));
     ERR_CHECK("Sending data", slip_write_raw_data(slip_state, buf, len, true));
+
+    thread_mutex_unlock(&slip_state->serial_lock);
 
     return SLIP_ERR_OK;
 }
