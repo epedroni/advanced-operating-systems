@@ -206,19 +206,3 @@ errval_t shell_read_line(char** to, size_t* end_pos)
         }
     }
 }
-
-
-errval_t shell_setup_io_driver(void)
-{
-    return SYS_ERR_OK;
-}
-
-void shell_putchar(char c)
-{
-    aos_rpc_serial_putchar(get_init_rpc(), c);
-}
-
-void shell_getchar(char* c)
-{
-    aos_rpc_serial_getchar(get_init_rpc(), c);
-}

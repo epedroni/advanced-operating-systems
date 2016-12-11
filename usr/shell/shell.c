@@ -82,6 +82,12 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "Unable to start filesystem. Abording.");
         return 0;
     }
+    err = shell_setup_io_driver();
+    if (err_is_fail(err))
+    {
+        DEBUG_ERR(err, "Unable to setup IO driver");
+        return 0;
+    }
     shell_run();
     return 0;
 }
