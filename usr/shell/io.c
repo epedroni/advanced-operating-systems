@@ -124,9 +124,9 @@ errval_t shell_read_command(char*** argv, char** out_line, int* argc)
 
 static void do_backslash(void)
 {
-    aos_rpc_serial_putchar(get_init_rpc(), '\b');
-    aos_rpc_serial_putchar(get_init_rpc(), ' ');
-    aos_rpc_serial_putchar(get_init_rpc(), '\b');
+    shell_putchar('\b');
+    shell_putchar(' ');
+    shell_putchar('\b');
 }
 
 // Does not include '\n' or '\r'
@@ -141,14 +141,14 @@ errval_t shell_read_line(char** to, size_t* end_pos)
 
     while (true)
     {
-		char ret_char;
-		aos_rpc_serial_getchar(get_init_rpc(), &ret_char);
+        char ret_char;
+        shell_getchar(&ret_char);
         if (ret_char == 0)
             continue;
         if (ret_char == '\r')
             ret_char = '\n';
 
-		if (ret_char == 127)
+        if (ret_char == 127)
         {
             if (pos && (*to)[pos-1] != '\n')
             {
@@ -163,7 +163,7 @@ errval_t shell_read_line(char** to, size_t* end_pos)
                     inside_quote = false;
             }
             else
-                aos_rpc_serial_putchar(get_init_rpc(), '\a');
+                shell_putchar('\a');
             continue;
         }
         if (pos == buf_size)
@@ -186,7 +186,7 @@ errval_t shell_read_line(char** to, size_t* end_pos)
         {
             (*to)[pos] = 0;
             *end_pos = pos;
-    		aos_rpc_serial_putchar(get_init_rpc(), '\n');
+            shell_putchar('\n');
             free(inside_quote_buf);
             return SYS_ERR_OK;
         }
@@ -198,11 +198,27 @@ errval_t shell_read_line(char** to, size_t* end_pos)
         (*to)[pos] = ret_char;
         inside_quote_buf[pos] = inside_quote;
         ++pos;
-		aos_rpc_serial_putchar(get_init_rpc(), ret_char);
+        shell_putchar(ret_char);
         if (ret_char == '\n' && inside_quote)
         {
-            aos_rpc_serial_putchar(get_init_rpc(), ' ');
-            aos_rpc_serial_putchar(get_init_rpc(), '>');
+            shell_putchar(' ');
+            shell_putchar('>');
         }
-	}
+    }
+}
+
+
+errval_t shell_setup_io_driver(void)
+{
+    return SYS_ERR_OK;
+}
+
+void shell_putchar(char c)
+{
+    aos_rpc_serial_putchar(get_init_rpc(), c);
+}
+
+void shell_getchar(char* c)
+{
+    aos_rpc_serial_getchar(get_init_rpc(), c);
 }
