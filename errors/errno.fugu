@@ -1306,6 +1306,7 @@ errors aos AOS_ERR_ {
     failure LMP_SEND_FAILURE        "Failure while sending AOS LMP message",
     failure LMP_MSGTYPE_UNKNOWN     "Unknown message type for AOS LMP implementation",
     failure UNSERIALIZE             "Error in unserialization",
+    failure NO_SUCH_CAP             "No cap matching specified request",
     failure SERIALIZE               "Error in serialization",
 };
 

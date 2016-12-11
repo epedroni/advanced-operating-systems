@@ -152,23 +152,28 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
     DEBUG_LRPC("Received request for special capability\n");
     networking_lmp_chan=&sess->lc;
 
-    if(requested_cap_type==AOS_CAP_IRQ){
-        debug_printf("Sending aos irq table capability\n");
-        ERROR_RET1(lmp_chan_send1(&sess->lc,
-            LMP_FLAG_SYNC,
-            cap_irq,
-            MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
-    }else if(requested_cap_type==AOS_CAP_NETWORK_UART){
-        debug_printf("Sending uart frame capability\n");
-        struct capref uart4_frame;
-        slot_alloc(&uart4_frame);
-        ERROR_RET1(frame_forge(uart4_frame, OMAP44XX_MAP_L4_PER_UART4, OMAP44XX_MAP_L4_PER_UART4_SIZE, 0));
-        ERROR_RET1(lmp_chan_send1(&sess->lc,
-            LMP_FLAG_SYNC,
-            uart4_frame,
-            MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
+    switch (requested_cap_type)
+    {
+        case AOS_CAP_IRQ:
+            debug_printf("Sending aos irq table capability\n");
+            ERROR_RET1(lmp_chan_send1(&sess->lc,
+                LMP_FLAG_SYNC,
+                cap_irq,
+                MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
+            break;
+        case AOS_CAP_NETWORK_UART:
+            debug_printf("Sending uart frame capability\n");
+            struct capref uart4_frame;
+            slot_alloc(&uart4_frame);
+            ERROR_RET1(frame_forge(uart4_frame, OMAP44XX_MAP_L4_PER_UART4, OMAP44XX_MAP_L4_PER_UART4_SIZE, 0));
+            ERROR_RET1(lmp_chan_send1(&sess->lc,
+                LMP_FLAG_SYNC,
+                uart4_frame,
+                MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
+            break;
+        default:
+            return AOS_ERR_NO_SUCH_CAP;
     }
-
     return SYS_ERR_OK;
 }
 
