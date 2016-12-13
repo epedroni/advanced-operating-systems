@@ -1,4 +1,5 @@
 #include "binding_server.h"
+#include "init.h"
 
 static struct binding_server_state binding_state;
 
@@ -73,7 +74,7 @@ errval_t handle_establish_connection(struct urpc_buffer* buf, struct urpc_messag
     }
 
     debug_printf("Found connection object, sending frame info: base: [0x%08x] and size: [0x%08x]\n",
-            frame_info.base, frame_info.bytes);
+            (int)frame_info.base, (int)frame_info.bytes);
     ERROR_RET1(urpc_server_answer(buf, &frame_info, sizeof(struct frame_identity)));
 
     return SYS_ERR_OK;
@@ -103,28 +104,26 @@ errval_t handle_connect_to_socket(struct aos_rpc_session* sess,
 
     assert(received_size==sizeof(struct frame_identity));
 
-    debug_printf("Received frame info: base: [0x%08x] and size: [0x%08x]\n", received_frame.base, received_frame.bytes);
+    debug_printf("Received frame info: base: [0x%08x] and size: [0x%08x]\n", (int)received_frame.base, (int)received_frame.bytes);
 
     //TODO: Forge and return capability
-//    struct capref return_cap;
-//    ERROR_RET1(frame_forge(&return_cap,received_frame.base, received_frame.bytes, 1))
-//    ERROR_RET1(lmp_chan_send2(&sess->lc,
-//        LMP_FLAG_SYNC,
-//        return_cap,
-//        MAKE_RPC_MSG_HEADER(RPC_RAM_CAP_RESPONSE, RPC_FLAG_ACK),
-//        requested_bytes));
-//
-//    slot_alloc
-//    frame_forge()
+    struct capref return_cap;
+    slot_alloc(&return_cap);
+    ERROR_RET1(frame_forge(return_cap, received_frame.base, received_frame.bytes, my_core_id))
+    ERROR_RET1(lmp_chan_send1(&sess->lc,
+        LMP_FLAG_SYNC,
+        return_cap,
+        MAKE_RPC_MSG_HEADER(RPC_CONNECT_TO_SOCKET, RPC_FLAG_ACK)
+    ));
 
     return SYS_ERR_OK;
 }
 
-errval_t binding_server_lmp_init(struct aos_rpc* rpc, struct urpc_channel* channel){
+errval_t binding_server_lmp_init(struct aos_rpc* _rpc, struct urpc_channel* channel){
     binding_state.head=NULL;
 
-    aos_rpc_register_handler(rpc, RPC_CREATE_SERVER_SOCKET, handle_create_server_socket, true);
-    aos_rpc_register_handler_with_context(rpc, RPC_CONNECT_TO_SOCKET, handle_connect_to_socket, false, channel);
+    aos_rpc_register_handler(_rpc, RPC_CREATE_SERVER_SOCKET, handle_create_server_socket, true);
+    aos_rpc_register_handler_with_context(_rpc, RPC_CONNECT_TO_SOCKET, handle_connect_to_socket, false, channel);
     return SYS_ERR_OK;
 }
 

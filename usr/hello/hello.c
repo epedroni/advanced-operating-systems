@@ -21,6 +21,72 @@
 
 struct aos_rpc *init_rpc;
 
+errval_t listen(void);
+
+errval_t aos_slab_refill(struct slab_allocator *slabs){
+	debug_printf("Aos slab refill!\n");
+	//TODO: We have to think of a way how to provide refill function to every application
+	return SYS_ERR_OK;
+}
+//
+//static errval_t allocate_ram(void){
+//	debug_printf("Allocating slot\n");
+//	struct capref frame_cap;
+//	ERROR_RET1(slot_alloc(&frame_cap));
+//	debug_printf("Retyping ram to frame\n");
+//
+//	struct capref ram_cap={
+//			.cnode =cnode_base,
+//			.slot=0
+//	};
+//	ERROR_RET1(cap_retype(frame_cap, ram_cap, 0,
+//			ObjType_Frame, BASE_PAGE_SIZE, 1));
+//
+//	return SYS_ERR_OK;
+//}
+
+static
+errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
+{
+    debug_printf("++++++++++++++ Handling string in hello %s \n", msg->data);
+
+    return SYS_ERR_OK;
+}
+
+errval_t listen(void){
+    init_rpc = get_init_rpc();
+    errval_t err;
+
+    debug_printf("Creating server socket\n");
+    struct capref shared_buffer;
+    size_t ret_bytes;
+    ERROR_RET1(frame_alloc(&shared_buffer, BASE_PAGE_SIZE, &ret_bytes));
+
+    void* address=NULL;
+    ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),&address, BASE_PAGE_SIZE,
+            shared_buffer,VREGION_FLAGS_READ_WRITE, NULL, NULL));
+    assert(address);
+    memset(address, 0, BASE_PAGE_SIZE);
+
+    debug_printf("Allocated frame for sharing data of size: %lu\n", ret_bytes);
+
+    err=aos_rpc_create_server_socket(get_init_rpc(), shared_buffer, 42);
+    if(err_is_fail(err)){
+        debug_printf("Failed to send bind\n");
+    }
+
+    struct urpc_channel urpc_chan;
+    urpc_channel_init(&urpc_chan, address, BASE_PAGE_SIZE, URPC_CHAN_MASTER, DEF_URPC_OP_COUNT);
+
+    debug_printf("Starting to listen\n");
+
+    urpc_server_register_handler(&urpc_chan, DEF_URPC_OP_PRINT, handle_print, NULL);
+
+    ERROR_RET1(urpc_server_start_listen(&urpc_chan, false));
+
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
 	debug_printf("Received %d arguments \n",argc);
@@ -35,6 +101,10 @@ int main(int argc, char *argv[])
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not send number");
 	}
+
+	listen();
+
+	return SYS_ERR_OK;
 
 	err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){

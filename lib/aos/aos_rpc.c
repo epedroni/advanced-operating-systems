@@ -262,7 +262,7 @@ errval_t aos_connect_to_port(struct aos_rpc *rpc,
             port));
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
     ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
-    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);
+    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_CONNECT_TO_SOCKET);
 
     return SYS_ERR_OK;
 }
