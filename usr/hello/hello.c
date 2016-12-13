@@ -23,28 +23,6 @@ struct aos_rpc *init_rpc;
 
 errval_t listen(void);
 
-errval_t aos_slab_refill(struct slab_allocator *slabs){
-	debug_printf("Aos slab refill!\n");
-	//TODO: We have to think of a way how to provide refill function to every application
-	return SYS_ERR_OK;
-}
-//
-//static errval_t allocate_ram(void){
-//	debug_printf("Allocating slot\n");
-//	struct capref frame_cap;
-//	ERROR_RET1(slot_alloc(&frame_cap));
-//	debug_printf("Retyping ram to frame\n");
-//
-//	struct capref ram_cap={
-//			.cnode =cnode_base,
-//			.slot=0
-//	};
-//	ERROR_RET1(cap_retype(frame_cap, ram_cap, 0,
-//			ObjType_Frame, BASE_PAGE_SIZE, 1));
-//
-//	return SYS_ERR_OK;
-//}
-
 static
 errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
 {
@@ -196,15 +174,6 @@ int main(int argc, char *argv[])
 		free(name);
     }
 	free(pidptr);
-
-	while(true){
-		char ret_char;
-		aos_rpc_serial_getchar(get_init_rpc(),&ret_char);
-		if(ret_char=='\r')
-			ret_char='\n';
-		if(ret_char!=0)
-			aos_rpc_serial_putchar(get_init_rpc(),ret_char);
-	}
 
 	return 0;
 }

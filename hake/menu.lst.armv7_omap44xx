@@ -21,7 +21,8 @@ module /armv7/sbin/udp_echo_server
 module /armv7/sbin/ntp_client
 module /armv7/sbin/shell
 module /armv7/sbin/args
-
+module /armv7/sbin/nameserver
+module /armv7/sbin/urpc_child
 
 # For pandaboard, use following values.
 mmap map 0x40000000 0x40000000 13 # Devices
