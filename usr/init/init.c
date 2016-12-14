@@ -1,4 +1,5 @@
 #include <aos/waitset.h>
+#include <aos/debug.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
 #include <aos/aos_rpc.h>
@@ -16,6 +17,8 @@
 #include "urpc/handlers.h"
 #include "binding_server.h"
 
+bool nameserver_done = false;
+
 errval_t os_core_initialize(int argc, char** argv)
 {
     errval_t err;
@@ -30,8 +33,12 @@ errval_t os_core_initialize(int argc, char** argv)
     assert(err_is_ok(err));
     disp_set_core_id(my_core_id);
     debug_printf("main() being invoked\n"); // After set_core_id to properly display core id
+
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
+
+    // fill in the nameserver cap with a dummy cap until the nameserver is up
+    ERROR_RET1(cap_copy(cap_nameserverep, cap_selfep));
 
     // 2. Get boot info. Get it from args or read it from URPC
     bi = argc > 1 ? (struct bootinfo*)strtol(argv[1], NULL, 10) : NULL;
@@ -90,7 +97,7 @@ errval_t os_core_initialize(int argc, char** argv)
     }
 
     // 5. Init RPC server
-    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false));
+    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false, false));
     ERROR_RET1(lmp_server_init(&core_rpc));
 
     // 6. Boot second core if needed
@@ -155,5 +162,32 @@ errval_t os_core_events_loop(void)
     debug_printf("Entering accept loop forever\n");
     aos_rpc_accept(&core_rpc);
     urpc_server_stop(&urpc_chan);
+    return SYS_ERR_OK;
+}
+
+errval_t finish_nameserver(void) {
+    errval_t err;
+
+    struct capability selfep, nsep;
+    debug_cap_identify(cap_nameserverep, &nsep);
+    debug_cap_identify(cap_selfep, &selfep);
+
+    debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
+    debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
+
+    while (nsep.u.endpoint.listener == selfep.u.endpoint.listener
+            && nsep.u.endpoint.epoffset == selfep.u.endpoint.epoffset) {
+        // wait for nameserver cap
+        err = event_dispatch(core_rpc.ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+
+        debug_cap_identify(cap_nameserverep, &nsep);
+        debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
+        debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
+    }
+
     return SYS_ERR_OK;
 }

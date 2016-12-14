@@ -22,7 +22,9 @@ let    -- Default list of modules to build/install
         "udp_echo_server",
         "ntp_client",
         "filereader",
-        "shell" ]
+        "shell",
+        "nameserver",
+        "urpc_child" ]
 
     -- ARMv7-a Pandaboard modules: ADd
     pandaModules = [ "/sbin/" ++ f | f <- [

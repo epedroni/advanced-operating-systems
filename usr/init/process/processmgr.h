@@ -17,6 +17,7 @@ errval_t processmgr_get_process_name(domainid_t pid, char* name, size_t buffer_l
 errval_t processmgr_list_pids(domainid_t* pids, size_t* number);
 errval_t processmgr_process_exited(struct lmp_endpoint* ep);
 errval_t processmgr_remove_pid(domainid_t pid);
+errval_t processmgr_get_endpoint_by_pid(domainid_t pid, struct capref *ret_ep);
 
 void processmgr_register_rpc_handlers(struct aos_rpc* rpc);
 errval_t processmgr_register_urpc_handlers(struct urpc_channel* channel);

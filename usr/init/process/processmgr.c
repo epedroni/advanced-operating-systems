@@ -172,3 +172,17 @@ errval_t processmgr_process_exited(struct lmp_endpoint* ep)
 
     return processmgr_remove_pid(pid);
 }
+
+errval_t processmgr_get_endpoint_by_pid(domainid_t pid, struct capref *ret_ep)
+{
+    struct running_process *rp = core_pm_state.running_procs;
+    ret_ep = NULL;
+
+    while (rp->next) {
+        if (rp->pid == pid) {
+
+        }
+    }
+
+    return SYS_ERR_OK;
+}

@@ -6,12 +6,6 @@
 
 struct aos_rpc *init_rpc;
 
-errval_t aos_slab_refill(struct slab_allocator *slabs){
-    debug_printf("Aos slab refill!\n");
-    //TODO: We have to think of a way how to provide refill function to every application
-    return SYS_ERR_OK;
-}
-
 static
 errval_t communicate(void){
     init_rpc = get_init_rpc();

@@ -5,7 +5,7 @@
 #include <aos/urpc/udp.h>
 #include <aos/paging.h>
 
-#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 struct lmp_chan* networking_lmp_chan;
 
@@ -26,6 +26,31 @@ errval_t wait_for_send(struct lmp_chan* lc, struct aos_rpc_session* sess)
         ERROR_RET2(event_dispatch(sess->rpc->ws),
             RPC_ERR_WAIT_SEND);
     sess->can_send = false;
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_nameserver_cap(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    DEBUG_LRPC("Recv RPC_NAMESERVER_CAP", 0);
+    struct capability selfep, nsep;
+    debug_cap_identify(cap_nameserverep, &nsep);
+    debug_cap_identify(cap_selfep, &selfep);
+
+    if (nsep.u.endpoint.listener == selfep.u.endpoint.listener
+                && nsep.u.endpoint.epoffset == selfep.u.endpoint.epoffset) {
+        // if the nameserver isnt done, this is it trying to register
+        debug_printf("Try deleting the cap first\n");
+        cap_delete(cap_nameserverep);
+        debug_printf("Now copy\n");
+        cap_copy(cap_nameserverep, received_capref);
+    }
     return SYS_ERR_OK;
 }
 
@@ -314,6 +339,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     networking_lmp_chan=NULL;
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_CAP, handle_nameserver_cap, true);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
     aos_rpc_register_handler(rpc, RPC_STRING, handle_string, true);

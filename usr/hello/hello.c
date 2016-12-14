@@ -32,7 +32,7 @@ errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* c
 }
 
 errval_t listen(void){
-    init_rpc = get_init_rpc();
+    //init_rpc = get_init_rpc();
     errval_t err;
 
     debug_printf("Creating server socket\n");
@@ -80,9 +80,17 @@ int main(int argc, char *argv[])
 		DEBUG_ERR(err, "Could not send number");
 	}
 
-	listen();
+//	listen();
+//	return SYS_ERR_OK;
 
-	return SYS_ERR_OK;
+    debug_printf("Attempting handshake with nameserver\n");
+    struct aos_rpc ns_rpc;
+    err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+    }
+
+    init_rpc = &ns_rpc;
 
 	err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){

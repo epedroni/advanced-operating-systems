@@ -109,31 +109,6 @@ void barrelfish_libc_glue_init(void)
     static char ebuf[BUFSIZ];
     setvbuf(stderr, ebuf, _IOLBF, sizeof(buf));
 }
-//
-//static
-//void rcv_ready_callback(void* args){
-//    debug_printf("rcv ready callback\n");
-//
-//    struct lmp_chan* lc=(struct lmp_chan*)args;
-//
-//    struct lmp_recv_msg message;
-//    struct capref dummy;
-//    lmp_chan_recv(lc, &message,&dummy);
-//    debug_printf("Received number in child! %d\n", message.words[0] & STRING);
-//}
-//
-//static
-//void send_ready_callback(void* arg){
-//    errval_t err;
-//
-//    struct lmp_chan* lc=(struct lmp_chan*)arg;
-//    debug_printf("sending our own local cap\n");
-//    err=lmp_chan_send1(lc, LMP_FLAG_SYNC, lc->local_cap, 42);
-//    if (err_is_fail(err)) {
-//        USER_PANIC_ERR(err, "Error sending message");
-//    }
-//}
-
 
 /** \brief Initialise libbarrelfish.
  *
@@ -192,7 +167,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // will this still work with two processes?
     static struct aos_rpc rpc;
-    err = aos_rpc_init(&rpc, cap_initep, true);
+    err = aos_rpc_init(&rpc, cap_initep, true, true);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }
@@ -204,7 +179,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     // and domain spanning, so we return here
     return SYS_ERR_OK;
 }
-
 
 /**
  *  \brief Initialise libbarrelfish, while disabled.

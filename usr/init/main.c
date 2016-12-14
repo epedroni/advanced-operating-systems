@@ -43,6 +43,21 @@ int main(int argc, char *argv[])
     {
         domainid_t pid;
 
+        debug_printf("Spawning nameserver\n");
+        ERR_CHECK("spawning nameserver", processmgr_spawn_process("/armv7/sbin/nameserver", 0, &pid));
+
+        // nameserver needs to be finished before we continue spawning stuff
+        finish_nameserver();
+        debug_printf("Nameserver is up and running, attempting handshake\n");
+
+        struct aos_rpc ns_rpc;
+        err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+        }
+
+        //processmgr_get_endpoint_by_pid(0, &NULL_CAP);
+
         debug_printf("Spawning networking\n");
         ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
 

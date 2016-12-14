@@ -14,6 +14,7 @@ struct urpc_channel urpc_chan; // URPC thread holds reference to this
 
 errval_t os_core_initialize(int argc, char** argv);
 errval_t os_core_events_loop(void);
+errval_t finish_nameserver(void);
 
 #define NUM_BOOTINFO_REGIONS 20
 

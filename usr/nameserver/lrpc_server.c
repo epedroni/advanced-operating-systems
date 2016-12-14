@@ -3,26 +3,6 @@
 
 #define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
-//static
-//void cb_send_ready(void* args){
-//    struct aos_rpc_session *sess = args;
-//    sess->can_send=true;
-//}
-
-//static
-//errval_t wait_for_send(struct lmp_chan* lc, struct aos_rpc_session* sess)
-//{
-//    ERROR_RET2(lmp_chan_register_send(lc, sess->rpc->ws,
-//        MKCLOSURE(cb_send_ready, (void*)sess)),
-//        RPC_ERR_WAIT_SEND);
-//
-//    while (!sess->can_send)
-//        ERROR_RET2(event_dispatch(sess->rpc->ws),
-//            RPC_ERR_WAIT_SEND);
-//    sess->can_send = false;
-//    return SYS_ERR_OK;
-//}
-
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
@@ -33,7 +13,7 @@ errval_t handle_handshake(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     DEBUG_LRPC("Recv RPC_HANDSHAKE", 0);
-    sess->lc.remote_cap=received_capref;
+//    sess->lc.remote_cap=received_capref;
     return SYS_ERR_OK;
 }
 

@@ -564,7 +564,7 @@ errval_t aos_rpc_session_init(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client, bool connect_to_init)
 {
     debug_printf("aos_rpc_init: Created for %s\n", is_client ? "CLIENT" : "SERVER");
     rpc->ws = get_default_waitset();
@@ -577,13 +577,12 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
         rpc->server_sess = malloc(sizeof(struct aos_rpc_session));
         rpc->server_sess->rpc = rpc;
         ERROR_RET1(aos_rpc_session_init(rpc->server_sess, remote_endpoint));
-
-        debug_printf("Sending handshake\n");
         ERROR_RET1(aos_rpc_send_handshake(rpc,
             rpc->server_sess->lc.local_cap));
-
-        // store it at a well known location
-        set_init_rpc(rpc);
+        if (connect_to_init) {
+            // store it at a well known location
+            set_init_rpc(rpc);
+        }
     }
     else
         rpc->server_sess = NULL;
@@ -635,5 +634,36 @@ errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session*
 {
     ERROR_RET1(lmp_chan_register_recv(&sess->lc,
         rpc->ws, MKCLOSURE(cb_accept_loop, sess)));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_send_nameserver_info(struct aos_rpc *rpc, struct capref nsep)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc,
+        lmp_chan_send1(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            nsep,
+            RPC_NAMESERVER_CAP));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_get_nameserver_cap(struct aos_rpc *rpc)
+{
+    if (!rpc->server_sess)
+            return RPC_ERR_INVALID_ARGUMENTS;
+
+        ERROR_RET1(wait_for_send(rpc->server_sess));
+        ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_NAMESERVER_CAP));
+        struct lmp_recv_msg message;
+        struct capref retcap;
+        ERROR_RET1(recv_block(rpc->server_sess,
+            &message,
+            &retcap));
+
+        cap_copy(cap_nameserverep, retcap);
+
     return SYS_ERR_OK;
 }

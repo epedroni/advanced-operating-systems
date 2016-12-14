@@ -22,6 +22,7 @@ enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
     RPC_SHARED_BUFFER_REQUEST,
+    RPC_NAMESERVER_CAP,
     RPC_RAM_CAP_QUERY,
     RPC_RAM_CAP_RESPONSE,
     RPC_NUMBER,
@@ -217,9 +218,13 @@ errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc, lpaddr_t paddr, size_t byte
  * TODO: you may want to change the inteface of your init function, depending
  * on how you design your message passing code.
  */
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake);
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake, bool is_init);
 
 
 errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
 errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
+
+errval_t aos_rpc_send_nameserver_info(struct aos_rpc *rpc, struct capref nsep);
+errval_t aos_rpc_get_nameserver_cap(struct aos_rpc *rpc);
+
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H
