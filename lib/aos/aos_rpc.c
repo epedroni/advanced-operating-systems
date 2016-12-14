@@ -577,6 +577,17 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
         rpc->server_sess = malloc(sizeof(struct aos_rpc_session));
         rpc->server_sess->rpc = rpc;
         ERROR_RET1(aos_rpc_session_init(rpc->server_sess, remote_endpoint));
+
+        struct capability cap;
+        debug_cap_identify(rpc->server_sess->lc.local_cap, &cap);
+        debug_printf("Local cap type: 0x%x\n", cap.type);
+        debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+        debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+        debug_cap_identify(rpc->server_sess->lc.remote_cap, &cap);
+        debug_printf("Remote cap type: 0x%x\n", cap.type);
+        debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+        debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+
         ERROR_RET1(aos_rpc_send_handshake(rpc,
             rpc->server_sess->lc.local_cap));
         if (connect_to_init) {
@@ -647,23 +658,9 @@ errval_t aos_rpc_send_nameserver_info(struct aos_rpc *rpc, struct capref nsep)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_nameserver_cap(struct aos_rpc *rpc)
+errval_t errval_t aos_rpc_bind_nameserver(struct aos_rpc *rpc)
 {
-    if (!rpc->server_sess)
-            return RPC_ERR_INVALID_ARGUMENTS;
-
-        ERROR_RET1(wait_for_send(rpc->server_sess));
-        ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
-            LMP_FLAG_SYNC,
-            NULL_CAP,
-            RPC_NAMESERVER_CAP));
-        struct lmp_recv_msg message;
-        struct capref retcap;
-        ERROR_RET1(recv_block(rpc->server_sess,
-            &message,
-            &retcap));
-
-        cap_copy(cap_nameserverep, retcap);
+    // TODO send header, wait for response with cap to init the NS RPC channel
 
     return SYS_ERR_OK;
 }

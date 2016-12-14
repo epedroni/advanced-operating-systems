@@ -37,7 +37,7 @@ errval_t os_core_initialize(int argc, char** argv)
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
 
-    // fill in the nameserver cap with a dummy cap until the nameserver is up
+    // fill in the nameserver cap with a dummy cap until the nameserver is up - this is how we know if the nameserver is up or not!
     ERROR_RET1(cap_copy(cap_nameserverep, cap_selfep));
 
     // 2. Get boot info. Get it from args or read it from URPC
@@ -172,6 +172,7 @@ errval_t finish_nameserver(void) {
     debug_cap_identify(cap_nameserverep, &nsep);
     debug_cap_identify(cap_selfep, &selfep);
 
+    // XXX DEBUG
     debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
     debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
 
@@ -188,6 +189,8 @@ errval_t finish_nameserver(void) {
         debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
         debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
     }
+
+    debug_printf("Received EP from nameserver, moving on...\n");
 
     return SYS_ERR_OK;
 }

@@ -1,7 +1,7 @@
 #include "lrpc_server.h"
 #include <omap44xx_map.h>
 
-#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
@@ -13,7 +13,7 @@ errval_t handle_handshake(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     DEBUG_LRPC("Recv RPC_HANDSHAKE", 0);
-//    sess->lc.remote_cap=received_capref;
+    sess->lc.remote_cap=received_capref;
     return SYS_ERR_OK;
 }
 

@@ -83,14 +83,22 @@ int main(int argc, char *argv[])
 //	listen();
 //	return SYS_ERR_OK;
 
-    debug_printf("Attempting handshake with nameserver\n");
-    struct aos_rpc ns_rpc;
-    err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
+//    debug_printf("Attempting handshake with nameserver\n");
+//    struct aos_rpc ns_rpc;
+//    err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
+//    if (err_is_fail(err)) {
+//        return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+//    }
+//
+//    init_rpc = &ns_rpc;
+
+	// TODO do the same thing, but with the nameserver - except check that we are not actually the nameserver, otherwise it blows up
+    debug_printf("Initialising nameserver rpc\n");
+    static struct aos_rpc rpc;
+    err = aos_rpc_init(&rpc, cap_nameserverep, true, false);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }
-
-    init_rpc = &ns_rpc;
 
 	err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){

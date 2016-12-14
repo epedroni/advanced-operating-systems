@@ -166,6 +166,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     /* set init RPC client in our program state */
 
     // will this still work with two processes?
+    debug_printf("Initialising init rpc\n");
     static struct aos_rpc rpc;
     err = aos_rpc_init(&rpc, cap_initep, true, true);
     if (err_is_fail(err)) {

@@ -22,23 +22,34 @@ enum message_opcodes {
     RPC_NULL_OPCODE     = 0,
     RPC_HANDSHAKE,
     RPC_SHARED_BUFFER_REQUEST,
+
     RPC_NAMESERVER_CAP,
+    RPC_NAMESERVER_LOOKUP,
+    RPC_NAMESERVER_REGISTER,
+    RPC_NAMESERVER_DEREGISTER,
+    RPC_NAMESERVER_ENUMERATE,
+
     RPC_RAM_CAP_QUERY,
     RPC_RAM_CAP_RESPONSE,
+
     RPC_NUMBER,
     RPC_STRING,
     RPC_PUT_CHAR,
     RPC_GET_CHAR,
     RPC_SPAWN,
     RPC_EXIT,
+
     RPC_GET_NAME,
     RPC_GET_PID,
+
     RPC_CREATE_SERVER_SOCKET,
     RPC_CONNECT_TO_SOCKET,
+
     RPC_SPECIAL_CAP_QUERY,
     RPC_SPECIAL_CAP_RESPONSE,
     RPC_NETWORK_UDP_CONNECT,
     RPC_NETWORK_UDP_CREATE_SERVER,
+
     RPC_SET_LED,
     RPC_MEMTEST,
     RPC_NUM_OPCODES,
@@ -220,11 +231,10 @@ errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc, lpaddr_t paddr, size_t byte
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake, bool is_init);
 
-
 errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
 errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
 
 errval_t aos_rpc_send_nameserver_info(struct aos_rpc *rpc, struct capref nsep);
-errval_t aos_rpc_get_nameserver_cap(struct aos_rpc *rpc);
+errval_t aos_rpc_bind_nameserver(struct aos_rpc *rpc);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

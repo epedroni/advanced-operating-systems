@@ -232,28 +232,10 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
         .slot=TASKCN_SLOT_INITEP
     };
 
-    // give child an endpoint to nameserver so the child can talk to that too
-    struct capref slot_nameserver_endpoint={
-        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
-        .slot=TASKCN_SLOT_NAMESERVEREP
-    };
-
     ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
     ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
-
-    debug_printf("copying nameserver cap to child:\n");
-    struct capability nsep;
-    debug_cap_identify(cap_nameserverep, &nsep);
-    debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
-    debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
-    ERROR_RET1(cap_copy(slot_nameserver_endpoint, cap_nameserverep));
-
-    debug_printf("Child endpoint:\n");
-    debug_cap_identify(dispatcher_endpoint, &nsep);
-    debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
-    debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
 
     // IV. Map in child process
     // Map dispatcher frame for child

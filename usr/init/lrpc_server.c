@@ -39,6 +39,7 @@ errval_t handle_nameserver_cap(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     DEBUG_LRPC("Recv RPC_NAMESERVER_CAP", 0);
+    // XXX DEBUG
     struct capability selfep, nsep;
     debug_cap_identify(cap_nameserverep, &nsep);
     debug_cap_identify(cap_selfep, &selfep);
@@ -51,6 +52,22 @@ errval_t handle_nameserver_cap(struct aos_rpc_session* sess,
         debug_printf("Now copy\n");
         cap_copy(cap_nameserverep, received_capref);
     }
+    return SYS_ERR_OK;
+}
+
+static
+errval_t handle_bind_nameserver(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    DEBUG_LRPC("Recv RPC_NAMESERVER_BIND", 0);
+
+    // TODO request endpoint from nameserver
+
     return SYS_ERR_OK;
 }
 

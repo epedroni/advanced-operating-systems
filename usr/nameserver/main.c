@@ -26,24 +26,21 @@ int main(int argc, char *argv[])
     ERROR_RET1(aos_rpc_init(&nameserver_rpc, NULL_CAP, false, false));
     ERROR_RET1(lmp_server_init(&nameserver_rpc));
 
-    debug_printf("Creating init session so we can communicate\n");
-    // create session
-    struct aos_rpc_session* sess = NULL;
-    // initialise with null remote
-    aos_server_add_client(&nameserver_rpc, &sess);
-    // associate endpoint with session?
-    aos_server_register_client(&nameserver_rpc, sess);
-
-    debug_printf("Ack received: %x\n", sess->ack_received);
-    debug_printf("Can send: %x\n", sess->can_send);
-    debug_printf("LC Connstate: %x\n", sess->lc.connstate);
-    debug_printf("LC Endpoint: %x\n", sess->lc.endpoint);
+    debug_printf("Registering init as a client\n");
+    struct aos_rpc_session* init_sess = NULL;
+    aos_server_add_client(&nameserver_rpc, &init_sess);
 
     debug_printf("Sending endpoint to init, it should now be able to shake hands with us\n");
-    aos_rpc_send_nameserver_info(get_init_rpc(), cap_selfep);
+    aos_rpc_send_nameserver_info(get_init_rpc(), init_sess->lc.local_cap);
 
+    aos_server_register_client(&nameserver_rpc, init_sess);
 
-    debug_printf("Entering accept loop forever\n");
+    // XXX DEBUG
+    debug_printf("Local cap: 0x%x\n", init_sess->lc.local_cap.slot);
+    debug_printf("Remote cap: 0x%x\n", init_sess->lc.remote_cap.slot);
+
+    // Handle requests
+    debug_printf("Looping forever\n");
     aos_rpc_accept(&nameserver_rpc);
 
     return SYS_ERR_OK;
