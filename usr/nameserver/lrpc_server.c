@@ -55,19 +55,6 @@ errval_t handle_shared_buffer_request(struct aos_rpc_session* sess,
 }
 
 static
-errval_t handle_number(struct aos_rpc_session* sess,
-        struct lmp_recv_msg* msg,
-        struct capref received_capref,
-        void* context,
-        struct capref* ret_cap,
-        uint32_t* ret_type,
-        uint32_t* ret_flags)
-{
-    DEBUG_LRPC("Received number %d",msg->words[1]);
-    return SYS_ERR_OK;
-}
-
-static
 errval_t handle_string(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
@@ -92,7 +79,6 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
-    aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
     aos_rpc_register_handler(rpc, RPC_STRING, handle_string, true);
 
     return SYS_ERR_OK;

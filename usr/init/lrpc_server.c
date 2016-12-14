@@ -1,11 +1,12 @@
 #include "lrpc_server.h"
 #include "init.h"
+#include "nameserver.h"
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 #include <omap44xx_map.h>
 #include <aos/urpc/udp.h>
 #include <aos/paging.h>
 
-#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 struct lmp_chan* networking_lmp_chan;
 
@@ -52,22 +53,6 @@ errval_t handle_nameserver_cap(struct aos_rpc_session* sess,
         debug_printf("Now copy\n");
         cap_copy(cap_nameserverep, received_capref);
     }
-    return SYS_ERR_OK;
-}
-
-static
-errval_t handle_bind_nameserver(struct aos_rpc_session* sess,
-        struct lmp_recv_msg* msg,
-        struct capref received_capref,
-        void* context,
-        struct capref* ret_cap,
-        uint32_t* ret_type,
-        uint32_t* ret_flags)
-{
-    DEBUG_LRPC("Recv RPC_NAMESERVER_BIND", 0);
-
-    // TODO request endpoint from nameserver
-
     return SYS_ERR_OK;
 }
 
@@ -352,11 +337,64 @@ errval_t handle_memtest(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
+static
+errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
+        struct lmp_recv_msg* msg,
+        struct capref received_capref,
+        void* context,
+        struct capref* ret_cap,
+        uint32_t* ret_type,
+        uint32_t* ret_flags)
+{
+    DEBUG_LRPC("Recv RPC_NAMESERVER_LOOKUP", 0);
+
+    if (!ns_rpc.server_sess)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    debug_printf("Received bootstrapping request, forwarding to nameserver\n");
+
+    memcpy(ns_rpc.server_sess->shared_buffer, "nameserver", 10);
+
+    // Forward lookup request to nameserver, adding argument "nameserver"
+    ERROR_RET1(wait_for_send(&ns_rpc.server_sess->lc, ns_rpc.server_sess));
+    ERROR_RET1(lmp_chan_send2(&ns_rpc.server_sess->lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        RPC_NAMESERVER_LOOKUP,
+        10));
+
+    debug_printf("Sent, waiting for nameserver response\n");
+
+    // Relay cap back to client
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    struct capref relay_cap;
+    ERROR_RET1(recv_block(ns_rpc.server_sess,
+        &message,
+        &relay_cap));
+
+    debug_printf("-------------------------------- Received and attempting to return the following endpoint:\n");
+    struct capability cap;
+    debug_cap_identify(relay_cap, &cap);
+    debug_printf("Cap type: 0x%x\n", cap.type);
+    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+
+    ERROR_RET1(lmp_chan_send1(&sess->lc,
+        LMP_FLAG_SYNC,
+        relay_cap,
+        MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_LOOKUP, RPC_FLAG_ACK)));
+
+    cap_delete(relay_cap);
+
+    return SYS_ERR_OK;
+}
+
 errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     networking_lmp_chan=NULL;
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_CAP, handle_nameserver_cap, true);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_LOOKUP, handle_bootstrap_nameserver, false);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
     aos_rpc_register_handler(rpc, RPC_STRING, handle_string, true);

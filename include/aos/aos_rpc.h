@@ -235,6 +235,11 @@ errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
 errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
 
 errval_t aos_rpc_send_nameserver_info(struct aos_rpc *rpc, struct capref nsep);
-errval_t aos_rpc_bind_nameserver(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_register(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc);
+
+errval_t aos_rpc_bind_nameserver(struct aos_rpc *rpc, struct aos_rpc *ret_rpc);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

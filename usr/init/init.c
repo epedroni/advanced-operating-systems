@@ -164,33 +164,3 @@ errval_t os_core_events_loop(void)
     urpc_server_stop(&urpc_chan);
     return SYS_ERR_OK;
 }
-
-errval_t finish_nameserver(void) {
-    errval_t err;
-
-    struct capability selfep, nsep;
-    debug_cap_identify(cap_nameserverep, &nsep);
-    debug_cap_identify(cap_selfep, &selfep);
-
-    // XXX DEBUG
-    debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
-    debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
-
-    while (nsep.u.endpoint.listener == selfep.u.endpoint.listener
-            && nsep.u.endpoint.epoffset == selfep.u.endpoint.epoffset) {
-        // wait for nameserver cap
-        err = event_dispatch(core_rpc.ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-
-        debug_cap_identify(cap_nameserverep, &nsep);
-        debug_printf("********* Listener: 0x%x\n", nsep.u.endpoint.listener);
-        debug_printf("********* EPOffset: 0x%x\n", nsep.u.endpoint.epoffset);
-    }
-
-    debug_printf("Received EP from nameserver, moving on...\n");
-
-    return SYS_ERR_OK;
-}

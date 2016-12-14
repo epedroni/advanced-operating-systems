@@ -18,6 +18,7 @@
 
 #include "tests.h"
 #include "init.h"
+#include "nameserver.h"
 #include "process/processmgr.h"
 #include <omap44xx_map.h>
 #include <netutil/user_serial.h>
@@ -49,16 +50,6 @@ int main(int argc, char *argv[])
         // nameserver needs to be finished before we continue spawning stuff
         finish_nameserver();
 
-        debug_printf("Attempting handshake with nameserver\n");
-        static struct aos_rpc ns_rpc;
-        err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
-        }
-
-        debug_printf("Testing RPC to nameserver\n");
-        aos_rpc_send_string(&ns_rpc, "Sup buddy");
-
         debug_printf("Spawning networking\n");
         ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
 
@@ -72,3 +63,4 @@ int main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
+

@@ -7,6 +7,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>
 
+#define KERNEL_CAP 1
 
 extern struct bootinfo *bi;
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret);
@@ -232,10 +233,20 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
         .slot=TASKCN_SLOT_INITEP
     };
 
+
     ERROR_RET1(cap_copy(slot_dispatcher, si->child_dispatcher_own_cap));
     ERROR_RET1(cap_copy(slot_selfep, dispatcher_endpoint));
     ERROR_RET1(cap_copy(slot_dispatcher_frame, si->child_dispatcher_frame_own_cap));
     ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
+
+    #if KERNEL_CAP
+    // for debugging, might be helpful to give the child a kernel cap
+    struct capref slot_kernel={
+        .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
+        .slot=TASKCN_SLOT_KERNELCAP
+    };
+    ERROR_RET1(cap_copy(slot_kernel, cap_kernel));
+    #endif
 
     // IV. Map in child process
     // Map dispatcher frame for child

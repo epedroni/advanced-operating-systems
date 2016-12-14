@@ -18,6 +18,7 @@
                         "coreboot.c",
                         "tests.c",
                         "init.c",
+                        "nameserver.c",
                         "process/sysprocessmgr.c",
                         "process/coreprocessmgr.c",
                         "process/processmgr.c",
