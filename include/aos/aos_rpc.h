@@ -229,7 +229,7 @@ errval_t aos_rpc_get_device_cap(struct aos_rpc *rpc, lpaddr_t paddr, size_t byte
  * TODO: you may want to change the inteface of your init function, depending
  * on how you design your message passing code.
  */
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake, bool is_init);
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool send_handshake);
 
 errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
 errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);

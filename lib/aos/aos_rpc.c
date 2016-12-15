@@ -565,7 +565,7 @@ errval_t aos_rpc_session_init(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client, bool connect_to_init)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client)
 {
     debug_printf("aos_rpc_init: Created for %s\n", is_client ? "CLIENT" : "SERVER");
     rpc->ws = get_default_waitset();
@@ -592,10 +592,6 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
 
         ERROR_RET1(aos_rpc_send_handshake(rpc,
             rpc->server_sess->lc.local_cap));
-        if (connect_to_init) {
-            // store it at a well known location
-            set_init_rpc(rpc);
-        }
     }
     else
         rpc->server_sess = NULL;
@@ -652,34 +648,6 @@ errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session*
 
 errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc, char *name, struct capref *ret_ep)
 {
-
-    /*if (!rpc_init->server_sess)
-        return RPC_ERR_INVALID_ARGUMENTS;
-
-    debug_printf("Sending request to init\n");
-    // Request nameserver endpoint
-    ERROR_RET1(wait_for_send(rpc_init->server_sess));
-    ERROR_RET1(lmp_chan_send1(&rpc_init->server_sess->lc,
-        LMP_FLAG_SYNC,
-        NULL_CAP,
-        RPC_NAMESERVER_LOOKUP));
-
-    debug_printf("Waiting for init response\n");
-    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
-    struct capref received_ep;
-    ERROR_RET1(recv_block(rpc_init->server_sess,
-        &message,
-        &received_ep));
-
-    debug_printf("------------------------------------------------------- Response received, initialising rpc\n");
-    struct capability cap;
-    debug_cap_identify(received_ep, &cap);
-    debug_printf("Local cap type: 0x%x\n", cap.type);
-    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
-    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
-
-    return aos_rpc_init(ret_rpc, received_ep, true, false);*/
-
     debug_printf("Copying name to shared buffer\n");
 
     assert(rpc->server_sess);
@@ -794,7 +762,7 @@ errval_t aos_rpc_bind_to_nameserver(struct aos_rpc *rpc_init, struct aos_rpc *re
     debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
     debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
 
-    return aos_rpc_init(ret_rpc, received_ep, true, false);
+    return aos_rpc_init(ret_rpc, received_ep, true);
 }
 
 // This is only used by the NS to connect with init
