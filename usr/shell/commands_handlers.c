@@ -115,26 +115,28 @@ static void handle_led(char* const argv[], int argc)
     DEBUG_ERR(err, "Error switching led status");
 }
 
+static int thread_memtest(void* tid)
+{
+    int size = (int)tid;
+    SHELL_STDOUT("Testing memory from 0x%08x...\n",
+        (unsigned int)size);
+    void* buf = malloc(size);
+    memset(buf, 0, size);
+    free(buf);
+    return 0;
+}
+
 static void handle_memtest(char* const argv[], int argc)
 {
-    SHELL_STDERR("** DISCLAIMER **\n");
-    SHELL_STDERR("strtol doesnt support values above 1<<31!\n");
-    if (argc != 3)
+    if (argc != 2)
     {
-        printf("Syntax: %s base_address size\n", argv[0]);
+        printf("Syntax: %s size\n", argv[0]);
         return;
     }
-    lpaddr_t base = strtol(argv[1], NULL, 0);
-    size_t size = strtol(argv[2], NULL, 0);
-    SHELL_STDOUT("Testing memory from 0x%08x to 0x%08x [size = 0x%08x]...\n",
-        (unsigned int)base, (unsigned int)(base + size), (unsigned int)size);
-    errval_t err = aos_rpc_memtest(get_init_rpc(), base, size);
-    if (err_is_ok(err))
-    {
-        printf("Test finished\n");
-        return;
-    }
-    DEBUG_ERR(err, "Error in memory test");
+    int base = strtol(argv[1], NULL, 0);
+    int retval;
+    struct thread* test_thread = thread_create(thread_memtest, (void*)base);
+    thread_join(test_thread, &retval);
 }
 
 static void handle_oncore(char* const argv[], int argc)
@@ -309,8 +311,20 @@ static void handle_grep(char* const argv[], int argc)
         if (argc < 4)
             return syntax_grep();
     }
+    // Find files
     shell_fs_match_files(&argv[pattern_idx+1], argc-pattern_idx-1,
         do_grep, argv[pattern_idx], flags);
+}
+
+static void handle_fallback(char* const argv[], int argc)
+{
+    if (!argc)
+        return;
+
+    coreid_t core_id = 0;
+    domainid_t new_pid;
+    aos_rpc_process_spawn_with_args(get_init_rpc(), core_id,
+        argv, argc, &new_pid);
 }
 
 /**
@@ -319,12 +333,15 @@ Commands handling
 bool shell_execute_command(char* const argv[], int argc)
 {
     struct command_handler_entry* commands = shell_get_command_table();
-    for (int i = 0; commands[i].name != NULL; ++i)
+    int i;
+    for (i = 0; commands[i].name != NULL; ++i)
         if (!strcmp(argv[0], commands[i].name))
         {
             commands[i].handler(argv, argc);
             return true;
         }
+    assert(commands[i].name == NULL);
+    commands[i].handler(argv, argc);
     return false;
 }
 
@@ -344,7 +361,7 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "ps",          .handler = handle_ps},
         {.name = "pwd",         .handler = handle_pwd},
         {.name = "threads",     .handler = handle_threads},
-        {.name = NULL}
+        {.name = NULL,          .handler = handle_fallback}
     };
     return commandsTable;
 }
