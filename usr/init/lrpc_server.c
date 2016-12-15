@@ -393,7 +393,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     networking_lmp_chan=NULL;
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
-    aos_rpc_register_handler(rpc, RPC_NAMESERVER_CAP, handle_nameserver_cap, true);
+    aos_rpc_register_handler(rpc, RPC_SEND_ENDPOINT, handle_nameserver_cap, true);
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_LOOKUP, handle_bootstrap_nameserver, false);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);

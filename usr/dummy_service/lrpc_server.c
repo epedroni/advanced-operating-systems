@@ -1,4 +1,5 @@
 #include "lrpc_server.h"
+
 #include <omap44xx_map.h>
 
 #define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)

@@ -10,10 +10,8 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "nameserver",
-                      cFiles = [ "lrpc_server.c",
-                                 "services.c",
-                                 "main.c" ],
+[ build application { target = "dummy_client",
+                      cFiles = [ "main.c" ],
                       addLinkFlags = [ "-e _start"],
                       architectures = allArchitectures
                     }

@@ -18,6 +18,7 @@
 #include <aos/aos_rpc.h>
 #include <aos/urpc/server.h>
 #include <aos/urpc/default_opcodes.h>
+#include <aos/nameserver.h>
 
 errval_t listen(void);
 
@@ -80,13 +81,18 @@ int main(int argc, char *argv[])
 //	listen();
 //	return SYS_ERR_OK;
 
-    debug_printf("******************************************* Attempting to bind with nameserver\n");
+    debug_printf("Attempting to bind with nameserver\n");
     struct aos_rpc ns_rpc;
-    aos_rpc_bind_nameserver(get_init_rpc(), &ns_rpc);
+    err = nameserver_rpc_init(&ns_rpc);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not bind with nameserver");
+    }
 
-    debug_printf("nameserver rpc: 0x%x\n", &ns_rpc);
-    debug_printf("******************************************* Sending a string to nameserver as a test\n");
-    aos_rpc_send_string(&ns_rpc, "Hello this is dog");
+    debug_printf("Sending a string to nameserver as a test\n");
+    err = aos_rpc_send_string(&ns_rpc, "hello, this is dog\n");
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not send simple string to nameserver");
+    }
 
     err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){

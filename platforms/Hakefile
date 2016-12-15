@@ -24,7 +24,9 @@ let    -- Default list of modules to build/install
         "filereader",
         "shell",
         "nameserver",
-        "urpc_child" ]
+        "urpc_child",
+        "dummy_service",
+        "dummy_client" ]
 
     -- ARMv7-a Pandaboard modules: ADd
     pandaModules = [ "/sbin/" ++ f | f <- [

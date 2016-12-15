@@ -13,11 +13,13 @@
  * Attn: Systems Group.
  */
 
-#include "nameserver.h"
+#include <services.h>
 
 struct registered_service *services = NULL;
 
 errval_t register_service(char *name) {
+    // TODO this needs to be moved to the nameserver, and here is just an rpc call that does the registration itself
+
     struct registered_service *new_service = malloc(sizeof(struct registered_service));
     new_service->name = name;
     new_service->prev = NULL;
@@ -35,6 +37,7 @@ errval_t register_service(char *name) {
 }
 
 errval_t deregister_service(char *name) {
+    // TODO this needs to be moved to the nameserver, and here is just an rpc call that does the deregistration itself
 
     struct registered_service *service = services;
 

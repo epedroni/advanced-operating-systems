@@ -1,15 +1,26 @@
-#ifndef USR_NAMESERVER_NAMESERVER_H_
-#define USR_NAMESERVER_NAMESERVER_H_
+#ifndef USR_NAMESERVER_SERVICES_H_
+#define USR_NAMESERVER_SERVICES_H_
 
 #include <stdio.h>
 #include <aos/aos.h>
+#include <aos/aos_rpc.h>
 
 struct registered_service {
-	char* name;
-	// some sort of endpoint?
+    char* name;
+    // some sort of endpoint?
 
-	struct registered_service *next, *prev;
+    struct registered_service *next, *prev;
 };
+
+/**
+* @brief initialises an RPC with nameserver
+*
+* @param rpc the rpc struct to initialise
+*
+* @return SYS_ERR_OK on success
+* errval on failure
+*/
+errval_t nameserver_rpc_init(struct aos_rpc *rpc);
 
 /**
 * @brief register a name binding
@@ -54,6 +65,6 @@ errval_t lookup(char *query);
 * @return SYS_ERR_OK on success
 * errval on failure
 */
-errval_t enumerate( char *query, size_t *num, char **result);
+errval_t enumerate(char *query, size_t *num, char **result);
 
-#endif /* USR_NAMESERVER_NAMESERVER_H_ */
+#endif /* USR_NAMESERVER_SERVICES_H_ */

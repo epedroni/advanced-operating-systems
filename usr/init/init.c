@@ -17,8 +17,6 @@
 #include "urpc/handlers.h"
 #include "binding_server.h"
 
-bool nameserver_done = false;
-
 errval_t os_core_initialize(int argc, char** argv)
 {
     errval_t err;
