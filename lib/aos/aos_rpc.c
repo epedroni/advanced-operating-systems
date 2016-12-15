@@ -668,7 +668,6 @@ errval_t aos_rpc_bind_nameserver(struct aos_rpc *rpc, struct aos_rpc *ret_rpc)
 
     debug_printf("Sending request to init\n");
     // Request nameserver endpoint
-    rpc->server_sess->shared_buffer_size = 0; // Disable buffer
     ERROR_RET1(wait_for_send(rpc->server_sess));
     ERROR_RET1(lmp_chan_send1(&rpc->server_sess->lc,
         LMP_FLAG_SYNC,

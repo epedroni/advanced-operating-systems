@@ -6,7 +6,7 @@
 #include <aos/urpc/udp.h>
 #include <aos/paging.h>
 
-#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 struct lmp_chan* networking_lmp_chan;
 

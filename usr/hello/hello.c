@@ -19,8 +19,6 @@
 #include <aos/urpc/server.h>
 #include <aos/urpc/default_opcodes.h>
 
-struct aos_rpc *init_rpc;
-
 errval_t listen(void);
 
 static
@@ -73,9 +71,8 @@ int main(int argc, char *argv[])
 	}
 	errval_t err;
 
-	init_rpc = get_init_rpc();
-	debug_printf("init rpc: 0x%x\n", init_rpc);
-	err = aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
+	debug_printf("init rpc: 0x%x\n", get_init_rpc());
+	err = aos_rpc_send_number(get_init_rpc(), (uintptr_t) 42);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not send number");
 	}
@@ -85,12 +82,13 @@ int main(int argc, char *argv[])
 
     debug_printf("******************************************* Attempting to bind with nameserver\n");
     struct aos_rpc ns_rpc;
-    aos_rpc_bind_nameserver(init_rpc, &ns_rpc);
+    aos_rpc_bind_nameserver(get_init_rpc(), &ns_rpc);
 
+    debug_printf("nameserver rpc: 0x%x\n", &ns_rpc);
     debug_printf("******************************************* Sending a string to nameserver as a test\n");
     aos_rpc_send_string(&ns_rpc, "Hello this is dog");
 
-	err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
+    err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not send simple string");
 	}

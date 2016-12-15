@@ -7,7 +7,8 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>
 
-#define KERNEL_CAP 1
+// give every spawned process a copy of the kernel cap so we can identify caps for debugging
+#define KERNEL_CAP 0
 
 extern struct bootinfo *bi;
 errval_t elf_allocator(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret);
@@ -240,7 +241,6 @@ errval_t spawn_setup_dispatcher(struct spawninfo* si, struct lmp_chan* lc)
     ERROR_RET1(cap_copy(slot_parent_endpoint, lc->local_cap));
 
     #if KERNEL_CAP
-    // for debugging, might be helpful to give the child a kernel cap
     struct capref slot_kernel={
         .cnode=si->l2_cnodes[ROOTCN_SLOT_TASKCN],
         .slot=TASKCN_SLOT_KERNELCAP
