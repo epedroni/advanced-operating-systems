@@ -75,16 +75,17 @@ errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, ui
 }
 
 errval_t udp_send_data(struct udp_socket* socket, void* data, size_t len){
-    size_t send_buff_size=len+sizeof(struct udp_command_payload_header);
-    struct udp_command_payload* send_command=(struct udp_command_payload*)malloc(send_buff_size);
-    send_command->header.socket_id=socket->socket_id;
-
-    memcpy(send_command->data, data, len);
     struct udp_command_payload response;
     size_t return_size=0;
-    debug_printf("Sending data to server size: %lu\n", send_buff_size);
-    ERROR_RET1(urpc_client_send_receive_fixed_size(&socket->state->urpc_chan.buffer_send, UDP_SEND_DATAGRAM, send_command, send_buff_size,
-            &response, sizeof(struct udp_command_payload), &return_size));
+
+    struct udp_command_payload_header command_header={
+            .socket_id=socket->socket_id
+    };
+    ERROR_RET1(urpc_client_send_chunck(&socket->state->urpc_chan.buffer_send, &command_header, sizeof(struct udp_command_payload_header), true));
+    ERROR_RET1(urpc_client_send_final_chunck_receive_fixed_size(&socket->state->urpc_chan.buffer_send, UDP_SEND_DATAGRAM,
+                data, len,
+                &response, sizeof(struct udp_command_payload), &return_size));
+
     debug_printf("Server received data\n");
     return SYS_ERR_OK;
 }

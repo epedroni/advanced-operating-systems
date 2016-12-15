@@ -26,6 +26,7 @@ struct urpc_buffer
 {
     bool is_server;
     size_t buffer_len;
+    struct thread_mutex buff_lock;
     struct urpc_buffer_data* buffer;
 };
 

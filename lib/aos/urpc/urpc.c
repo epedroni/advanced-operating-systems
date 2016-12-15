@@ -8,6 +8,7 @@ errval_t urpc_server_init(struct urpc_buffer* urpc, void* buffer, size_t length)
     urpc->is_server = true;
     urpc->buffer_len = length;
     urpc->buffer = buffer;
+    thread_mutex_init(&urpc->buff_lock);
     if (urpc->buffer_len < URPC_BUF_HEADER_LENGTH)
         return URPC_ERR_BUFFER_TOO_SMALL;
     return SYS_ERR_OK;
@@ -18,6 +19,7 @@ errval_t urpc_client_init(struct urpc_buffer* urpc, void* buffer, size_t length)
     urpc->is_server = false;
     urpc->buffer_len = length;
     urpc->buffer = buffer;
+    thread_mutex_init(&urpc->buff_lock);
     if (urpc->buffer_len < URPC_BUF_HEADER_LENGTH)
         return URPC_ERR_BUFFER_TOO_SMALL;
     return SYS_ERR_OK;
@@ -76,6 +78,7 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
     //        return URPC_ERR_INVALID_OPCODE;
 
     // 1. Send data
+    thread_mutex_lock(&urpc->buff_lock);
     memcpy(urpc->buffer->data, data, len);
     urpc->buffer->data_len = len;
     urpc->buffer->opcode = opcode;
@@ -96,11 +99,13 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
         if (err_is_fail(err))
         {
             urpc->buffer->status = URPC_NO_DATA;
+            thread_mutex_unlock(&urpc->buff_lock);
             return err;
         }
     }
     // TODO: Invalidate cache? Or not needed?
     //assert(false && "TODO: Clear cache here??");
+    thread_mutex_unlock(&urpc->buff_lock);
     return SYS_ERR_OK;
 }
 
@@ -118,8 +123,8 @@ static errval_t client_send_chunk_and_wait(struct urpc_buffer* urpc, uint32_t op
     //        return URPC_ERR_INVALID_OPCODE;
 
     if(first_message){
+        thread_mutex_lock(&urpc->buff_lock);
         urpc->buffer->data_len=0;
-        urpc->buffer->opcode = opcode;
     }
 
     // 1. Send data
@@ -131,6 +136,7 @@ static errval_t client_send_chunk_and_wait(struct urpc_buffer* urpc, uint32_t op
         return SYS_ERR_OK;
     }
 
+    urpc->buffer->opcode = opcode;
     dmb();
     urpc->buffer->status = URPC_CLIENT_SENT_DATA;
     dmb();
@@ -148,11 +154,13 @@ static errval_t client_send_chunk_and_wait(struct urpc_buffer* urpc, uint32_t op
         if (err_is_fail(err))
         {
             urpc->buffer->status = URPC_NO_DATA;
+            thread_mutex_unlock(&urpc->buff_lock);
             return err;
         }
     }
     // TODO: Invalidate cache? Or not needed?
     //assert(false && "TODO: Clear cache here??");
+    thread_mutex_unlock(&urpc->buff_lock);
     return SYS_ERR_OK;
 }
 

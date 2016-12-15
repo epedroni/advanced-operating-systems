@@ -59,20 +59,25 @@ errval_t send_udp_datagram(struct urpc_buffer* urpc, struct urpc_message* msg, v
             remote_connection->remote_address, local_connection->udp_parser_state->slip_state->my_ip_address,
             UDP_PROTOCOL_NUMBER, (void*)send_packet, payload_size+sizeof(struct udp_packet));
 
+    free(send_packet);
+
     return SYS_ERR_OK;
 }
 
 static
 errval_t forward_datagram(struct udp_local_connection* local_open_connection, uint32_t socket_id, void* buf, size_t len){
-    void* temp_buffer=malloc(sizeof(struct udp_command_payload_header)+len);
-    struct udp_command_payload* udp_commmand=(struct udp_command_payload*)temp_buffer;
-    udp_commmand->header.socket_id=socket_id;
-    memcpy(udp_commmand->data, buf, len);
-    struct udp_command_payload udp_cmd_response;
-    size_t answer_size;
-    urpc_client_send_receive_fixed_size(&local_open_connection->udp_state.urpc_chan.buffer_send,
-        UDP_DATAGRAM_RECEIVED, udp_commmand,
-        len+sizeof(struct udp_command_payload_header), &udp_cmd_response, sizeof(struct udp_command_payload), &answer_size);
+    struct udp_command_payload response;
+    size_t return_size=0;
+
+    struct udp_command_payload_header command_header={
+        .socket_id=socket_id
+    };
+
+    ERROR_RET1(urpc_client_send_chunck(&local_open_connection->udp_state.urpc_chan.buffer_send, &command_header,
+            sizeof(struct udp_command_payload_header), true));
+    ERROR_RET1(urpc_client_send_final_chunck_receive_fixed_size(&local_open_connection->udp_state.urpc_chan.buffer_send, UDP_DATAGRAM_RECEIVED,
+                buf, len,
+                &response, sizeof(struct udp_command_payload), &return_size));
 
     return SYS_ERR_OK;
 }
