@@ -17,11 +17,10 @@
 
 struct registered_service *services = NULL;
 
-errval_t register_service(char *name) {
-    // TODO this needs to be moved to the nameserver, and here is just an rpc call that does the registration itself
-
+errval_t register_service(char *name, struct aos_rpc *rpc) {
     struct registered_service *new_service = malloc(sizeof(struct registered_service));
     new_service->name = name;
+    new_service->rpc = rpc;
     new_service->prev = NULL;
 
     if (services) {
@@ -37,12 +36,9 @@ errval_t register_service(char *name) {
 }
 
 errval_t deregister_service(char *name) {
-    // TODO this needs to be moved to the nameserver, and here is just an rpc call that does the deregistration itself
-
     struct registered_service *service = services;
-
     while (service) {
-        if (strcmp(service->name, name)) {
+        if (!strcmp(service->name, name)) {
             if (service->prev) {
                 service->prev->next = service->next;
             }
@@ -60,7 +56,18 @@ errval_t deregister_service(char *name) {
     return SYS_ERR_OK;
 }
 
-errval_t lookup(char *query) {
+errval_t lookup(char *query, struct aos_rpc **ret_rpc) {
+    struct registered_service *service = services;
+    while (service) {
+        if (!strcmp(service->name, query)) {
+            debug_printf("Found service: %s\n", service->name);
+            *ret_rpc = service->rpc;
+            break;
+        } else {
+            debug_printf("Wrong service: %s, next!\n", service->name);
+            service = service->next;
+        }
+    }
     return SYS_ERR_OK;
 }
 

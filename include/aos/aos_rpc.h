@@ -23,11 +23,11 @@ enum message_opcodes {
     RPC_HANDSHAKE,
     RPC_SHARED_BUFFER_REQUEST,
 
-    RPC_SEND_ENDPOINT,
     RPC_NAMESERVER_LOOKUP,
     RPC_NAMESERVER_REGISTER,
     RPC_NAMESERVER_DEREGISTER,
     RPC_NAMESERVER_ENUMERATE,
+    RPC_NAMESERVER_EP_REQUEST,
 
     RPC_RAM_CAP_QUERY,
     RPC_RAM_CAP_RESPONSE,
@@ -234,6 +234,34 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool s
 errval_t aos_rpc_set_led(struct aos_rpc* rpc, int status);
 errval_t aos_rpc_memtest(struct aos_rpc* rpc, lpaddr_t start, size_t size);
 
-errval_t aos_rpc_send_endpoint(struct aos_rpc *rpc, struct capref nsep);
+errval_t aos_rpc_request_ep(struct aos_rpc *rpc, struct capref *ret_ep);
+
+errval_t aos_rpc_nameserver_init(struct aos_rpc *rpc, struct capref nsep);
+
+errval_t aos_rpc_bind_to_nameserver(struct aos_rpc *rpc_init, struct aos_rpc *ret_rpc);
+
+/**
+ * \brief
+ * \param rpc  the rpc channel
+ */
+errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc, char *name, struct capref *ret_ep);
+
+/**
+ * \brief
+ * \param rpc  the rpc channel
+ */
+errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc);
+
+/**
+ * \brief
+ * \param rpc  the rpc channel
+ */
+errval_t aos_rpc_nameserver_register(struct aos_rpc *rpc, struct capref ep_cap, char *name);
+
+/**
+ * \brief
+ * \param rpc  the rpc channel
+ */
+errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

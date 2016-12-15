@@ -7,7 +7,7 @@
 
 struct registered_service {
     char* name;
-    // some sort of endpoint?
+    struct aos_rpc *rpc;
 
     struct registered_service *next, *prev;
 };
@@ -31,7 +31,7 @@ errval_t nameserver_rpc_init(struct aos_rpc *rpc);
 * @return SYS_ERR_OK on success
 * errval on failure
 */
-errval_t register_service(char *name);
+errval_t register_service(char *name, struct aos_rpc *rpc);
 
 /**
 * @brief deregister a name binding
@@ -53,7 +53,7 @@ errval_t deregister_service(char *name);
 * @return SYS_ERR_OK on success
 * errval on failure
 */
-errval_t lookup(char *query);
+errval_t lookup(char *query, struct aos_rpc **ret_rpc);
 
 /**
 * @brief lookup a name binding

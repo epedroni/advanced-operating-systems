@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     aos_server_register_client(&nameserver_rpc, init_sess);
 
     debug_printf("Sending endpoint to init, it should now be able to shake hands with us\n");
-    aos_rpc_send_endpoint(get_init_rpc(), init_sess->lc.local_cap);
+    aos_rpc_nameserver_init(get_init_rpc(), init_sess->lc.local_cap);
 
     // Handle requests
     debug_printf("Looping forever\n");

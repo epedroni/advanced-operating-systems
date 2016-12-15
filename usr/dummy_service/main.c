@@ -32,7 +32,10 @@ int main(int argc, char *argv[])
     nameserver_rpc_init(&ns_rpc);
 
     debug_printf("Registering service\n");
-    register_service("dummy_service");
+    struct aos_rpc_session* ns_sess = NULL;
+    aos_server_add_client(&own_rpc, &ns_sess);
+    aos_server_register_client(&own_rpc, ns_sess);
+    nameserver_register(&ns_rpc, ns_sess->lc.local_cap, "dummy_service");
 
     // Handle requests
     debug_printf("Looping forever\n");

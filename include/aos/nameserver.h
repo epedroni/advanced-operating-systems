@@ -1,6 +1,5 @@
-#ifndef USR_NAMESERVER_NAMESERVER_H_
-#define USR_NAMESERVER_NAMESERVER_H_
-
+#ifndef INCLUDE_AOS_NAMESERVER_H_
+#define INCLUDE_AOS_NAMESERVER_H_
 
 /**
  * \brief Contacts an RPC endpoint that knows about the namesever (init) and
@@ -14,24 +13,24 @@ errval_t nameserver_rpc_init(struct aos_rpc *ret_rpc);
  * \brief
  * \param rpc  the rpc channel
  */
-errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc);
+errval_t nameserver_lookup(struct aos_rpc *rpc, char *name, struct capref *ret_cap);
 
 /**
  * \brief
  * \param rpc  the rpc channel
  */
-errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc);
+errval_t nameserver_enumerate(struct aos_rpc *rpc);
+
+/**
+ * \brief Registers a new service on the nameserver
+ * \param rpc  the rpc channel
+ */
+errval_t nameserver_register(struct aos_rpc *rpc, struct capref ep_cap, char *name);
 
 /**
  * \brief
  * \param rpc  the rpc channel
  */
-errval_t aos_rpc_nameserver_register(struct aos_rpc *rpc, struct capref ep_cap);
+errval_t nameserver_deregister(struct aos_rpc *rpc);
 
-/**
- * \brief
- * \param rpc  the rpc channel
- */
-errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc);
-
-#endif /* USR_NAMESERVER_NAMESERVER_H_ */
+#endif /* INCLUDE_AOS_NAMESERVER_H_ */

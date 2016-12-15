@@ -77,7 +77,7 @@ errval_t handle_string(struct aos_rpc_session* sess,
 }
 
 static
-errval_t handle_nameserver_lookup(struct aos_rpc_session* sess,
+errval_t handle_ep_request(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
         void* context,
@@ -85,27 +85,17 @@ errval_t handle_nameserver_lookup(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
-    // need to look at the message, but not for now
-    debug_printf("Received lookup request, creating new endpoint\n");
+    // create a new session, return EP from it
+    debug_printf("Received EP request, creating new session\n");
+    struct aos_rpc_session* new_sess = NULL;
+    aos_server_add_client(sess->rpc, &new_sess);
+    aos_server_register_client(sess->rpc, new_sess);
 
-    // create a new session to bind with the client
-    struct aos_rpc_session* init_sess = NULL;
-    aos_server_add_client(sess->rpc, &init_sess);
-    aos_server_register_client(sess->rpc, init_sess);
-
-    debug_printf("Return endpoint to client\n");
-
-    debug_printf("---------------------------------------------- Attempting to return the following endpoint:\n");
-    struct capability cap;
-    debug_cap_identify(init_sess->lc.local_cap, &cap);
-    debug_printf("Cap type: 0x%x\n", cap.type);
-    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
-    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
-
+    debug_printf("Sending local cap back to requester\n");
     ERROR_RET1(lmp_chan_send1(&sess->lc,
         LMP_FLAG_SYNC,
-        init_sess->lc.local_cap,
-        MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_LOOKUP, RPC_FLAG_ACK)));
+        new_sess->lc.local_cap,
+        MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_EP_REQUEST, RPC_FLAG_ACK)));
 
     return SYS_ERR_OK;
 }
@@ -115,7 +105,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_STRING, handle_string, true);
-    aos_rpc_register_handler(rpc, RPC_NAMESERVER_LOOKUP, handle_nameserver_lookup, false);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_EP_REQUEST, handle_ep_request, false);
 
     return SYS_ERR_OK;
 }

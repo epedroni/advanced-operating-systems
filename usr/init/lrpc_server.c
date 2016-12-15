@@ -353,15 +353,12 @@ errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
 
     debug_printf("Received bootstrapping request, forwarding to nameserver\n");
 
-    memcpy(ns_rpc.server_sess->shared_buffer, "nameserver", 10);
-
-    // Forward lookup request to nameserver, adding argument "nameserver"
+    // Forward lookup request to nameserver
     ERROR_RET1(wait_for_send(&ns_rpc.server_sess->lc, ns_rpc.server_sess));
-    ERROR_RET1(lmp_chan_send2(&ns_rpc.server_sess->lc,
+    ERROR_RET1(lmp_chan_send1(&ns_rpc.server_sess->lc,
         LMP_FLAG_SYNC,
         NULL_CAP,
-        RPC_NAMESERVER_LOOKUP,
-        10));
+        RPC_NAMESERVER_EP_REQUEST));
 
     debug_printf("Sent, waiting for nameserver response\n");
 
@@ -380,11 +377,9 @@ errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
     debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
 
     ERROR_RET1(lmp_chan_send1(&sess->lc,
-        LMP_FLAG_SYNC,
+        LMP_FLAG_GIVEAWAY,
         relay_cap,
         MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_LOOKUP, RPC_FLAG_ACK)));
-
-    cap_delete(relay_cap);
 
     return SYS_ERR_OK;
 }
@@ -393,7 +388,7 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
 {
     networking_lmp_chan=NULL;
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
-    aos_rpc_register_handler(rpc, RPC_SEND_ENDPOINT, handle_nameserver_cap, true);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_REGISTER, handle_nameserver_cap, true);
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_LOOKUP, handle_bootstrap_nameserver, false);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
     aos_rpc_register_handler(rpc, RPC_NUMBER, handle_number, true);
