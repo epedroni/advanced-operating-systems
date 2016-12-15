@@ -171,16 +171,14 @@ int main(int argc, char *argv[])
     ERR_CHECK("Init ICMP", icmp_init(&icmp_state, &slip_state));
     ERR_CHECK("Init UDP", udp_init(&udp_state, &slip_state));
 
-    ERR_CHECK("init rpc", aos_rpc_init(&network_server_rpc, NULL_CAP, false, false));
-
+    ERR_CHECK("init rpc", aos_rpc_init(&network_server_rpc, NULL_CAP, false));
     ERR_CHECK("init LMP server", lmp_init_networking_services(&network_server_rpc, handle_connect_to_server, handle_create_server));
-    ERR_CHECK("Bind to nameserver", nameserver_rpc_init(&nameserver_rpc));
 
     debug_printf("Registering service\n");
     struct aos_rpc_session* ns_sess = NULL;
     aos_server_add_client(&network_server_rpc, &ns_sess);
     aos_server_register_client(&network_server_rpc, ns_sess);
-    nameserver_register(&nameserver_rpc, ns_sess->lc.local_cap, NS_NETWORKING_NAME);
+    nameserver_register(NS_NETWORKING_NAME, &network_server_rpc);
 
     aos_rpc_accept(&network_server_rpc);
 

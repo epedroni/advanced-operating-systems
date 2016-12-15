@@ -14,8 +14,6 @@ void* write_address;
 size_t max_size;
 size_t prefix_size;
 
-struct aos_rpc ns_rpc;
-
 static
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* packet, size_t len){
     debug_printf("Received UDP packet!\n");
@@ -42,10 +40,7 @@ int main(int argc, char *argv[])
 
     debug_printf("Starting server on port: %lu\n", my_port);
 
-    debug_printf("Binding with nameserver\n");
-    nameserver_rpc_init(&ns_rpc);
-
     debug_printf("Trying some communication with the dummy_service\n");
-    ERR_CHECK("Creating UDP server", udp_create_server(&udp_state, &ns_rpc, htons(my_port), handle_udp_packet));
+    ERR_CHECK("Creating UDP server", udp_create_server(&udp_state, htons(my_port), handle_udp_packet));
     return 0;
 }
