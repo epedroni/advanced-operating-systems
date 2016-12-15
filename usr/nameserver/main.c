@@ -23,7 +23,7 @@ struct aos_rpc nameserver_rpc;
 int main(int argc, char *argv[])
 {
     debug_printf("Initialising RPC server...\n");
-    ERROR_RET1(aos_rpc_init(&nameserver_rpc, NULL_CAP, false, false));
+    ERROR_RET1(aos_rpc_init(&nameserver_rpc, NULL_CAP, false));
     ERROR_RET1(lmp_server_init(&nameserver_rpc));
 
     debug_printf("Creating new session for init\n");

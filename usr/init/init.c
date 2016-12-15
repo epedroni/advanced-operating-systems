@@ -95,7 +95,7 @@ errval_t os_core_initialize(int argc, char** argv)
     }
 
     // 5. Init RPC server
-    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false, false));
+    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false));
     ERROR_RET1(lmp_server_init(&core_rpc));
 
     // 6. Boot second core if needed

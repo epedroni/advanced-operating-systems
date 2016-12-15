@@ -30,7 +30,7 @@ errval_t finish_nameserver(void) {
     DEBUG_NS("Received EP from nameserver, moving on...");
 
     DEBUG_NS("Attempting handshake with nameserver");
-    err = aos_rpc_init(&ns_rpc, cap_nameserverep, true, false);
+    err = aos_rpc_init(&ns_rpc, cap_nameserverep, true);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }

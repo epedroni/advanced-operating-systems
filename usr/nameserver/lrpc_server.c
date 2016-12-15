@@ -153,7 +153,7 @@ errval_t handle_nameserver_register(struct aos_rpc_session* sess,
 
     debug_printf("Attempting handshake with service\n");
     struct aos_rpc *new_service_rpc = malloc(sizeof(struct aos_rpc));
-    errval_t err = aos_rpc_init(new_service_rpc, received_capref, true, false);
+    errval_t err = aos_rpc_init(new_service_rpc, received_capref, true);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }
@@ -173,6 +173,24 @@ errval_t handle_nameserver_deregister(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+    size_t string_size = msg->words[1];
+    ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
+
+    char *name = malloc(string_size);
+    memcpy(name, sess->shared_buffer, string_size);
+    debug_printf("Received registration request from %s\n", name);
+
+    debug_printf("Attempting handshake with service\n");
+    struct aos_rpc *new_service_rpc = malloc(sizeof(struct aos_rpc));
+    errval_t err = aos_rpc_init(new_service_rpc, received_capref, true);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+    }
+
+    debug_printf("Succeeded, adding service to register\n");
+    deregister_service(name);
+    register_service(name, new_service_rpc);
+
     return SYS_ERR_OK;
 }
 

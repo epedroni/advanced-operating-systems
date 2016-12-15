@@ -13,22 +13,26 @@
 #include <aos/aos_rpc.h>
 #include <aos/nameserver.h>
 
-errval_t nameserver_rpc_init(struct aos_rpc *ret_rpc) {
-    return aos_rpc_bind_to_nameserver(get_init_rpc(), ret_rpc);
+errval_t nameserver_lookup(char *name, struct aos_rpc *ret_rpc) {
+    // TODO error handling
+    struct capref rpc_cap;
+    aos_rpc_nameserver_lookup(get_nameserver_rpc(), name, &rpc_cap);
+    return aos_rpc_init(ret_rpc, rpc_cap, true);
 }
 
-errval_t nameserver_lookup(struct aos_rpc *rpc, char *name, struct capref *ret_cap) {
-    return aos_rpc_nameserver_lookup(rpc, name, ret_cap);
-}
-
-errval_t nameserver_enumerate(struct aos_rpc *rpc) {
+errval_t nameserver_enumerate(void) {
     return SYS_ERR_OK;
 }
 
-errval_t nameserver_register(struct aos_rpc *rpc, struct capref ep_cap, char *name) {
-    return aos_rpc_nameserver_register(rpc, ep_cap, name);
+errval_t nameserver_register(char *name, struct aos_rpc *rpc) {
+    // TODO error handling
+    struct aos_rpc_session* ns_sess = NULL;
+    aos_server_add_client(rpc, &ns_sess);
+    aos_server_register_client(rpc, ns_sess);
+
+    return aos_rpc_nameserver_register(get_nameserver_rpc(), ns_sess->lc.local_cap, name);
 }
 
-errval_t nameserver_deregister(struct aos_rpc *rpc) {
+errval_t nameserver_deregister(void) {
     return SYS_ERR_OK;
 }

@@ -194,3 +194,22 @@ struct aos_rpc *get_init_rpc(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return disp->core_state.c.init_rpc;
 }
+
+/**
+ * \brief Set the init rpc channel on the domain state
+ */
+void set_nameserver_rpc(struct aos_rpc *nsrpc)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    disp->core_state.c.nameserver_rpc = nsrpc;
+}
+
+/**
+ * \brief Returns the RPC channel to init */
+struct aos_rpc *get_nameserver_rpc(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    return disp->core_state.c.nameserver_rpc;
+}

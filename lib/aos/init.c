@@ -167,14 +167,26 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // will this still work with two processes?
     debug_printf("Initialising init rpc\n");
-    static struct aos_rpc rpc;
-    err = aos_rpc_init(&rpc, cap_initep, true, true);
+    static struct aos_rpc initrpc;
+    err = aos_rpc_init(&initrpc, cap_initep, true);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
+        return err_push(err, LIB_ERR_MORECORE_INIT);
     }
+    set_init_rpc(&initrpc);
 
     // Now we have a channel with init set up and can use it for the ram allocator
     ram_alloc_set(NULL);
+
+    // only do this if we are not booting the nameserver
+    if (strcmp(params->argv[0], "/armv7/sbin/nameserver")) {
+        static struct aos_rpc nsrpc;
+        debug_printf("Initialising nameserver rpc\n");
+        err = aos_rpc_bind_to_nameserver(&initrpc, &nsrpc);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_MORECORE_INIT);
+        }
+        set_nameserver_rpc(&nsrpc);
+    }
 
     // right now we don't have the nameservice & don't need the terminal
     // and domain spanning, so we return here
