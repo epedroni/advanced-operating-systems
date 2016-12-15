@@ -57,7 +57,9 @@ errval_t urpc_server_receive_block(struct urpc_buffer* urpc, void* buf, size_t l
 {
     if (!urpc->is_server)
         return URPC_ERR_IS_NOT_SERVER_BUFFER;
-    while (urpc->buffer->status != URPC_CLIENT_SENT_DATA);
+    while (urpc->buffer->status != URPC_CLIENT_SENT_DATA){
+        thread_yield();
+    }
     return read_from_buffer(urpc->buffer, buf, len, datalen, opcode);
 }
 
@@ -82,7 +84,9 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
     dmb();
 
     // 2. Wait for answer
-    while (urpc->buffer->status == URPC_CLIENT_SENT_DATA);
+    while (urpc->buffer->status == URPC_CLIENT_SENT_DATA){
+        thread_yield();
+    }
 
     if (urpc->buffer->status == URPC_SERVER_REPLIED_ERROR)
     {
@@ -97,6 +101,91 @@ static errval_t client_send_and_wait(struct urpc_buffer* urpc, uint32_t opcode, 
     }
     // TODO: Invalidate cache? Or not needed?
     //assert(false && "TODO: Clear cache here??");
+    return SYS_ERR_OK;
+}
+
+static errval_t client_send_chunk_and_wait(struct urpc_buffer* urpc, uint32_t opcode, void* data, size_t len,
+        bool first_message, bool final_message)
+{
+    if (urpc->is_server)
+        return URPC_ERR_IS_NOT_CLIENT_BUFFER;
+    if ((urpc->buffer->status != URPC_NO_DATA) && (urpc->buffer->status != URPC_CLIENT_SENT_DATA))
+        return URPC_ERR_WRONG_BUFFER_STATUS;
+    if (URPC_MAX_DATA_SIZE(urpc) < len)
+        return URPC_ERR_URPC_BUFFER_TOO_SMALL_FOR_SEND;
+    //  We will remove this
+    //    if (data->opcode >= URPC_OP_COUNT)
+    //        return URPC_ERR_INVALID_OPCODE;
+
+    if(first_message){
+        urpc->buffer->data_len=0;
+        urpc->buffer->opcode = opcode;
+    }
+
+    // 1. Send data
+    memcpy(urpc->buffer->data+urpc->buffer->data_len, data, len);
+    urpc->buffer->data_len += len;
+
+    // This is not a final message, there will be more
+    if(!final_message){
+        return SYS_ERR_OK;
+    }
+
+    dmb();
+    urpc->buffer->status = URPC_CLIENT_SENT_DATA;
+    dmb();
+
+    // 2. Wait for answer
+    while (urpc->buffer->status == URPC_CLIENT_SENT_DATA){
+        thread_yield();
+    }
+
+    if (urpc->buffer->status == URPC_SERVER_REPLIED_ERROR)
+    {
+        // VoooodoooOOooo
+        void* pbuf = (void*)&urpc->buffer->data[0];
+        errval_t err = *((errval_t*)pbuf);
+        if (err_is_fail(err))
+        {
+            urpc->buffer->status = URPC_NO_DATA;
+            return err;
+        }
+    }
+    // TODO: Invalidate cache? Or not needed?
+    //assert(false && "TODO: Clear cache here??");
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_client_send_chunck(struct urpc_buffer* urpc, void* data, size_t len, bool first_chunck){
+    ERROR_RET1(client_send_chunk_and_wait(urpc, 0, data, len, first_chunck, false));
+
+    return SYS_ERR_OK;
+}
+
+errval_t urpc_client_send_final_chunck_receive_fixed_size(struct urpc_buffer* urpc, uint32_t opcode,
+        void* data, size_t len, void* answer, size_t answer_size, size_t* actual_answer_size){
+
+    ERROR_RET1(client_send_chunk_and_wait(urpc, opcode, data, len, false, true));
+
+    // 3. Copy answer
+    size_t data_len = urpc->buffer->data_len;
+    if (actual_answer_size)
+        *actual_answer_size = data_len;
+    if (data_len > answer_size)
+    {
+        urpc->buffer->status = URPC_NO_DATA;
+        return URPC_ERR_ANSWER_BUFFER_TOO_SMALL;
+    }
+    if (URPC_MAX_DATA_SIZE(urpc) < data_len)
+    {
+        urpc->buffer->status = URPC_NO_DATA;
+        return URPC_ERR_PROTOCOL_FATAL_ERROR;
+    }
+    memcpy(answer, urpc->buffer->data, data_len);
+
+    // 4. Once we have finished everything, we are ready to send new data
+    dmb();
+    urpc->buffer->status = URPC_NO_DATA;
     return SYS_ERR_OK;
 }
 

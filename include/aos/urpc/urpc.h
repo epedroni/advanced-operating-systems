@@ -39,4 +39,9 @@ errval_t urpc_server_answer(struct urpc_buffer* urpc, void* data, size_t len);
 errval_t urpc_server_answer_error(struct urpc_buffer* urpc, errval_t error);
 errval_t urpc_server_dummy_answer_if_need(struct urpc_buffer* urpc);
 
+//Transaction sending
+errval_t urpc_client_send_chunck(struct urpc_buffer* urpc, void* data, size_t len, bool first_chunck);
+errval_t urpc_client_send_final_chunck_receive_fixed_size(struct urpc_buffer* urpc, uint32_t opcode,
+        void* data, size_t len, void* answer, size_t answer_size, size_t* actual_answer_size);
+
 #endif
