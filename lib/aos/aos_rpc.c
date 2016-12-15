@@ -262,7 +262,7 @@ errval_t aos_connect_to_port(struct aos_rpc *rpc,
             port));
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
     ERROR_RET1(recv_block(rpc->server_sess, &message, retcap));
-    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_RAM_CAP_RESPONSE);
+    ASSERT_PROTOCOL(RPC_HEADER_OPCODE(message.words[0]) == RPC_CONNECT_TO_SOCKET);
 
     return SYS_ERR_OK;
 }
@@ -556,6 +556,7 @@ errval_t aos_rpc_session_init(struct aos_rpc_session* sess,
 {
     ERROR_RET1(lmp_chan_accept(&sess->lc,
             DEFAULT_LMP_BUF_WORDS, remote_endpoint));
+
     sess->ack_received=false;
     sess->can_send=false;
     sess->shared_buffer_size = 0; // Disable buffer
@@ -564,7 +565,7 @@ errval_t aos_rpc_session_init(struct aos_rpc_session* sess,
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client)
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool is_client, bool connect_to_init)
 {
     debug_printf("aos_rpc_init: Created for %s\n", is_client ? "CLIENT" : "SERVER");
     rpc->ws = get_default_waitset();
@@ -576,14 +577,25 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
         // Create chan to server
         rpc->server_sess = malloc(sizeof(struct aos_rpc_session));
         rpc->server_sess->rpc = rpc;
+
         ERROR_RET1(aos_rpc_session_init(rpc->server_sess, remote_endpoint));
 
-        debug_printf("Sending handshake\n");
+        struct capability cap;
+        debug_cap_identify(rpc->server_sess->lc.local_cap, &cap);
+        debug_printf("Local cap type: 0x%x\n", cap.type);
+        debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+        debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+        debug_cap_identify(rpc->server_sess->lc.remote_cap, &cap);
+        debug_printf("Remote cap type: 0x%x\n", cap.type);
+        debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+        debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+
         ERROR_RET1(aos_rpc_send_handshake(rpc,
             rpc->server_sess->lc.local_cap));
-
-        // store it at a well known location
-        set_init_rpc(rpc);
+        if (connect_to_init) {
+            // store it at a well known location
+            set_init_rpc(rpc);
+        }
     }
     else
         rpc->server_sess = NULL;
@@ -635,5 +647,163 @@ errval_t aos_server_register_client(struct aos_rpc* rpc, struct aos_rpc_session*
 {
     ERROR_RET1(lmp_chan_register_recv(&sess->lc,
         rpc->ws, MKCLOSURE(cb_accept_loop, sess)));
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc, char *name, struct capref *ret_ep)
+{
+
+    /*if (!rpc_init->server_sess)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    debug_printf("Sending request to init\n");
+    // Request nameserver endpoint
+    ERROR_RET1(wait_for_send(rpc_init->server_sess));
+    ERROR_RET1(lmp_chan_send1(&rpc_init->server_sess->lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        RPC_NAMESERVER_LOOKUP));
+
+    debug_printf("Waiting for init response\n");
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    struct capref received_ep;
+    ERROR_RET1(recv_block(rpc_init->server_sess,
+        &message,
+        &received_ep));
+
+    debug_printf("------------------------------------------------------- Response received, initialising rpc\n");
+    struct capability cap;
+    debug_cap_identify(received_ep, &cap);
+    debug_printf("Local cap type: 0x%x\n", cap.type);
+    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+
+    return aos_rpc_init(ret_rpc, received_ep, true, false);*/
+
+    debug_printf("Copying name to shared buffer\n");
+
+    assert(rpc->server_sess);
+    size_t size = strlen(name);
+    if (size > rpc->server_sess->shared_buffer_size)
+        return RPC_ERR_BUF_TOO_SMALL;
+
+    memcpy(rpc->server_sess->shared_buffer, name, size);
+
+    debug_printf("Sending nameserver lookup request to nameserver\n");
+
+
+
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    errval_t _err = lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_NAMESERVER_LOOKUP,
+            size);
+    if (err_is_fail(_err))
+        DEBUG_ERR(_err, "Failed to send nameserver lookup request");
+
+    debug_printf("Waiting for nameserver response\n");
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    ERROR_RET1(recv_block(rpc->server_sess,
+        &message,
+        ret_ep));
+
+    debug_printf("Received cap, great!\n");
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc)
+{
+    return SYS_ERR_OK;
+}
+
+// Use this to tell the nameserver that you are a service
+errval_t aos_rpc_nameserver_register(struct aos_rpc *rpc, struct capref ep_cap, char *name)
+{
+    assert(rpc->server_sess);
+    size_t size = strlen(name);
+    if (size > rpc->server_sess->shared_buffer_size)
+        return RPC_ERR_BUF_TOO_SMALL;
+    memcpy(rpc->server_sess->shared_buffer, name, size);
+
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    errval_t _err = lmp_chan_send2(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            ep_cap,
+            RPC_NAMESERVER_REGISTER,
+            size);
+    if (err_is_fail(_err))
+        DEBUG_ERR(_err, "Send failed in " __FILE__ ":%d", __LINE__);
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc)
+{
+    return SYS_ERR_OK;
+}
+
+// This is used to request an EP from any process
+errval_t aos_rpc_request_ep(struct aos_rpc *rpc, struct capref *ret_ep)
+{
+    assert(rpc->server_sess);
+    ERROR_RET1(wait_for_send(rpc->server_sess));
+    errval_t err = lmp_chan_send1(&rpc->server_sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            RPC_NAMESERVER_EP_REQUEST);
+    if (err_is_fail(err))
+        DEBUG_ERR(err, "Sending EP request failed");
+
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    ERROR_RET1(recv_block(rpc->server_sess,
+        &message,
+        ret_ep));
+
+    debug_printf("Received cap, returning\n");
+
+    return SYS_ERR_OK;
+}
+
+// This is used to create a direct server -> NS binding only!
+errval_t aos_rpc_bind_to_nameserver(struct aos_rpc *rpc_init, struct aos_rpc *ret_rpc)
+{
+    if (!rpc_init->server_sess)
+        return RPC_ERR_INVALID_ARGUMENTS;
+
+    debug_printf("Sending request to init\n");
+    // Request nameserver endpoint
+    ERROR_RET1(wait_for_send(rpc_init->server_sess));
+    ERROR_RET1(lmp_chan_send1(&rpc_init->server_sess->lc,
+        LMP_FLAG_SYNC,
+        NULL_CAP,
+        RPC_NAMESERVER_LOOKUP));
+
+    debug_printf("Waiting for init response\n");
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    struct capref received_ep;
+    ERROR_RET1(recv_block(rpc_init->server_sess,
+        &message,
+        &received_ep));
+
+    debug_printf("------------------------------------------------------- Response received, initialising rpc\n");
+    struct capability cap;
+    debug_cap_identify(received_ep, &cap);
+    debug_printf("Local cap type: 0x%x\n", cap.type);
+    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
+    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+
+    return aos_rpc_init(ret_rpc, received_ep, true, false);
+}
+
+// This is only used by the NS to connect with init
+errval_t aos_rpc_nameserver_init(struct aos_rpc *rpc_init, struct capref ep_cap)
+{
+    RPC_CHAN_WRAPPER_SEND(rpc_init,
+        lmp_chan_send1(&rpc_init->server_sess->lc,
+            LMP_FLAG_SYNC,
+            ep_cap,
+            RPC_NAMESERVER_REGISTER));
     return SYS_ERR_OK;
 }

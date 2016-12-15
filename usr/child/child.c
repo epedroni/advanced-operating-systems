@@ -50,6 +50,7 @@ int inet_aton(const char *cp, uint32_t* address)
     default:
         return 0;
     }
+
     } while (*cp++) ;
 
     /* Normalize the address */
@@ -122,6 +123,7 @@ void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packe
     packet->txTm_f = ntohl( packet->txTm_f ); // Time-stamp fraction of a second.
     time_t txTm = ( time_t ) ( packet->txTm_s - NTP_TIMESTAMP_DELTA );
     printf( "Time: %s", ctime( ( const time_t* ) &txTm ) );
+
 }
 
 int main(int argc, char *argv[])

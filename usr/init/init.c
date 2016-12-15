@@ -1,4 +1,5 @@
 #include <aos/waitset.h>
+#include <aos/debug.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
 #include <aos/aos_rpc.h>
@@ -30,8 +31,12 @@ errval_t os_core_initialize(int argc, char** argv)
     assert(err_is_ok(err));
     disp_set_core_id(my_core_id);
     debug_printf("main() being invoked\n"); // After set_core_id to properly display core id
+
     ERROR_RET1(cap_retype(cap_selfep, cap_dispatcher, 0,
         ObjType_EndPoint, 0, 1));
+
+    // fill in the nameserver cap with a dummy cap until the nameserver is up - this is how we know if the nameserver is up or not!
+    ERROR_RET1(cap_copy(cap_nameserverep, cap_selfep));
 
     // 2. Get boot info. Get it from args or read it from URPC
     bi = argc > 1 ? (struct bootinfo*)strtol(argv[1], NULL, 10) : NULL;
@@ -90,7 +95,7 @@ errval_t os_core_initialize(int argc, char** argv)
     }
 
     // 5. Init RPC server
-    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false));
+    ERROR_RET1(aos_rpc_init(&core_rpc, NULL_CAP, false, false));
     ERROR_RET1(lmp_server_init(&core_rpc));
 
     // 6. Boot second core if needed

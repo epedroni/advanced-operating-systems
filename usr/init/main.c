@@ -18,6 +18,7 @@
 
 #include "tests.h"
 #include "init.h"
+#include "nameserver.h"
 #include "process/processmgr.h"
 #include <omap44xx_map.h>
 #include <netutil/user_serial.h>
@@ -43,6 +44,12 @@ int main(int argc, char *argv[])
     {
         domainid_t pid;
 
+        debug_printf("Spawning nameserver\n");
+        ERR_CHECK("spawning nameserver", processmgr_spawn_process("/armv7/sbin/nameserver", 0, &pid));
+
+        // nameserver needs to be finished before we continue spawning stuff
+        finish_nameserver();
+
         debug_printf("Spawning networking\n");
         ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
 
@@ -56,3 +63,4 @@ int main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
+

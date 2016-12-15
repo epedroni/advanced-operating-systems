@@ -92,6 +92,7 @@ errval_t lmp_chan_accept(struct lmp_chan *lc,
     /* allocate a local endpoint */
     err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
                                       &lc->endpoint);
+
     if (err_is_fail(err)) {
         slot_free(lc->local_cap);
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);

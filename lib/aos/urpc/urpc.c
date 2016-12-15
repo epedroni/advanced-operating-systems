@@ -153,6 +153,7 @@ static errval_t client_send_chunk_and_wait(struct urpc_buffer* urpc, uint32_t op
         errval_t err = *((errval_t*)pbuf);
         if (err_is_fail(err))
         {
+            dmb();
             urpc->buffer->status = URPC_NO_DATA;
             thread_mutex_unlock(&urpc->buff_lock);
             return err;

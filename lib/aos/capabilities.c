@@ -144,6 +144,12 @@ struct capref cap_initep = {
     .slot  = TASKCN_SLOT_INITEP
 };
 
+/// Capability for endpoint to nameserver
+struct capref cap_nameserverep = {
+    .cnode = TASK_CNODE_INIT,
+    .slot  = TASKCN_SLOT_NAMESERVEREP
+};
+
 /// Capability to the URPC frame
 struct capref cap_urpc = {
     .cnode = TASK_CNODE_INIT,

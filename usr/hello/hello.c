@@ -18,8 +18,51 @@
 #include <aos/aos_rpc.h>
 #include <aos/urpc/server.h>
 #include <aos/urpc/default_opcodes.h>
+#include <aos/nameserver.h>
 
-struct aos_rpc *init_rpc;
+errval_t listen(void);
+
+static
+errval_t handle_print(struct urpc_buffer* buf, struct urpc_message* msg, void* context)
+{
+    debug_printf("++++++++++++++ Handling string in hello %s \n", msg->data);
+
+    return SYS_ERR_OK;
+}
+
+errval_t listen(void){
+    //init_rpc = get_init_rpc();
+    errval_t err;
+
+    debug_printf("Creating server socket\n");
+    struct capref shared_buffer;
+    size_t ret_bytes;
+    ERROR_RET1(frame_alloc(&shared_buffer, BASE_PAGE_SIZE, &ret_bytes));
+
+    void* address=NULL;
+    ERROR_RET1(paging_map_frame_attr(get_current_paging_state(),&address, BASE_PAGE_SIZE,
+            shared_buffer,VREGION_FLAGS_READ_WRITE, NULL, NULL));
+    assert(address);
+    memset(address, 0, BASE_PAGE_SIZE);
+
+    debug_printf("Allocated frame for sharing data of size: %lu\n", ret_bytes);
+
+    err=aos_rpc_create_server_socket(get_init_rpc(), shared_buffer, 42);
+    if(err_is_fail(err)){
+        debug_printf("Failed to send bind\n");
+    }
+
+    struct urpc_channel urpc_chan;
+    urpc_channel_init(&urpc_chan, address, BASE_PAGE_SIZE, URPC_CHAN_MASTER, DEF_URPC_OP_COUNT);
+
+    debug_printf("Starting to listen\n");
+
+    urpc_server_register_handler(&urpc_chan, DEF_URPC_OP_PRINT, handle_print, NULL);
+
+    ERROR_RET1(urpc_server_start_listen(&urpc_chan, false));
+
+    return SYS_ERR_OK;
+}
 
 int main(int argc, char *argv[])
 {
@@ -29,14 +72,29 @@ int main(int argc, char *argv[])
 	}
 	errval_t err;
 
-	init_rpc = get_init_rpc();
-	debug_printf("init rpc: 0x%x\n", init_rpc);
-	err = aos_rpc_send_number(get_init_rpc(), (uintptr_t)42);
+	debug_printf("init rpc: 0x%x\n", get_init_rpc());
+	err = aos_rpc_send_number(get_init_rpc(), (uintptr_t) 42);
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not send number");
 	}
 
-	err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
+//	listen();
+//	return SYS_ERR_OK;
+
+    debug_printf("Attempting to bind with nameserver\n");
+    struct aos_rpc ns_rpc;
+    err = nameserver_rpc_init(&ns_rpc);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not bind with nameserver");
+    }
+
+    debug_printf("Sending a string to nameserver as a test\n");
+    err = aos_rpc_send_string(&ns_rpc, "hello, this is dog\n");
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not send simple string to nameserver");
+    }
+
+    err = aos_rpc_send_string(get_init_rpc(), "milan, hello this is dog! :) hahahhahahahahahahahahaha\n");
 	if(err_is_fail(err)){
 		DEBUG_ERR(err, "Could not send simple string");
 	}
@@ -126,15 +184,6 @@ int main(int argc, char *argv[])
 		free(name);
     }
 	free(pidptr);
-
-	while(true){
-		char ret_char;
-		aos_rpc_serial_getchar(get_init_rpc(),&ret_char);
-		if(ret_char=='\r')
-			ret_char='\n';
-		if(ret_char!=0)
-			aos_rpc_serial_putchar(get_init_rpc(),ret_char);
-	}
 
 	return 0;
 }
