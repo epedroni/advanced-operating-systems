@@ -28,10 +28,7 @@ int main(int argc, char *argv[])
     ERROR_RET1(lmp_server_init(&own_rpc));
 
     debug_printf("Registering service\n");
-    struct aos_rpc_session* ns_sess = NULL;
-    aos_server_add_client(&own_rpc, &ns_sess);
-    aos_server_register_client(&own_rpc, ns_sess);
-    nameserver_register("dummy_service", ns_sess->lc.local_cap);
+    nameserver_register("dummy_service", &own_rpc);
 
     // Handle requests
     debug_printf("Looping forever\n");

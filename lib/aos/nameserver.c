@@ -24,8 +24,13 @@ errval_t nameserver_enumerate(void) {
     return SYS_ERR_OK;
 }
 
-errval_t nameserver_register(char *name, struct capref ep_cap) {
-    return aos_rpc_nameserver_register(get_nameserver_rpc(), ep_cap, name);
+errval_t nameserver_register(char *name, struct aos_rpc *rpc) {
+    // TODO error handling
+    struct aos_rpc_session* ns_sess = NULL;
+    aos_server_add_client(rpc, &ns_sess);
+    aos_server_register_client(rpc, ns_sess);
+
+    return aos_rpc_nameserver_register(get_nameserver_rpc(), ns_sess->lc.local_cap, name);
 }
 
 errval_t nameserver_deregister(void) {
