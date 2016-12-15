@@ -6,7 +6,7 @@
 struct aos_rpc *init_rpc;
 struct udp_state udp_state;
 
-#define RESPONSE_BUFF_SIZE 100
+#define RESPONSE_BUFF_SIZE 200
 static char response[RESPONSE_BUFF_SIZE];
 static char default_resp_prefix[]="response: ";
 void* write_address;
@@ -15,11 +15,19 @@ size_t prefix_size;
 
 static
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* packet, size_t len){
-    debug_printf("Received UDP packet!\n");
-    size_t data_size=len-sizeof(struct udp_packet);
-    strncpy(write_address, (void*)packet->data, data_size);
-    udp_send_data(&socket, response, prefix_size+data_size);
+    // 1. Print data
+    debug_printf("Received UDP packet: %s\n", packet->data);
+    // 2. Reply
+    static char answer[]="received.\n";
+    udp_send_data(&socket, answer, sizeof(answer));
 }
+
+//void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* packet, size_t len){
+//    debug_printf("Received UDP packet!\n");
+//    size_t data_size=len-sizeof(struct udp_packet);
+//    strncpy(write_address, (void*)packet->data, data_size);
+//    udp_send_data(&socket, response, prefix_size+data_size);
+//}
 
 int main(int argc, char *argv[])
 {
@@ -38,6 +46,7 @@ int main(int argc, char *argv[])
     init_rpc = get_init_rpc();
 
     debug_printf("Starting server on port: %lu\n", my_port);
+
     ERR_CHECK("Creating UDP server", udp_create_server(&udp_state, htons(my_port), handle_udp_packet));
     return 0;
 }

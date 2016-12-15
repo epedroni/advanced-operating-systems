@@ -200,7 +200,8 @@ errval_t udp_init(struct udp_parser_state* udp_state, struct slip_state* slip_st
     udp_state->first_available_port=50000;  //TODO: Implement mechanism for tracking last used port
     udp_state->slip_state=slip_state;
     udp_state->local_connectoin_head=NULL;
-    ERROR_RET1(slip_register_protocol_handler(slip_state, UDP_PROTOCOL_NUMBER, udp_state->data, UDP_BUFF_SIZE, udp_data_handler, udp_state));
+    ERROR_RET1(slip_register_protocol_handler(slip_state, UDP_PROTOCOL_NUMBER, udp_state->data,
+            UDP_BUFF_SIZE, udp_data_handler, udp_state));
 
     return SYS_ERR_OK;
 }
