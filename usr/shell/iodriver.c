@@ -44,11 +44,6 @@ void shell_getchar(char* c)
     char a = input_buffer[input_buffer_rpos];
     input_buffer_rpos = (input_buffer_rpos + 1) % sizeof(input_buffer);
     *c = a;
-    return;
-    aos_rpc_serial_getchar(get_init_rpc(), c);
-    return;
-    *c = input_buffer[input_buffer_rpos];
-    input_buffer_rpos = (input_buffer_rpos + 1) % sizeof(input_buffer);
 }
 
 errval_t shell_setup_io_driver(void)
