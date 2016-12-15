@@ -14,7 +14,8 @@
   		              cFiles = [ "main.c",
   		              			 "slip_parser.c",
   		              			 "icmp.c",
-  		              			 "udp_parser.c"
+  		              			 "udp_parser.c",
+  		              			 "lrpc_server.c"
   		               ],
                       addLinkFlags = [ "-e _start"],
                       addLibraries = [ "netutil" ],
