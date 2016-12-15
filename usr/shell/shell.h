@@ -46,6 +46,11 @@ struct command_handler_entry
 };
 struct command_handler_entry* shell_get_command_table(void);
 
+// IO Driver
+errval_t shell_setup_io_driver(void);
+void shell_putchar(char c);
+void shell_getchar(char* c);
+
 // Utils
 #define SHELL_PRINTF(...) debug_printf(__VA_ARGS__)
 

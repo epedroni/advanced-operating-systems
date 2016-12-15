@@ -146,7 +146,8 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t bytes, size_t alignmen
 
 enum aos_rpc_cap_type{
     AOS_CAP_IRQ,
-    AOS_CAP_NETWORK_UART
+    AOS_CAP_NETWORK_UART,
+    AOS_CAP_IO_UART,
 };
 
 errval_t aos_rpc_get_special_capability(struct aos_rpc *chan, enum aos_rpc_cap_type cap_type,

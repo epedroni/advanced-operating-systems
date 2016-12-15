@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "shell",
-                      cFiles = [ "shell.c", "io.c", "commands_handlers.c", "filesystem.c" ],
+                      cFiles = [ "shell.c", "io.c", "iodriver.c", "commands_handlers.c", "filesystem.c" ],
                       addLinkFlags = [ "-e _start"],
                       addLibraries = [ "fs" ],
                       architectures = allArchitectures
