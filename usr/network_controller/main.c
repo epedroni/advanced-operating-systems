@@ -82,32 +82,32 @@ int serial_buffer_consumer(void* args){
 struct urpc_channel urpc_chan;
 
 //Deprecated
-void cb_accept_loop(void* args);
-void cb_accept_loop(void* args){
-    debug_printf("Create connection loop invoked!\n");
-
-    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
-    struct capref received_cap=NULL_CAP;
-    lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
-
-    if(!capcmp(received_cap, NULL_CAP)){
-        debug_printf("Received new frame cap\n");
-        lmp_chan_alloc_recv_slot(&init_rpc->server_sess->lc);
-
-        uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
-        if(connection_type==UDP_PARSER_CONNECTION_SERVER){
-            debug_printf("Creating new server connection\n");
-            udp_create_server_connection(&udp_state, received_cap, message.words[1]);
-        }else if(connection_type==UDP_PARSER_CONNECTION_CLIENT){
-            debug_printf("Creating new client connection\n");
-            udp_create_client_connection(&udp_state, received_cap, message.words[1], message.words[2]);
-        }else{
-            debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
-        }
-    }
-
-    lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, args));
-}
+//void cb_accept_loop(void* args);
+//void cb_accept_loop(void* args){
+//    debug_printf("Create connection loop invoked!\n");
+//
+//    struct lmp_recv_msg message = LMP_RECV_MSG_INIT;
+//    struct capref received_cap=NULL_CAP;
+//    lmp_chan_recv(&init_rpc->server_sess->lc, &message, &received_cap);
+//
+//    if(!capcmp(received_cap, NULL_CAP)){
+//        debug_printf("Received new frame cap\n");
+//        lmp_chan_alloc_recv_slot(&init_rpc->server_sess->lc);
+//
+//        uint32_t connection_type=RPC_HEADER_OPCODE(message.words[0]);
+//        if(connection_type==UDP_PARSER_CONNECTION_SERVER){
+//            debug_printf("Creating new server connection\n");
+//            udp_create_server_connection(&udp_state, received_cap, message.words[1]);
+//        }else if(connection_type==UDP_PARSER_CONNECTION_CLIENT){
+//            debug_printf("Creating new client connection\n");
+//            udp_create_client_connection(&udp_state, received_cap, message.words[1], message.words[2]);
+//        }else{
+//            debug_printf("ERROR! unknown connection type %lu\n", message.words[0]);
+//        }
+//    }
+//
+//    lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, args));
+//}
 
 static
 errval_t handle_create_server(struct aos_rpc_session* sess,
@@ -118,17 +118,10 @@ errval_t handle_create_server(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
-    debug_printf("Handle create to server\n");
+    debug_printf("Handle create server port %d \n", msg->words[1]);
 
-    if (!sess->shared_buffer_size)
-        return RPC_ERR_SHARED_BUF_EMPTY;
+    ERROR_RET1(udp_create_server_connection(&udp_state, received_capref, msg->words[1]));
 
-    size_t string_size = msg->words[1];
-    ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
-
-    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
-    sys_print(sess->shared_buffer, string_size);
-    sys_print("\n", 1);
     return SYS_ERR_OK;
 }
 
@@ -143,15 +136,8 @@ errval_t handle_connect_to_server(struct aos_rpc_session* sess,
 {
     debug_printf("Handle connect to server\n");
 
-    if (!sess->shared_buffer_size)
-        return RPC_ERR_SHARED_BUF_EMPTY;
+    ERROR_RET1(udp_create_client_connection(&udp_state, received_capref, msg->words[1], msg->words[2]));
 
-    size_t string_size = msg->words[1];
-    ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
-
-    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
-    sys_print(sess->shared_buffer, string_size);
-    sys_print("\n", 1);
     return SYS_ERR_OK;
 }
 
@@ -194,11 +180,9 @@ int main(int argc, char *argv[])
     struct aos_rpc_session* ns_sess = NULL;
     aos_server_add_client(&network_server_rpc, &ns_sess);
     aos_server_register_client(&network_server_rpc, ns_sess);
-    nameserver_register(&nameserver_rpc, ns_sess->lc.local_cap, "networking");
-
-    //Deprecated
-//    ERR_CHECK("Register receive", lmp_chan_register_recv(&init_rpc->server_sess->lc, init_rpc->ws, MKCLOSURE(cb_accept_loop, NULL)));
+    nameserver_register(&nameserver_rpc, ns_sess->lc.local_cap, NS_NETWORKING_NAME);
 
     aos_rpc_accept(&network_server_rpc);
+
 	return 0;
 }

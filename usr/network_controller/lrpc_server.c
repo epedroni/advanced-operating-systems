@@ -2,7 +2,7 @@
 
 #include <omap44xx_map.h>
 
-#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
@@ -85,8 +85,8 @@ errval_t lmp_init_networking_services(struct aos_rpc* rpc, aos_rpc_handler conne
     aos_rpc_register_handler(rpc, RPC_HANDSHAKE, handle_handshake, true);
     aos_rpc_register_handler(rpc, RPC_SHARED_BUFFER_REQUEST, handle_shared_buffer_request, true);
 
-    aos_rpc_register_handler(rpc, RPC_CREATE_SERVER_SOCKET, create_server, true);
-    aos_rpc_register_handler(rpc, RPC_CONNECT_TO_SOCKET, connect_to_server, true);
+    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CREATE_SERVER, create_server, true);
+    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CONNECT, connect_to_server, true);
 
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_EP_REQUEST, handle_ep_request, false);
 

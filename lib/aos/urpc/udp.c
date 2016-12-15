@@ -1,5 +1,6 @@
 #include <aos/urpc/udp.h>
 
+
 static
 errval_t handle_data_received(struct urpc_buffer* buf, struct urpc_message* msg, void* context){
     debug_printf("Udp data received\n");
@@ -30,6 +31,17 @@ errval_t handle_connection_terminated(struct urpc_buffer* buf, struct urpc_messa
 }
 
 static
+errval_t get_network_rpc(struct aos_rpc* ns_rpc, struct aos_rpc* network_rpc){
+    debug_printf("Attempting to bind with dummy_service via nameserver\n");
+    struct capref ret_cap;
+    nameserver_lookup(ns_rpc, NS_NETWORKING_NAME, &ret_cap);
+
+    debug_printf("Received cap, initialising rpc with dummy_service\n");
+    aos_rpc_init(network_rpc, ret_cap, true, false);
+    return SYS_ERR_OK;
+}
+
+static
 errval_t init_urpc(struct udp_state* udp_state){
     size_t urpc_buff_size;
     ERROR_RET1(frame_alloc(&udp_state->urpc_cap, BASE_PAGE_SIZE, &urpc_buff_size));
@@ -44,21 +56,25 @@ errval_t init_urpc(struct udp_state* udp_state){
     return SYS_ERR_OK;
 }
 
-errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packet_received_handler data_received){
+errval_t udp_create_server(struct udp_state* udp_state, struct aos_rpc* nameserver_rpc, uint16_t port, udp_packet_received_handler data_received){
     ERROR_RET1(init_urpc(udp_state));
     udp_state->data_received_handler=data_received;
-    ERROR_RET1(aos_rpc_udp_create_server(get_init_rpc(), udp_state->urpc_cap, port));
+    struct aos_rpc network_rpc;
+    ERROR_RET1(get_network_rpc(nameserver_rpc, &network_rpc));
+    ERROR_RET1(aos_rpc_udp_create_server(&network_rpc, udp_state->urpc_cap, port));
     debug_printf("### Starting UDP server\n");
     ERROR_RET1(urpc_server_start_listen(&udp_state->urpc_chan, false));
     return SYS_ERR_OK;
 }
 
-errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port,
+errval_t udp_connect_to_server(struct udp_state* udp_state, struct aos_rpc* nameserver_rpc, uint32_t address, uint16_t port,
         udp_packet_received_handler data_received, udp_connection_created connection_created){
 
     ERROR_RET1(init_urpc(udp_state));
+    struct aos_rpc network_rpc;
+    ERROR_RET1(get_network_rpc(nameserver_rpc, &network_rpc));
     udp_state->data_received_handler=data_received;
-    ERROR_RET1(aos_rpc_udp_connect(get_init_rpc(), udp_state->urpc_cap, address, port));
+    ERROR_RET1(aos_rpc_udp_connect(&network_rpc, udp_state->urpc_cap, address, port));
     debug_printf("### Connecting to UDP server\n");
     uint32_t socket_id=0;
     size_t ret_size;

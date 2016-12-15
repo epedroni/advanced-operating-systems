@@ -215,57 +215,6 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
 }
 
 static
-errval_t handle_udp_connect(struct aos_rpc_session* sess,
-        struct lmp_recv_msg* msg,
-        struct capref received_capref,
-        void* context,
-        struct capref* ret_cap,
-        uint32_t* ret_type,
-        uint32_t* ret_flags)
-{
-    debug_printf("---- Connecting to server!\n");
-
-    if(networking_lmp_chan==NULL){
-        return NETWORKING_ERR_NOT_AVAILABLE;
-    }
-    ERROR_RET1(wait_for_send(networking_lmp_chan, sess));
-    ERROR_RET1(lmp_chan_send3(networking_lmp_chan,
-        LMP_FLAG_SYNC,
-        received_capref,
-        UDP_PARSER_CONNECTION_CLIENT,
-        msg->words[1],
-        msg->words[2]));
-    debug_printf("Message sent to connect to server!\n");
-
-    return SYS_ERR_OK;
-}
-
-static
-errval_t handle_udp_create_server(struct aos_rpc_session* sess,
-        struct lmp_recv_msg* msg,
-        struct capref received_capref,
-        void* context,
-        struct capref* ret_cap,
-        uint32_t* ret_type,
-        uint32_t* ret_flags)
-{
-    debug_printf("---- Creating server!\n");
-
-    if(networking_lmp_chan==NULL){
-        return NETWORKING_ERR_NOT_AVAILABLE;
-    }
-
-    ERROR_RET1(lmp_chan_send2(networking_lmp_chan,
-        LMP_FLAG_SYNC,
-        received_capref,
-        UDP_PARSER_CONNECTION_SERVER,
-        msg->words[1]));
-    debug_printf("Message sent to create server!\n");
-
-    return SYS_ERR_OK;
-}
-
-static
 errval_t handle_get_char_handle(struct aos_rpc_session* sess,
         struct lmp_recv_msg* msg,
         struct capref received_capref,
@@ -412,8 +361,6 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
     aos_rpc_register_handler(rpc, RPC_GET_CHAR, handle_get_char_handle, false);
     aos_rpc_register_handler(rpc, RPC_PUT_CHAR, handle_put_char_handle, true);
     aos_rpc_register_handler(rpc, RPC_SPECIAL_CAP_QUERY, handle_get_special_cap, false);
-    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CONNECT, handle_udp_connect, true);
-    aos_rpc_register_handler(rpc, RPC_NETWORK_UDP_CREATE_SERVER, handle_udp_create_server, true);
     aos_rpc_register_handler(rpc, RPC_SET_LED, handle_set_led, true);
     aos_rpc_register_handler(rpc, RPC_MEMTEST, handle_memtest, true);
 

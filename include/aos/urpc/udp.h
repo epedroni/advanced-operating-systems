@@ -3,6 +3,9 @@
 
 #include <aos/urpc/server.h>
 #include <aos/aos_rpc.h>
+#include <aos/nameserver.h>
+
+#define NS_NETWORKING_NAME "networking"
 
 struct __attribute__((packed)) udp_packet{
     uint16_t source_port;
@@ -52,8 +55,8 @@ struct udp_command_payload{
     uint8_t data[];
 };
 
-errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packet_received_handler data_received);
-errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, udp_packet_received_handler data_received, udp_connection_created connection_created);
+errval_t udp_create_server(struct udp_state* udp_state, struct aos_rpc* nameserver_rpc, uint16_t port, udp_packet_received_handler data_received);
+errval_t udp_connect_to_server(struct udp_state* udp_state, struct aos_rpc* nameserver_rpc, uint32_t address, uint16_t port, udp_packet_received_handler data_received, udp_connection_created connection_created);
 errval_t udp_send_data(struct udp_socket* socket, void* data, size_t len);
 
 #endif  //_LIB_URPC_UDP_

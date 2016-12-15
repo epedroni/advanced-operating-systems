@@ -1,12 +1,14 @@
 
 #include <stdio.h>
 #include <aos/aos.h>
+#include <aos/deferred.h>
 #include <aos/urpc/udp.h>
 #include <aos/urpc/server.h>
 #include <netutil/htons.h>
 #include <time.h>
 
 struct aos_rpc *init_rpc;
+struct aos_rpc ns_rpc;
 
 struct udp_state udp_state;
 
@@ -107,7 +109,7 @@ void server_connection_established(struct udp_socket socket){
 
 static uint64_t NTP_TIMESTAMP_DELTA = 2208988800ull;
 
-static
+void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len){
     struct ntp_packet* packet=(struct ntp_packet* )data->data;
 
@@ -119,10 +121,14 @@ void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packe
 
 int main(int argc, char *argv[])
 {
+    nameserver_rpc_init(&ns_rpc);
+
     char ntp_server_address[]="81.94.123.17";
     uint32_t ntp_address=0;
     inet_aton(ntp_server_address, &ntp_address);
-    ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
+
+
+    ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, &ns_rpc, ntp_address, htons(123), handle_udp_packet, server_connection_established));
 
     return 0;
 }

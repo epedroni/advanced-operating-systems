@@ -1299,6 +1299,7 @@ errors aos SLIP_ERR_ {
 errors aos NETWORKING_ERR_ {
     failure NOT_IMPLEMENTED        "This functionality is not yet implemented",
     failure NOT_AVAILABLE          "Networking service is not availabe at the moment",
+    failure PORT_IN_USE            "Requested port is already in use",
 };
 
 // errors for AOS

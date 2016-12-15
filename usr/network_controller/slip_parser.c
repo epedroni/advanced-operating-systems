@@ -113,11 +113,8 @@ errval_t slip_parse_ip_header(struct slip_state* slip_state, uint8_t byte){
         if(slip_state->available_protocol_handlers[slip_state->current_ip_header->protocol].data_handler!=NULL){
             struct slip_protocol_handler* protocol_handler=&slip_state->available_protocol_handlers[slip_state->current_ip_header->protocol];
 
-            debug_printf("Fragmenting bytes: 0x%04x\n", slip_state->current_ip_header->fragmentation_info);
-
             if(slip_correct_ip_header_checksum(slip_state->current_ip_header)){
                 if(protocol_handler->buffer_capacity<slip_state->remaining_data_bytes){
-                    debug_printf("Protocol buffer capacity: %lu total datagram size: %lu data bytes: %lu\n",protocol_handler->buffer_capacity, total_datagram_size, slip_state->remaining_data_bytes);
                     debug_printf("Data to be received is larger then provided buffer! Dropping packet\n");
                     slip_state->current_state=SLIP_PARSE_STATE_INVALID;
                     return SLIP_ERR_OK;
@@ -262,7 +259,6 @@ errval_t slip_write_raw_data(struct slip_state* slip_state, uint8_t *buf, size_t
 
     if(finished_datagram){
         slip_state->write_handler(END_SEQ, 1);
-        debug_printf("Writing end sequence\n");
     }
     return SLIP_ERR_OK;
 }
