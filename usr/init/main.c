@@ -50,8 +50,8 @@ int main(int argc, char *argv[])
         // nameserver needs to be finished before we continue spawning stuff
         finish_nameserver();
 
-        debug_printf("Spawning networking\n");
-        ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
+//        debug_printf("Spawning networking\n");
+//        ERR_CHECK("spawning networking", processmgr_spawn_process("/armv7/sbin/networking", 0, &pid));
 
         debug_printf("Starting shell...\n");
         err = processmgr_spawn_process("/armv7/sbin/shell", 0, &pid);

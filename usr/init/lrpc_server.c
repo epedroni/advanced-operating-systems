@@ -6,7 +6,7 @@
 #include <aos/urpc/udp.h>
 #include <aos/paging.h>
 
-#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 struct lmp_chan* networking_lmp_chan;
 
@@ -48,9 +48,9 @@ errval_t handle_nameserver_cap(struct aos_rpc_session* sess,
     if (nsep.u.endpoint.listener == selfep.u.endpoint.listener
                 && nsep.u.endpoint.epoffset == selfep.u.endpoint.epoffset) {
         // if the nameserver isnt done, this is it trying to register
-        debug_printf("Try deleting the cap first\n");
+    	DEBUG_LRPC("Try deleting the cap first\n");
         cap_delete(cap_nameserverep);
-        debug_printf("Now copy\n");
+        DEBUG_LRPC("Now copy\n");
         cap_copy(cap_nameserverep, received_capref);
     }
     return SYS_ERR_OK;
@@ -135,7 +135,7 @@ errval_t handle_string(struct aos_rpc_session* sess,
     size_t string_size = msg->words[1];
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
+    DEBUG_LRPC("Recv RPC_STRING [string size %d]\n", string_size);
     sys_print(sess->shared_buffer, string_size);
     sys_print("\n", 1);
     return SYS_ERR_OK;
@@ -181,14 +181,14 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
     switch (requested_cap_type)
     {
         case AOS_CAP_IRQ:
-            debug_printf("Sending aos irq table capability\n");
+        	DEBUG_LRPC("Sending aos irq table capability\n");
             ERROR_RET1(lmp_chan_send1(&sess->lc,
                 LMP_FLAG_SYNC,
                 cap_irq,
                 MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
             break;
         case AOS_CAP_NETWORK_UART:
-            debug_printf("Sending uart frame capability\n");
+        	DEBUG_LRPC("Sending uart frame capability\n");
             networking_lmp_chan=&sess->lc;
             struct capref uart4_frame;
             slot_alloc(&uart4_frame);
@@ -199,7 +199,7 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
                 MAKE_RPC_MSG_HEADER(RPC_SPECIAL_CAP_RESPONSE, RPC_FLAG_ACK)));
             break;
         case AOS_CAP_IO_UART:
-            debug_printf("Sending uart io capability\n");
+        	DEBUG_LRPC("Sending uart io capability\n");
             struct capref io_driver_frame;
             slot_alloc(&io_driver_frame);
             ERROR_RET1(frame_forge(io_driver_frame, OMAP44XX_MAP_L4_PER_UART3, OMAP44XX_MAP_L4_PER_UART3_SIZE, my_core_id));
@@ -211,6 +211,7 @@ errval_t handle_get_special_cap(struct aos_rpc_session* sess,
         default:
             return AOS_ERR_NO_SUCH_CAP;
     }
+
     return SYS_ERR_OK;
 }
 
@@ -258,7 +259,7 @@ errval_t handle_set_led(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     int status = msg->words[1];
-    debug_printf("[handle_set_led] Set led status: %d\n", (int)status);
+    DEBUG_LRPC("[handle_set_led] Set led status: %d\n", (int)status);
 
     struct capref frame_cap;
     ERROR_RET1(slot_alloc(&frame_cap));
@@ -288,7 +289,7 @@ errval_t handle_memtest(struct aos_rpc_session* sess,
 {
     lpaddr_t base = msg->words[1];
     size_t size = msg->words[2];
-    debug_printf("[handle_memtest] Mem tested [0x%08x - 0x%08x] OK\n",
+    DEBUG_LRPC("[handle_memtest] Mem tested [0x%08x - 0x%08x] OK\n",
         (int)base, (int)(base+size));
     struct capref frame_cap;
     ERROR_RET1(slot_alloc(&frame_cap));
@@ -315,7 +316,7 @@ errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
     if (!ns_rpc.server_sess)
         return RPC_ERR_INVALID_ARGUMENTS;
 
-    debug_printf("Received bootstrapping request, forwarding to nameserver\n");
+    DEBUG_LRPC("Received bootstrapping request, forwarding to nameserver\n");
 
     // Forward lookup request to nameserver
     ERROR_RET1(wait_for_send(&ns_rpc.server_sess->lc, ns_rpc.server_sess));
@@ -324,7 +325,7 @@ errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
         NULL_CAP,
         RPC_NAMESERVER_EP_REQUEST));
 
-    debug_printf("Sent, waiting for nameserver response\n");
+    DEBUG_LRPC("Sent, waiting for nameserver response\n");
 
     // Relay cap back to client
     struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
@@ -333,12 +334,12 @@ errval_t handle_bootstrap_nameserver(struct aos_rpc_session* sess,
         &message,
         &relay_cap));
 
-    debug_printf("-------------------------------- Received and attempting to return the following endpoint:\n");
+    DEBUG_LRPC("-------------------------------- Received and attempting to return the following endpoint:\n");
     struct capability cap;
     debug_cap_identify(relay_cap, &cap);
-    debug_printf("Cap type: 0x%x\n", cap.type);
-    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
-    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+    DEBUG_LRPC("Cap type: 0x%x\n", cap.type);
+    DEBUG_LRPC("\tListener: 0x%x\n", cap.u.endpoint.listener);
+    DEBUG_LRPC("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
 
     ERROR_RET1(lmp_chan_send1(&sess->lc,
         LMP_FLAG_GIVEAWAY,

@@ -58,13 +58,12 @@ errval_t lookup(char *query, struct aos_rpc **ret_rpc);
 /**
 * @brief lookup a name binding
 *
-* @param query the query string to look up
 * @param num returns the number of names returned
 * @param result array of <num> names returned
 *
 * @return SYS_ERR_OK on success
 * errval on failure
 */
-errval_t enumerate(char *query, size_t *num, char **result);
+errval_t enumerate(size_t *num, char *result);
 
 #endif /* USR_NAMESERVER_SERVICES_H_ */

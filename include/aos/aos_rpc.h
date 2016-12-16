@@ -251,7 +251,7 @@ errval_t aos_rpc_nameserver_lookup(struct aos_rpc *rpc, char *name, struct capre
  * \brief
  * \param rpc  the rpc channel
  */
-errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_enumerate(struct aos_rpc *rpc, size_t *num, char ***result);
 
 /**
  * \brief
@@ -263,6 +263,6 @@ errval_t aos_rpc_nameserver_register(struct aos_rpc *rpc, struct capref ep_cap, 
  * \brief
  * \param rpc  the rpc channel
  */
-errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc);
+errval_t aos_rpc_nameserver_deregister(struct aos_rpc *rpc, char *name);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

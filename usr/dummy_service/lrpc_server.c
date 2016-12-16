@@ -2,7 +2,7 @@
 
 #include <omap44xx_map.h>
 
-#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
@@ -70,7 +70,7 @@ errval_t handle_string(struct aos_rpc_session* sess,
     size_t string_size = msg->words[1];
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
+    DEBUG_LRPC("Recv RPC_STRING [string size %d]\n", string_size);
     sys_print(sess->shared_buffer, string_size);
     sys_print("\n", 1);
     return SYS_ERR_OK;
@@ -86,12 +86,12 @@ errval_t handle_ep_request(struct aos_rpc_session* sess,
         uint32_t* ret_flags)
 {
     // create a new session, return EP from it
-    debug_printf("Received EP request, creating new session\n");
+	DEBUG_LRPC("Received EP request, creating new session\n");
     struct aos_rpc_session* new_sess = NULL;
     aos_server_add_client(sess->rpc, &new_sess);
     aos_server_register_client(sess->rpc, new_sess);
 
-    debug_printf("Sending local cap back to requester\n");
+    DEBUG_LRPC("Sending local cap back to requester\n");
     ERROR_RET1(lmp_chan_send1(&sess->lc,
         LMP_FLAG_SYNC,
         new_sess->lc.local_cap,

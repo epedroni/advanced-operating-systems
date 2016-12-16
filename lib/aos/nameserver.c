@@ -20,8 +20,8 @@ errval_t nameserver_lookup(char *name, struct aos_rpc *ret_rpc) {
     return aos_rpc_init(ret_rpc, rpc_cap, true);
 }
 
-errval_t nameserver_enumerate(void) {
-    return SYS_ERR_OK;
+errval_t nameserver_enumerate(size_t *num, char ***result) {
+    return aos_rpc_nameserver_enumerate(get_nameserver_rpc(), num, result);
 }
 
 errval_t nameserver_register(char *name, struct aos_rpc *rpc) {
@@ -33,6 +33,6 @@ errval_t nameserver_register(char *name, struct aos_rpc *rpc) {
     return aos_rpc_nameserver_register(get_nameserver_rpc(), ns_sess->lc.local_cap, name);
 }
 
-errval_t nameserver_deregister(void) {
-    return SYS_ERR_OK;
+errval_t nameserver_deregister(char *name) {
+    return aos_rpc_nameserver_deregister(get_nameserver_rpc(), name);
 }
