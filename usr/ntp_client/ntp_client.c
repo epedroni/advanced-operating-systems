@@ -121,10 +121,11 @@ int main(int argc, char *argv[])
     ntp_request.root_dispersion=0x100;
     ntp_request.reference_identifier=0x0;
 
-    for(int i=0; i<5; ++i){
+    for(int i=0; i<=5; ++i){
         udp_send_data(&connection_socket, &ntp_request, sizeof(ntp_request));
         barrelfish_usleep(1000000);
     }
+
     aos_rpc_accept(get_nameserver_rpc());
 
     return 0;
