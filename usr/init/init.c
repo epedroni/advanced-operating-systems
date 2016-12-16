@@ -100,8 +100,6 @@ errval_t os_core_initialize(int argc, char** argv)
 
     // 6. Boot second core if needed
     if (my_core_id==0){
-        debug_printf("--- Starting new core!\n");
-
         coreboot_init(bi, &urpc_buffer, &urpc_buffer_size);
         ERROR_RET1(urpc_channel_init(&urpc_chan, urpc_buffer, urpc_buffer_size, URPC_CHAN_MASTER, URPC_OP_COUNT));
     }

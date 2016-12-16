@@ -27,6 +27,16 @@ int main(int argc, char *argv[])
     ERROR_RET1(aos_rpc_init(&own_rpc, NULL_CAP, false));
     ERROR_RET1(lmp_server_init(&own_rpc));
 
+    size_t service_count = 0;
+    char** service_names = NULL;
+
+    debug_printf("Enumerating before registering\n");
+    nameserver_enumerate(&service_count, &service_names);
+    debug_printf("Available services: %d\n", service_count);
+    for (int i = 0; i < service_count; i++) {
+    	debug_printf("\t%s\n", service_names[i]);
+    }
+
     debug_printf("Registering service\n");
     nameserver_register("dummy_service", &own_rpc);
 

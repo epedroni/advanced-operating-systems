@@ -3,7 +3,7 @@
 #include <aos/aos_rpc.h>
 #include <omap44xx_map.h>
 
-#define DEBUG_LRPC(s, ...) debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
+#define DEBUG_LRPC(s, ...) //debug_printf("[RPC] " s "\n", ##__VA_ARGS__)
 
 static
 errval_t handle_handshake(struct aos_rpc_session* sess,
@@ -71,7 +71,7 @@ errval_t handle_string(struct aos_rpc_session* sess,
     size_t string_size = msg->words[1];
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
+//    debug_printf("Recv RPC_STRING [string size %d]\n", string_size);
     sys_print(sess->shared_buffer, string_size);
     sys_print("\n", 1);
     return SYS_ERR_OK;
@@ -91,12 +91,12 @@ errval_t handle_ep_request(struct aos_rpc_session* sess,
     aos_server_add_client(sess->rpc, &new_sess);
     aos_server_register_client(sess->rpc, new_sess);
 
-    debug_printf("---------------------------------------------- Attempting to return the following endpoint:\n");
+    DEBUG_LRPC("---------------------------------------------- Attempting to return the following endpoint:\n");
     struct capability cap;
     debug_cap_identify(new_sess->lc.local_cap, &cap);
-    debug_printf("Cap type: 0x%x\n", cap.type);
-    debug_printf("\tListener: 0x%x\n", cap.u.endpoint.listener);
-    debug_printf("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
+    DEBUG_LRPC("Cap type: 0x%x\n", cap.type);
+    DEBUG_LRPC("\tListener: 0x%x\n", cap.u.endpoint.listener);
+    DEBUG_LRPC("\tOffset: 0x%x\n", cap.u.endpoint.epoffset);
 
     ERROR_RET1(lmp_chan_send1(&sess->lc,
         LMP_FLAG_SYNC,
@@ -115,20 +115,11 @@ errval_t handle_nameserver_lookup(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
-    debug_printf("Received lookup request for %s\n", sess->shared_buffer);
     struct aos_rpc *service_rpc;
+    // TODO: error handling if name does not match any nameserver
     lookup(sess->shared_buffer, &service_rpc);
 
-    // TODO: error handling if name does not match any nameserver
-    debug_printf("Requesting an endpoint from the service\n");
-//    struct capref relay_cap;
     aos_rpc_request_ep(service_rpc, ret_cap);
-
-//    debug_printf("Relaying cap back to client\n");
-//    ERROR_RET1(lmp_chan_send1(&sess->lc,
-//            LMP_FLAG_GIVEAWAY,
-//            relay_cap,
-//            MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_LOOKUP, RPC_FLAG_ACK)));
 
     return SYS_ERR_OK;
 }
@@ -149,16 +140,13 @@ errval_t handle_nameserver_register(struct aos_rpc_session* sess,
 
     char *name = malloc(string_size);
     memcpy(name, sess->shared_buffer, string_size);
-    debug_printf("Received registration request from %s\n", name);
 
-    debug_printf("Attempting handshake with service\n");
     struct aos_rpc *new_service_rpc = malloc(sizeof(struct aos_rpc));
     errval_t err = aos_rpc_init(new_service_rpc, received_capref, true);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
     }
 
-    debug_printf("Succeeded, adding service to register\n");
     register_service(name, new_service_rpc);
 
     return SYS_ERR_OK;
@@ -176,20 +164,8 @@ errval_t handle_nameserver_deregister(struct aos_rpc_session* sess,
     size_t string_size = msg->words[1];
     ASSERT_PROTOCOL(string_size <= sess->shared_buffer_size);
 
-    char *name = malloc(string_size);
-    memcpy(name, sess->shared_buffer, string_size);
-    debug_printf("Received registration request from %s\n", name);
-
-    debug_printf("Attempting handshake with service\n");
-    struct aos_rpc *new_service_rpc = malloc(sizeof(struct aos_rpc));
-    errval_t err = aos_rpc_init(new_service_rpc, received_capref, true);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_MORECORE_INIT); // TODO find a better error
-    }
-
-    debug_printf("Succeeded, adding service to register\n");
-    deregister_service(name);
-    register_service(name, new_service_rpc);
+    // TODO error handling
+    deregister_service(sess->shared_buffer);
 
     return SYS_ERR_OK;
 }
@@ -203,6 +179,14 @@ errval_t handle_nameserver_enumerate(struct aos_rpc_session* sess,
         uint32_t* ret_type,
         uint32_t* ret_flags)
 {
+	size_t size;
+	enumerate(&size, sess->shared_buffer);
+
+	ERROR_RET1(lmp_chan_send2(&sess->lc,
+	        LMP_FLAG_SYNC,
+	        NULL_CAP,
+	        MAKE_RPC_MSG_HEADER(RPC_NAMESERVER_ENUMERATE, RPC_FLAG_ACK),
+			size));
     return SYS_ERR_OK;
 }
 
@@ -214,8 +198,8 @@ errval_t lmp_server_init(struct aos_rpc* rpc)
 
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_EP_REQUEST, handle_ep_request, false);
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_LOOKUP, handle_nameserver_lookup, true);
-    aos_rpc_register_handler(rpc, RPC_NAMESERVER_REGISTER, handle_nameserver_register, false);
-    aos_rpc_register_handler(rpc, RPC_NAMESERVER_DEREGISTER, handle_nameserver_deregister, false);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_REGISTER, handle_nameserver_register, true);
+    aos_rpc_register_handler(rpc, RPC_NAMESERVER_DEREGISTER, handle_nameserver_deregister, true);
     aos_rpc_register_handler(rpc, RPC_NAMESERVER_ENUMERATE, handle_nameserver_enumerate, false);
 
     return SYS_ERR_OK;
