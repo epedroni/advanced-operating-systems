@@ -214,7 +214,7 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
 errval_t aos_rpc_process_exit(struct aos_rpc *chan);
 
 errval_t aos_rpc_udp_create_server(struct aos_rpc *rpc, struct capref urpc_frame, uint16_t port);
-errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port);
+errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port, uint32_t* socket_id);
 
 /**
  * \brief Gets a capability to device registers

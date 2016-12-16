@@ -181,7 +181,7 @@ errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct
     return SYS_ERR_OK;
 }
 
-errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port){
+errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port, uint32_t* socket_id){
     debug_printf("Creating UDP client\n");
     struct udp_local_connection* local_connection=(struct udp_local_connection*)malloc(sizeof(struct udp_local_connection));
     //Create local connection
@@ -201,6 +201,8 @@ errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct
     remote_connection->remote_port=port;
     local_connection->remote_connection_head=remote_connection;
     debug_printf("Created new remote connection address 0x%04x\n", remote_connection);
+
+    *socket_id=remote_connection->socket.socket_id;
 
     return SYS_ERR_OK;
 }

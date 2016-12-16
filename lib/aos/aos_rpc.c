@@ -599,14 +599,19 @@ errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_endpoint, bool i
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port){
-    RPC_CHAN_WRAPPER_SEND(rpc,
+errval_t aos_rpc_udp_connect(struct aos_rpc *rpc, struct capref urpc_frame, uint32_t address, uint16_t port, uint32_t* socket_id){
+    struct lmp_recv_msg message=LMP_RECV_MSG_INIT;
+    struct capref tmp_cap;
+
+    RPC_CHAN_WRAPPER_SEND_WITH_MESSAGE_RESPONSE(rpc,
         lmp_chan_send3(&rpc->server_sess->lc,
             LMP_FLAG_SYNC,
             urpc_frame,
             RPC_NETWORK_UDP_CONNECT,
             address,
-            port));
+            port), &message, &tmp_cap);
+
+    *socket_id=message.words[2];
 
     return SYS_ERR_OK;
 }

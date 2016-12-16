@@ -36,6 +36,6 @@ struct udp_parser_state {
 errval_t udp_init(struct udp_parser_state* udp_state, struct slip_state* slip_state);
 
 errval_t udp_create_server_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint16_t port);
-errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port);
+errval_t udp_create_client_connection(struct udp_parser_state* udp_state, struct capref urpc_cap, uint32_t address, uint16_t port, uint32_t* socket_id);
 
 #endif //_UDP_PARSER_

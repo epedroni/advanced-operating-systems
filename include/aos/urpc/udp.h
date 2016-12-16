@@ -56,7 +56,8 @@ struct udp_command_payload{
 };
 
 errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packet_received_handler data_received);
-errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, udp_packet_received_handler data_received, udp_connection_created connection_created);
+errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, struct udp_socket* new_socket);
+errval_t udp_listen(struct udp_socket* socket, udp_packet_received_handler data_received, bool new_thread);
 errval_t udp_send_data(struct udp_socket* socket, void* data, size_t len);
 
 #endif  //_LIB_URPC_UDP_

@@ -89,23 +89,6 @@ struct __attribute__((packed)) ntp_packet{
     uint32_t txTm_f;         // 32 bits. Transmit time-stamp fraction of a second.
 };
 
-void server_connection_established(struct udp_socket socket);
-void server_connection_established(struct udp_socket socket){
-    debug_printf("Connection with server established\n");
-
-    struct ntp_packet ntp_request;
-    memset(&ntp_request, 0, sizeof(struct ntp_packet));
-    ntp_request.flags=0xe3; // Copied from wireshark
-    ntp_request.stratum=0x0;
-    ntp_request.poll=0x3;
-    ntp_request.precision=0xfa;
-    ntp_request.root_delay=0x100;
-    ntp_request.root_dispersion=0x100;
-    ntp_request.reference_identifier=0x0;
-
-    udp_send_data(&socket, &ntp_request, sizeof(ntp_request));
-}
-
 static uint64_t NTP_TIMESTAMP_DELTA = 2208988800ull;
 
 void handle_udp_packet(struct udp_socket socket, uint32_t from, struct udp_packet* data, size_t len);
@@ -124,7 +107,25 @@ int main(int argc, char *argv[])
     uint32_t ntp_address=0;
     inet_aton(ntp_server_address, &ntp_address);
 
-    ERR_CHECK("Create udp client", udp_connect_to_server(&udp_state, ntp_address, htons(123), handle_udp_packet, server_connection_established));
+    struct udp_socket connection_socket;
+    ERR_CHECK("Create UDP client", udp_connect_to_server(&udp_state, ntp_address, htons(123), &connection_socket));
+    ERR_CHECK("Starting to listen", udp_listen(&connection_socket, handle_udp_packet, true));
+
+    struct ntp_packet ntp_request;
+    memset(&ntp_request, 0, sizeof(struct ntp_packet));
+    ntp_request.flags=0xe3; // Copied from wireshark
+    ntp_request.stratum=0x0;
+    ntp_request.poll=0x3;
+    ntp_request.precision=0xfa;
+    ntp_request.root_delay=0x100;
+    ntp_request.root_dispersion=0x100;
+    ntp_request.reference_identifier=0x0;
+
+    for(int i=0; i<5; ++i){
+        udp_send_data(&connection_socket, &ntp_request, sizeof(ntp_request));
+        barrelfish_usleep(1000000);
+    }
+    aos_rpc_accept(get_nameserver_rpc());
 
     return 0;
 }

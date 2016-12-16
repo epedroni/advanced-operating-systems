@@ -136,7 +136,14 @@ errval_t handle_connect_to_server(struct aos_rpc_session* sess,
 {
     debug_printf("Handle connect to server\n");
 
-    ERROR_RET1(udp_create_client_connection(&udp_state, received_capref, msg->words[1], msg->words[2]));
+    uint32_t socket_id;
+    ERROR_RET1(udp_create_client_connection(&udp_state, received_capref, msg->words[1], msg->words[2], &socket_id));
+
+    ERROR_RET1(lmp_chan_send3(&sess->lc,
+            LMP_FLAG_SYNC,
+            NULL_CAP,
+            MAKE_RPC_MSG_HEADER(msg->words[0], RPC_FLAG_ACK),
+            SYS_ERR_OK, socket_id));
 
     return SYS_ERR_OK;
 }

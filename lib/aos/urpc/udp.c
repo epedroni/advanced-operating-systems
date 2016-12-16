@@ -13,7 +13,11 @@ errval_t handle_data_received(struct urpc_buffer* buf, struct urpc_message* msg,
     };
 
     struct udp_packet* packet=(struct udp_packet*)command->data;
-    udp_state->data_received_handler(socket, 0, packet, data_length);
+    if(udp_state->data_received_handler!=NULL){
+        udp_state->data_received_handler(socket, 0, packet, data_length);
+    }else{
+        debug_printf("Data handler not registered\n");
+    }
 
     return SYS_ERR_OK;
 }
@@ -65,26 +69,27 @@ errval_t udp_create_server(struct udp_state* udp_state, uint16_t port, udp_packe
     return SYS_ERR_OK;
 }
 
-errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port,
-        udp_packet_received_handler data_received, udp_connection_created connection_created){
+errval_t udp_connect_to_server(struct udp_state* udp_state, uint32_t address, uint16_t port, struct udp_socket* new_socket){
 
     ERROR_RET1(init_urpc(udp_state));
     struct aos_rpc network_rpc;
     ERROR_RET1(get_network_rpc(&network_rpc));
-    udp_state->data_received_handler=data_received;
-    ERROR_RET1(aos_rpc_udp_connect(&network_rpc, udp_state->urpc_cap, address, port));
-    debug_printf("### Connecting to UDP server\n");
+    udp_state->data_received_handler=NULL;
     uint32_t socket_id=0;
-    size_t ret_size;
-    urpc_client_send_receive_fixed_size(&udp_state->urpc_chan.buffer_send, UDP_GET_CLIENT_SOCKET_ID,
-    NULL, 0, &socket_id ,sizeof(uint32_t),&ret_size);
+    ERROR_RET1(aos_rpc_udp_connect(&network_rpc, udp_state->urpc_cap, address, port, &socket_id));
+    debug_printf("### Connecting to UDP server\n");
+
     debug_printf("Received socket id: %lu\n", socket_id);
-    struct udp_socket created_socket={
-            .socket_id=socket_id,
-            .state=udp_state
-    };
-    connection_created(created_socket);
-    ERROR_RET1(urpc_server_start_listen(&udp_state->urpc_chan, false));
+    new_socket->socket_id=socket_id;
+    new_socket->state=udp_state;
+
+    return SYS_ERR_OK;
+}
+
+errval_t udp_listen(struct udp_socket* socket, udp_packet_received_handler data_received_handler, bool new_thread){
+    socket->state->data_received_handler=data_received_handler;
+    ERROR_RET1(urpc_server_start_listen(&socket->state->urpc_chan, new_thread));
+
     return SYS_ERR_OK;
 }
 
