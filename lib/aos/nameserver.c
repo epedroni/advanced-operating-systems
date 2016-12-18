@@ -16,7 +16,7 @@
 errval_t nameserver_lookup(char *name, struct aos_rpc *ret_rpc) {
     // TODO error handling
     struct capref rpc_cap;
-    aos_rpc_nameserver_lookup(get_nameserver_rpc(), name, &rpc_cap);
+    ERROR_RET1(aos_rpc_nameserver_lookup(get_nameserver_rpc(), name, &rpc_cap));
     return aos_rpc_init(ret_rpc, rpc_cap, true);
 }
 
