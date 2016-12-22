@@ -241,6 +241,50 @@ static void handle_cat(char* const argv[], int argc)
         shell_fs_match_files(&argv[1], argc-1, do_cat, NULL, MATCH_FLAG_FILES);
 }
 
+static void do_wc(void* data, const char* rel_path, const char* abs_path)
+{
+
+    FILE* f = fopen(abs_path, "r");
+    if (!f)
+    {
+        SHELL_STDERR("Unable to open file '%s'\n", rel_path);
+        return;
+    }
+    int c;
+    int words = 0;
+    int lines = 0;
+    int characters = 0;
+    bool in_word = false;
+    while ((c = fgetc(f)) != EOF)
+    {
+        ++characters;
+        if (c == '\n')
+            ++lines;
+        // New word?
+        bool space = c == '\n' || c == '\t' || c == ' ';
+        if (!in_word && !space)
+        {
+            ++words;
+            in_word = true;
+        }
+        else if (in_word && space)
+            in_word = false;
+    }
+    fclose(f);
+    SHELL_STDOUT("%d %d %d\n", lines, words, characters);
+}
+
+static void handle_wc(char* const argv[], int argc)
+{
+    if (argc <= 1)
+    {
+        SHELL_STDOUT("Syntax: %s file1 [file2 [...]]\n", argv[0]);
+        return;
+    }
+
+    shell_fs_match_files(&argv[1], argc-1, do_wc, NULL, MATCH_FLAG_FILES);
+}
+
 static char* readline(FILE* f)
 {
     size_t buf_size = 16;
@@ -361,6 +405,7 @@ struct command_handler_entry* shell_get_command_table(void)
         {.name = "ps",          .handler = handle_ps},
         {.name = "pwd",         .handler = handle_pwd},
         {.name = "threads",     .handler = handle_threads},
+        {.name = "wc",          .handler = handle_wc},
         {.name = NULL,          .handler = handle_fallback}
     };
     return commandsTable;

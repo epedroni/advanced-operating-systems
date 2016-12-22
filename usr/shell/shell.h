@@ -26,6 +26,7 @@ void shell_reset_output(void);
 errval_t shell_setup_file_system(void);
 char* shell_read_absolute_path(const char* wd, const char* home, const char* path_mod);
 typedef void (*fs_callback_fn)(void* data, const char* rel_path, const char* path);
+
 enum shell_match_files_flags
 {
     MATCH_FLAGS_NONE            = 0x0,
@@ -50,6 +51,7 @@ struct command_handler_entry* shell_get_command_table(void);
 errval_t shell_setup_io_driver(void);
 void shell_putchar(char c);
 void shell_getchar(char* c);
+bool shell_isspace(char c);
 
 // Utils
 #define SHELL_PRINTF(...) debug_printf(__VA_ARGS__)

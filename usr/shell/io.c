@@ -2,7 +2,7 @@
 #include <aos/aos_rpc.h>
 #include <ctype.h>
 
-static bool shell_isspace(char c)
+bool shell_isspace(char c)
 {
     switch (c)
     {
