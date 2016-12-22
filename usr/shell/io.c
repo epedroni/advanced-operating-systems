@@ -145,6 +145,8 @@ errval_t shell_read_line(char** to, size_t* end_pos)
         shell_getchar(&ret_char);
         if (ret_char == 0)
             continue;
+        if (ret_char == '\t') // Unsupported
+            continue;
         if (ret_char == '\r')
             ret_char = '\n';
 
